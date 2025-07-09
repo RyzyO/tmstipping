@@ -87,12 +87,11 @@
                 const tip = tipDoc.data();
                 const raceId = tip.raceId;
                 const userId = tip.userId;
-                // Try to get a display name or email from the tip, fallback to userId
-                userNames[userId] = tip.displayName || tip.email || tip.teamName || userId;
+                // Prefer teamName, then displayName, then email, then userId
+                userNames[userId] = tip.teamName || tip.displayName || tip.email || userId;
                 if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
                     userPoints[userId] = (userPoints[userId] || 0) + raceWinners[raceId].points;
                 }
-                // Ensure every user is in userPoints, even if 0
                 if (!(userId in userPoints)) userPoints[userId] = 0;
             }
 
@@ -128,4 +127,5 @@
         calculateLeaderboard();
     </script>
 </body>
+</html>
 </html>
