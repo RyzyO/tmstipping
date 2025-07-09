@@ -7,6 +7,36 @@
     <link href="css/bootstrap.min.css" rel="stylesheet">
     <link href="css/bootstrap-icons.css" rel="stylesheet">
     <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+    <style>
+        /* Ensure header text is visible and page is always readable */
+        .hero-section h1,
+        .hero-section h6 {
+            color: #fff !important;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+        .hero-section {
+            min-height: 60vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-image: linear-gradient(15deg, #13547a 0%, #80d0c7 100%);
+        }
+        .btn-success.btn-lg {
+            font-size: 1.5rem;
+            padding: 0.75rem 2.5rem;
+            border-radius: 2rem;
+            box-shadow: 0 2px 12px rgba(19,84,122,0.08);
+        }
+        @media (max-width: 991px) {
+            .hero-section h1 { font-size: 2.2rem; }
+            .hero-section h6 { font-size: 1.1rem; }
+        }
+        @media (max-width: 480px) {
+            .hero-section h1 { font-size: 1.4rem; }
+            .hero-section h6 { font-size: 1rem; }
+            .btn-success.btn-lg { font-size: 1.1rem; padding: 0.6rem 1.5rem; }
+        }
+    </style>
 </head>
 <body id="top">
     <main>
@@ -40,11 +70,11 @@
             </div>
         </nav>
 
-        <section class="hero-section d-flex justify-content-center align-items-center" style="min-height: 60vh;">
+        <section class="hero-section">
             <div class="container">
                 <div class="row">
                     <div class="col-lg-8 col-12 mx-auto text-center">
-                        <h1 class="text-white" id="welcome-message">Welcome to Mock Sports Tipping</h1>
+                        <h1 id="welcome-message">Welcome to Mock Sports Tipping</h1>
                         <h6 class="mb-4">Compete, predict, and have fun with friends!</h6>
                         <a href="tip.html" class="btn btn-success btn-lg">Tip Now</a>
                     </div>
@@ -56,14 +86,12 @@
     <footer class="site-footer section-padding">
         <div class="container text-center">
             <p class="copyright-text mt-4 mb-0">
-                &copy; 2024 Mock Sports Tipping
+                &copy; 2025 Mock Sports Tipping
             </p>
         </div>
     </footer>
 
-    <!-- JAVASCRIPT FILES -->
     <script src="js/bootstrap.bundle.min.js"></script>
-    <!-- Firebase Auth logic for welcome and navbar -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
