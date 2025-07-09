@@ -94,11 +94,19 @@
             const race = raceDoc.data();
             document.getElementById('selected-race-title').textContent = race.name;
             document.getElementById('selected-race-date').textContent = "Date: " + race.date;
-            renderHorsesRadioList(race, raceId);
+            // Fetch user's tip for this race
+            let tippedHorseId = null;
+            if (user) {
+                const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
+                if (tipDoc.exists()) {
+                    tippedHorseId = tipDoc.data().horseId;
+                }
+            }
+            renderHorsesRadioList(race, raceId, tippedHorseId);
             document.getElementById('tip-message').textContent = '';
         }
 
-        function renderHorsesRadioList(race, raceId) {
+        function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
             const horsesDiv = document.getElementById('horses-radio-list');
             horsesDiv.innerHTML = '';
             const horses = race.horses || {};
@@ -118,6 +126,10 @@
                     </label>
                 `;
                 horsesDiv.appendChild(row);
+                // Pre-select if this is the tipped horse
+                if (tippedHorseId && horseId === tippedHorseId) {
+                    row.querySelector('input').checked = true;
+                }
             }
         }
 
@@ -129,7 +141,7 @@
                 alert("Please select a horse to tip.");
                 return;
             }
-            // Save tip: tips/{user.uid}_{selectedRaceId}
+            // Save tip: tips/{user.uid}_${selectedRaceId}
             await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
                 userId: user.uid,
                 raceId: selectedRaceId,
