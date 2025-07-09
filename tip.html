@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Tip Now - Mock Sports Tipping</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .admin-flex { display: flex; }
+        .admin-main { flex: 2; }
+        .admin-sidebar { flex: 1; margin-left: 2rem; border-left: 1px solid #ddd; padding-left: 2rem; }
+        .race-list { list-style: none; padding: 0; }
+        .race-list li { cursor: pointer; padding: 0.5rem 0; }
+        .race-list li.selected { font-weight: bold; color: #007bff; }
+        .horse-row { margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5 admin-flex">
+        <div class="admin-main">
+            <h2>Tip Now</h2>
+            <div id="tip-section" style="display:none;">
+                <h4 id="selected-race-title"></h4>
+                <div id="selected-race-date"></div>
+                <form id="tip-form">
+                    <div id="horses-radio-list"></div>
+                    <button type="submit" class="btn btn-success mt-2">Submit Tip</button>
+                </form>
+                <div id="tip-message" class="mt-3"></div>
+            </div>
+            <div id="tip-instructions" class="text-muted">
+                <p>Select a race from the right to tip.</p>
+            </div>
+        </div>
+        <div class="admin-sidebar">
+            <h4>Races</h4>
+            <ul id="race-list" class="race-list"></ul>
+        </div>
+    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+            authDomain: "tmstipping.firebaseapp.com",
+            projectId: "tmstipping",
+            storageBucket: "tmstipping.appspot.com",
+            messagingSenderId: "401677933527",
+            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+            measurementId: "G-GXLRCHV687"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let racesCache = {};
+        let selectedRaceId = null;
+        let user = null;
+
+        onAuthStateChanged(auth, async (_user) => {
+            if (!_user) {
+                alert("You must be logged in.");
+                window.location.href = "index.html";
+                return;
+            }
+            user = _user;
+            await loadRaces();
+        });
+
+        async function loadRaces() {
+            const raceList = document.getElementById('race-list');
+            raceList.innerHTML = '';
+            const racesSnap = await getDocs(collection(db, "races"));
+            racesCache = {};
+            racesSnap.forEach(docSnap => {
+                const race = docSnap.data();
+                racesCache[docSnap.id] = race;
+                const li = document.createElement('li');
+                li.textContent = `${race.name} (${race.date})`;
+                li.dataset.raceId = docSnap.id;
+                li.onclick = () => selectRace(docSnap.id);
+                if (selectedRaceId === docSnap.id) li.classList.add('selected');
+                raceList.appendChild(li);
+            });
+        }
+
+        async function selectRace(raceId) {
+            selectedRaceId = raceId;
+            Array.from(document.querySelectorAll('#race-list li')).forEach(li => {
+                li.classList.toggle('selected', li.dataset.raceId === raceId);
+            });
+            document.getElementById('tip-section').style.display = '';
+            document.getElementById('tip-instructions').style.display = 'none';
+            const raceDoc = await getDoc(doc(db, "races", raceId));
+            const race = raceDoc.data();
+            document.getElementById('selected-race-title').textContent = race.name;
+            document.getElementById('selected-race-date').textContent = "Date: " + race.date;
+            renderHorsesRadioList(race, raceId);
+            document.getElementById('tip-message').textContent = '';
+        }
+
+        function renderHorsesRadioList(race, raceId) {
+            const horsesDiv = document.getElementById('horses-radio-list');
+            horsesDiv.innerHTML = '';
+            const horses = race.horses || {};
+            if (Object.keys(horses).length === 0) {
+                horsesDiv.innerHTML = '<div class="text-muted">No horses for this race.</div>';
+                document.getElementById('tip-form').style.display = 'none';
+                return;
+            }
+            document.getElementById('tip-form').style.display = '';
+            for (const [horseId, horseData] of Object.entries(horses)) {
+                const row = document.createElement('div');
+                row.className = 'horse-row form-check';
+                row.innerHTML = `
+                    <input class="form-check-input" type="radio" name="horse" id="horse-${horseId}" value="${horseId}">
+                    <label class="form-check-label" for="horse-${horseId}">
+                        #${horseData.number} - ${horseData.name}
+                    </label>
+                `;
+                horsesDiv.appendChild(row);
+            }
+        }
+
+        document.getElementById('tip-form').onsubmit = async (e) => {
+            e.preventDefault();
+            if (!selectedRaceId || !user) return;
+            const horseId = document.querySelector('input[name="horse"]:checked');
+            if (!horseId) {
+                alert("Please select a horse to tip.");
+                return;
+            }
+            // Save tip: tips/{user.uid}_{selectedRaceId}
+            await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
+                userId: user.uid,
+                raceId: selectedRaceId,
+                horseId: horseId.value,
+                timestamp: Date.now()
+            });
+            document.getElementById('tip-message').textContent = "Tip submitted!";
+        };
+    </script>
+</body>
+</html>
