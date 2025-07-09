@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Admin - Mock Sports Tipping</title>
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Add Race</h2>
+        <form id="race-form">
+            <input type="text" class="form-control mb-2" id="race-name" placeholder="Race Name" required>
+            <input type="date" class="form-control mb-2" id="race-date" required>
+            <button type="submit" class="btn btn-primary">Add Race</button>
+        </form>
+        <hr>
+        <h2>Add Horse to Race</h2>
+        <form id="horse-form">
+            <input type="text" class="form-control mb-2" id="horse-name" placeholder="Horse Name" required>
+            <input type="text" class="form-control mb-2" id="race-id" placeholder="Race ID" required>
+            <button type="submit" class="btn btn-primary">Add Horse</button>
+        </form>
+        <hr>
+        <h2>Enter Result</h2>
+        <form id="result-form">
+            <input type="text" class="form-control mb-2" id="result-race-id" placeholder="Race ID" required>
+            <input type="text" class="form-control mb-2" id="winning-horse-id" placeholder="Winning Horse ID" required>
+            <button type="submit" class="btn btn-success">Save Result</button>
+        </form>
+    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+
+        const firebaseConfig = { /* your config here */ };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const rtdb = getDatabase(app);
+
+        // Restrict access to admins only
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                alert("You must be logged in.");
+                window.location.href = "index.html";
+                return;
+            }
+            const adminRef = ref(rtdb, `users/${user.uid}/admin`);
+            const snapshot = await get(adminRef);
+            if (!snapshot.exists() || snapshot.val() !== true) {
+                alert("You are not authorized to access this page.");
+                window.location.href = "index.html";
+            }
+        });
+
+        document.getElementById('race-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('race-name').value;
+            const date = document.getElementById('race-date').value;
+            await addDoc(collection(db, "races"), { name, date });
+            alert("Race added!");
+        };
+
+        document.getElementById('horse-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('horse-name').value;
+            const raceId = document.getElementById('race-id').value;
+            await addDoc(collection(db, `races/${raceId}/horses`), { name });
+            alert("Horse added!");
+        };
+
+        document.getElementById('result-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const raceId = document.getElementById('result-race-id').value;
+            const winningHorseId = document.getElementById('winning-horse-id').value;
+            await setDoc(doc(db, "results", raceId), { winningHorseId });
+            alert("Result saved!");
+        };
+    </script>
+</body>
+</html>
