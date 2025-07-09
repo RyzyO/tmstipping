@@ -87,8 +87,22 @@
                 const tip = tipDoc.data();
                 const raceId = tip.raceId;
                 const userId = tip.userId;
-                // Prefer teamName, then displayName, then email, then userId
-                userNames[userId] = tip.teamName || tip.displayName || tip.email || userId;
+                // Try to get teamName from the user's Firestore profile if not present in tip
+                if (tip.teamName) {
+                    userNames[userId] = tip.teamName;
+                } else {
+                    // Try to get from Firestore users collection
+                    try {
+                        const userDoc = await getDoc(doc(db, "users", userId));
+                        if (userDoc.exists() && userDoc.data().teamName) {
+                            userNames[userId] = userDoc.data().teamName;
+                        } else {
+                            userNames[userId] = tip.displayName || tip.email || userId;
+                        }
+                    } catch {
+                        userNames[userId] = tip.displayName || tip.email || userId;
+                    }
+                }
                 if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
                     userPoints[userId] = (userPoints[userId] || 0) + raceWinners[raceId].points;
                 }
