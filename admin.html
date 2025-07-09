@@ -124,20 +124,21 @@
             });
             // Show edit section
             document.getElementById('edit-race-section').style.display = '';
-            const race = racesCache[raceId];
+            const raceDoc = await getDoc(doc(db, "races", raceId));
+            const race = raceDoc.data();
             document.getElementById('edit-race-details').textContent = `Race: ${race.name} (${raceId}), Date: ${race.date}`;
-            // Load horses for this race
-            const horsesSnap = await getDocs(collection(db, `races/${raceId}/horses`));
+            // Load horses from horses field
             const horseSelect = document.getElementById('edit-winning-horse-id');
             horseSelect.innerHTML = '';
             let horseCount = 0;
-            horsesSnap.forEach(horseDoc => {
+            const horses = race.horses || {};
+            for (const [horseId, horseData] of Object.entries(horses)) {
                 const opt = document.createElement('option');
-                opt.value = horseDoc.id;
-                opt.textContent = horseDoc.data().name + ` (${horseDoc.id})`;
+                opt.value = horseId;
+                opt.textContent = horseData.name + ` (${horseId})`;
                 horseSelect.appendChild(opt);
                 horseCount++;
-            });
+            }
             // Show message if no horses
             if (horseCount === 0) {
                 const opt = document.createElement('option');
@@ -187,7 +188,18 @@
             e.preventDefault();
             const name = document.getElementById('horse-name').value;
             const raceId = document.getElementById('race-id').value;
-            await addDoc(collection(db, `races/${raceId}/horses`), { name });
+            const raceRef = doc(db, "races", raceId);
+            const raceSnap = await getDoc(raceRef);
+            if (!raceSnap.exists()) {
+                alert("Race not found!");
+                return;
+            }
+            // Generate a new horseId
+            const horseId = doc(collection(db, "_")).id;
+            // Update the horses map in the race document
+            const horses = raceSnap.data().horses || {};
+            horses[horseId] = { name };
+            await updateDoc(raceRef, { horses });
             alert("Horse added!");
             if (selectedRaceId === raceId) await selectRace(raceId);
         };
