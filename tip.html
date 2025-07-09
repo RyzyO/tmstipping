@@ -12,49 +12,177 @@
     <link href="css/bootstrap-icons.css" rel="stylesheet">
     <link href="css/templatemo-topic-listing.css" rel="stylesheet">
     <style>
+        :root {
+            --gold: #FFD700;
+            --gold-dark: #bfa100;
+            --black: #181818;
+            --glass-bg: rgba(24,24,24,0.85);
+        }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
         body {
-            background: #f4f8fb;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #181818 0%, #232526 100%);
+            font-family: 'Montserrat', Arial, sans-serif;
+            color: #fff;
         }
         .navbar {
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            background: #fff;
+            background: var(--glass-bg) !important;
+            box-shadow: 0 2px 16px 0 rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
+        }
+        .navbar-brand, .navbar-nav .nav-link {
+            color: var(--gold) !important;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
+        }
+        .navbar-brand img {
+            height: 36px;
+            width: 36px;
+            object-fit: contain;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+            filter: drop-shadow(0 0 6px var(--gold));
+            border-radius: 8px;
+        }
+        .navbar-nav .nav-link.active, .navbar-nav .nav-link:focus, .navbar-nav .nav-link:hover {
+            color: #fff !important;
+            background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 2px 8px #000;
         }
         .main-content {
-            padding-top: 90px; /* Height of navbar + spacing */
+            padding-top: 90px;
             min-height: 80vh;
         }
-        .centered-list {
+        .centered-list, .race-card {
+            background: var(--glass-bg);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
+            padding: 2.5rem 2rem 2rem 2rem;
             max-width: 500px;
             margin: 0 auto;
+            animation: fadeInUp 1s cubic-bezier(.23,1.01,.32,1) both;
+            backdrop-filter: blur(8px);
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(40px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .centered-list h2, .race-card h4 {
+            color: var(--gold);
+            text-align: center;
+            letter-spacing: 1px;
+            font-weight: 700;
+            text-shadow: 0 2px 8px #000, 0 0 2px var(--gold);
+        }
+        .gold-line {
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%);
+            border-radius: 2px;
+            margin: 0.5rem auto 1.5rem auto;
+            box-shadow: 0 0 8px 2px var(--gold);
+            animation: goldLine 1.2s cubic-bezier(.23,1.01,.32,1);
+        }
+        @keyframes goldLine {
+            from { width: 0; opacity: 0;}
+            to { width: 60px; opacity: 1;}
         }
         .race-list { list-style: none; padding: 0; }
         .race-list li {
             cursor: pointer;
             padding: 1rem;
-            border: 1px solid #eee;
-            border-radius: 8px;
+            border: 1.5px solid var(--gold);
+            border-radius: 12px;
             margin-bottom: 1rem;
-            background: #fff;
-            transition: box-shadow 0.2s;
+            background: rgba(255,255,255,0.04);
+            color: var(--gold);
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: box-shadow 0.2s, background 0.2s, color 0.2s;
         }
         .race-list li:hover, .race-list li.selected {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-            background: #f8f9fa;
+            box-shadow: 0 2px 12px 0 var(--gold);
+            background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%);
+            color: #181818;
         }
         .race-card {
-            max-width: 500px;
-            margin: 0 auto;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
-            padding: 2rem;
             position: relative;
         }
-        .horse-row { margin-bottom: 1rem; }
+        .race-card h4 {
+            margin-bottom: 0.5rem;
+        }
+        .race-card .mb-3, .race-card #selected-race-date {
+            color: #fffbe6;
+            font-size: 1.05rem;
+            margin-bottom: 1.2rem;
+            text-align: center;
+        }
+        .horse-row {
+            margin-bottom: 1rem;
+            background: rgba(255,255,255,0.04);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .form-check-input {
+            accent-color: var(--gold);
+            margin-right: 0.7rem;
+            width: 1.2em;
+            height: 1.2em;
+        }
+        .form-check-label {
+            color: var(--gold);
+            font-weight: 600;
+            font-size: 1.08rem;
+            letter-spacing: 0.5px;
+        }
         .exit-btn {
             position: absolute;
             top: 1rem;
             right: 1rem;
+            border-radius: 50%;
+            padding: 0.4rem 0.7rem;
+            font-size: 1.1rem;
+            border: 2px solid var(--gold);
+            color: var(--gold);
+            background: transparent;
+            transition: background 0.2s, color 0.2s;
+        }
+        .exit-btn:hover {
+            background: var(--gold);
+            color: #181818;
+        }
+        .btn-success, .btn-success.mt-2 {
+            background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%) !important;
+            color: #181818 !important;
+            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px 0 rgba(255,215,0,0.08);
+            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+        }
+        .btn-success:hover, .btn-success.mt-2:hover {
+            background: linear-gradient(90deg, #fffbe6 0%, var(--gold) 100%) !important;
+            color: #000 !important;
+            box-shadow: 0 4px 24px 0 rgba(255,215,0,0.25);
+        }
+        #tip-message {
+            color: var(--gold);
+            text-align: center;
+            font-weight: 600;
+            margin-top: 1.2rem;
+            min-height: 24px;
+            letter-spacing: 0.5px;
+            text-shadow: 0 1px 2px #000;
+            transition: opacity 0.3s;
         }
         @media (max-width: 600px) {
             .race-card, .centered-list {
@@ -63,7 +191,7 @@
                 padding-right: 0.5rem;
             }
             .main-content {
-                padding-top: 120px; /* Increase top padding for mobile navbar */
+                padding-top: 120px;
             }
         }
     </style>
@@ -74,7 +202,7 @@
         <nav class="navbar navbar-expand-lg fixed-top">
             <div class="container">
                 <a class="navbar-brand" href="index.html">
-                    <i class="bi-trophy"></i>
+                    <img src="logo.jfif" alt="Logo" />
                     <span>Mock Sports Tipping</span>
                 </a>
                 <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
@@ -95,12 +223,14 @@
 
         <div class="main-content">
             <div id="race-list-section" class="centered-list">
+                <div class="gold-line"></div>
                 <h2 class="mb-4 text-center">Select a Race to Tip</h2>
                 <ul id="race-list" class="race-list"></ul>
             </div>
             <div id="race-card-section" style="display:none;">
                 <div class="race-card">
-                    <button class="btn btn-outline-secondary btn-sm exit-btn" id="exit-race-btn"><i class="bi bi-x"></i> Exit</button>
+                    <button class="btn btn-outline-secondary btn-sm exit-btn" id="exit-race-btn"><i class="bi bi-x"></i></button>
+                    <div class="gold-line"></div>
                     <h4 id="selected-race-title"></h4>
                     <div id="selected-race-date" class="mb-3"></div>
                     <form id="tip-form">
