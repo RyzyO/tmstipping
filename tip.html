@@ -16,7 +16,7 @@
             background: #f4f8fb;
         }
         .navbar {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             background: #fff;
         }
         .main-content {
@@ -61,6 +61,9 @@
                 max-width: 100%;
                 padding-left: 0.5rem;
                 padding-right: 0.5rem;
+            }
+            .main-content {
+                padding-top: 120px; /* Increase top padding for mobile navbar */
             }
         }
     </style>
@@ -262,7 +265,7 @@
                 alert("Please select a horse to tip.");
                 return;
             }
-            // Save tip: tips/{user.uid}_{selectedRaceId}
+            // Save tip: tips/{user.uid}_${selectedRaceId}
             await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
                 userId: user.uid,
                 raceId: selectedRaceId,
