@@ -25,6 +25,8 @@
                 <form id="race-form">
                     <input type="text" class="form-control mb-2" id="race-name" placeholder="Race Name" required>
                     <input type="date" class="form-control mb-2" id="race-date" required>
+                    <input type="time" class="form-control mb-2" id="race-time" placeholder="Race Time" required>
+                    <input type="text" class="form-control mb-2" id="race-distance" placeholder="Race Distance (e.g. 1200m)" required>
                     <h5>Horses</h5>
                     <div id="horses-list"></div>
                     <button type="button" class="btn btn-secondary mb-2" id="add-horse-row">Add Another Row</button>
@@ -37,6 +39,8 @@
             <div id="race-details-section" style="display:none;">
                 <h2 id="selected-race-title"></h2>
                 <div id="selected-race-date"></div>
+                <div id="selected-race-time"></div>
+                <div id="selected-race-distance"></div>
                 <h5>Horses</h5>
                 <div id="selected-horses-list"></div>
                 <button class="btn btn-secondary mt-2" id="add-horse-to-race">Add Horse</button>
@@ -124,6 +128,8 @@
             e.preventDefault();
             const name = document.getElementById('race-name').value;
             const date = document.getElementById('race-date').value;
+            const time = document.getElementById('race-time').value;
+            const distance = document.getElementById('race-distance').value;
             const horses = {};
             document.querySelectorAll('#horses-list .horse-row').forEach(row => {
                 const inputs = row.querySelectorAll('input');
@@ -138,7 +144,7 @@
                 alert("Please add at least one horse.");
                 return;
             }
-            await addDoc(collection(db, "races"), { name, date, horses });
+            await addDoc(collection(db, "races"), { name, date, time, distance, horses });
             document.getElementById('race-form-section').style.display = 'none';
             await loadRaces();
         };
@@ -172,6 +178,8 @@
             const race = raceDoc.data();
             document.getElementById('selected-race-title').textContent = race.name;
             document.getElementById('selected-race-date').textContent = "Date: " + race.date;
+            document.getElementById('selected-race-time').textContent = "Time: " + (race.time || '');
+            document.getElementById('selected-race-distance').textContent = "Distance: " + (race.distance || '');
             renderHorsesList(race, raceId);
         }
 
