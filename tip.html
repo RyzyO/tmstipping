@@ -12,13 +12,39 @@
     <link href="css/bootstrap-icons.css" rel="stylesheet">
     <link href="css/templatemo-topic-listing.css" rel="stylesheet">
     <style>
-        .admin-flex { display: flex; }
-        .admin-main { flex: 2; }
-        .admin-sidebar { flex: 1; margin-left: 2rem; border-left: 1px solid #ddd; padding-left: 2rem; }
+        .centered-list {
+            max-width: 500px;
+            margin: 3rem auto 0 auto;
+        }
         .race-list { list-style: none; padding: 0; }
-        .race-list li { cursor: pointer; padding: 0.5rem 0; }
-        .race-list li.selected { font-weight: bold; color: #007bff; }
+        .race-list li {
+            cursor: pointer;
+            padding: 1rem;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            background: #fff;
+            transition: box-shadow 0.2s;
+        }
+        .race-list li:hover, .race-list li.selected {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            background: #f8f9fa;
+        }
+        .race-card {
+            max-width: 500px;
+            margin: 3rem auto 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+            padding: 2rem;
+            position: relative;
+        }
         .horse-row { margin-bottom: 1rem; }
+        .exit-btn {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -45,25 +71,22 @@
             </div>
         </nav>
 
-        <div class="container mt-5 admin-flex">
-            <div class="admin-main">
-                <h2>Tip Now</h2>
-                <div id="tip-section" style="display:none;">
+        <div class="container">
+            <div id="race-list-section" class="centered-list">
+                <h2 class="mb-4 text-center">Select a Race to Tip</h2>
+                <ul id="race-list" class="race-list"></ul>
+            </div>
+            <div id="race-card-section" style="display:none;">
+                <div class="race-card">
+                    <button class="btn btn-outline-secondary btn-sm exit-btn" id="exit-race-btn"><i class="bi bi-x"></i> Exit</button>
                     <h4 id="selected-race-title"></h4>
-                    <div id="selected-race-date"></div>
+                    <div id="selected-race-date" class="mb-3"></div>
                     <form id="tip-form">
                         <div id="horses-radio-list"></div>
                         <button type="submit" class="btn btn-success mt-2">Submit Tip</button>
                     </form>
                     <div id="tip-message" class="mt-3"></div>
                 </div>
-                <div id="tip-instructions" class="text-muted">
-                    <p>Select a race from the right to tip.</p>
-                </div>
-            </div>
-            <div class="admin-sidebar">
-                <h4>Races</h4>
-                <ul id="race-list" class="race-list"></ul>
             </div>
         </div>
 
@@ -193,18 +216,17 @@
                 li.textContent = `${race.name} (${race.date})`;
                 li.dataset.raceId = docSnap.id;
                 li.onclick = () => selectRace(docSnap.id);
-                if (selectedRaceId === docSnap.id) li.classList.add('selected');
                 raceList.appendChild(li);
             });
+            // Show race list, hide race card
+            document.getElementById('race-list-section').style.display = '';
+            document.getElementById('race-card-section').style.display = 'none';
         }
 
         async function selectRace(raceId) {
             selectedRaceId = raceId;
-            Array.from(document.querySelectorAll('#race-list li')).forEach(li => {
-                li.classList.toggle('selected', li.dataset.raceId === raceId);
-            });
-            document.getElementById('tip-section').style.display = '';
-            document.getElementById('tip-instructions').style.display = 'none';
+            document.getElementById('race-list-section').style.display = 'none';
+            document.getElementById('race-card-section').style.display = '';
             const raceDoc = await getDoc(doc(db, "races", raceId));
             const race = raceDoc.data();
             document.getElementById('selected-race-title').textContent = race.name;
@@ -220,6 +242,12 @@
             renderHorsesRadioList(race, raceId, tippedHorseId);
             document.getElementById('tip-message').textContent = '';
         }
+
+        document.getElementById('exit-race-btn').onclick = () => {
+            document.getElementById('race-list-section').style.display = '';
+            document.getElementById('race-card-section').style.display = 'none';
+            selectedRaceId = null;
+        };
 
         function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
             const horsesDiv = document.getElementById('horses-radio-list');
