@@ -3,38 +3,79 @@
 <head>
     <title>Admin - Mock Sports Tipping</title>
     <link href="css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .admin-flex { display: flex; }
+        .admin-main { flex: 2; }
+        .admin-sidebar { flex: 1; margin-left: 2rem; border-left: 1px solid #ddd; padding-left: 2rem; }
+        .race-list { list-style: none; padding: 0; }
+        .race-list li { cursor: pointer; padding: 0.5rem 0; }
+        .race-list li.selected { font-weight: bold; color: #007bff; }
+    </style>
 </head>
 <body>
-    <div class="container mt-5">
-        <h2>Add Race</h2>
-        <form id="race-form">
-            <input type="text" class="form-control mb-2" id="race-name" placeholder="Race Name" required>
-            <input type="date" class="form-control mb-2" id="race-date" required>
-            <button type="submit" class="btn btn-primary">Add Race</button>
-        </form>
-        <hr>
-        <h2>Add Horse to Race</h2>
-        <form id="horse-form">
-            <input type="text" class="form-control mb-2" id="horse-name" placeholder="Horse Name" required>
-            <input type="text" class="form-control mb-2" id="race-id" placeholder="Race ID" required>
-            <button type="submit" class="btn btn-primary">Add Horse</button>
-        </form>
-        <hr>
-        <h2>Enter Result</h2>
-        <form id="result-form">
-            <input type="text" class="form-control mb-2" id="result-race-id" placeholder="Race ID" required>
-            <input type="text" class="form-control mb-2" id="winning-horse-id" placeholder="Winning Horse ID" required>
-            <button type="submit" class="btn btn-success">Save Result</button>
-        </form>
+    <div class="container mt-5 admin-flex">
+        <div class="admin-main">
+            <h2>Add Race</h2>
+            <form id="race-form">
+                <input type="text" class="form-control mb-2" id="race-name" placeholder="Race Name" required>
+                <input type="date" class="form-control mb-2" id="race-date" required>
+                <button type="submit" class="btn btn-primary">Add Race</button>
+            </form>
+            <hr>
+            <h2>Add Horse to Race</h2>
+            <form id="horse-form">
+                <input type="text" class="form-control mb-2" id="horse-name" placeholder="Horse Name" required>
+                <input type="text" class="form-control mb-2" id="race-id" placeholder="Race ID" required>
+                <button type="submit" class="btn btn-primary">Add Horse</button>
+            </form>
+            <hr>
+            <h2>Enter Result</h2>
+            <form id="result-form">
+                <input type="text" class="form-control mb-2" id="result-race-id" placeholder="Race ID" required>
+                <input type="text" class="form-control mb-2" id="winning-horse-id" placeholder="Winning Horse ID" required>
+                <button type="submit" class="btn btn-success">Save Result</button>
+            </form>
+            <hr>
+            <div id="edit-race-section" style="display:none;">
+                <h2>Edit Race</h2>
+                <div id="edit-race-details"></div>
+                <form id="edit-result-form">
+                    <div class="mb-2">
+                        <label for="edit-winning-horse-id" class="form-label">Winning Horse</label>
+                        <select class="form-control" id="edit-winning-horse-id" required></select>
+                    </div>
+                    <div class="mb-2">
+                        <label for="edit-points" class="form-label">Points</label>
+                        <input type="number" class="form-control" id="edit-points" min="0" required>
+                    </div>
+                    <button type="submit" class="btn btn-success">Update Result</button>
+                </form>
+            </div>
+        </div>
+        <div class="admin-sidebar">
+            <h4>Races</h4>
+            <ul id="race-list" class="race-list"></ul>
+        </div>
     </div>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-analytics.js";
+        import { getFirestore, collection, addDoc, doc, setDoc, getDocs, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
         import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
-        const firebaseConfig = { /* your config here */ };
+        const firebaseConfig = {
+            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+            authDomain: "tmstipping.firebaseapp.com",
+            projectId: "tmstipping",
+            storageBucket: "tmstipping.appspot.com",
+            messagingSenderId: "401677933527",
+            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+            measurementId: "G-GXLRCHV687"
+        };
+
         const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
         const db = getFirestore(app);
         const auth = getAuth(app);
         const rtdb = getDatabase(app);
@@ -54,12 +95,76 @@
             }
         });
 
+        // --- Races Sidebar Logic ---
+        let selectedRaceId = null;
+        let racesCache = {};
+
+        async function loadRaces() {
+            const raceList = document.getElementById('race-list');
+            raceList.innerHTML = '';
+            const racesSnap = await getDocs(collection(db, "races"));
+            racesCache = {};
+            racesSnap.forEach(docSnap => {
+                const race = docSnap.data();
+                racesCache[docSnap.id] = race;
+                const li = document.createElement('li');
+                li.textContent = `${race.name} (${docSnap.id})`;
+                li.dataset.raceId = docSnap.id;
+                li.onclick = () => selectRace(docSnap.id);
+                if (selectedRaceId === docSnap.id) li.classList.add('selected');
+                raceList.appendChild(li);
+            });
+        }
+
+        async function selectRace(raceId) {
+            selectedRaceId = raceId;
+            // Highlight selected
+            Array.from(document.querySelectorAll('#race-list li')).forEach(li => {
+                li.classList.toggle('selected', li.dataset.raceId === raceId);
+            });
+            // Show edit section
+            document.getElementById('edit-race-section').style.display = '';
+            const race = racesCache[raceId];
+            document.getElementById('edit-race-details').textContent = `Race: ${race.name} (${raceId}), Date: ${race.date}`;
+            // Load horses for this race
+            const horsesSnap = await getDocs(collection(db, `races/${raceId}/horses`));
+            const horseSelect = document.getElementById('edit-winning-horse-id');
+            horseSelect.innerHTML = '';
+            horsesSnap.forEach(horseDoc => {
+                const opt = document.createElement('option');
+                opt.value = horseDoc.id;
+                opt.textContent = horseDoc.data().name + ` (${horseDoc.id})`;
+                horseSelect.appendChild(opt);
+            });
+            // Load result if exists
+            const resultDoc = await getDoc(doc(db, "results", raceId));
+            if (resultDoc.exists()) {
+                const result = resultDoc.data();
+                horseSelect.value = result.winningHorseId || '';
+                document.getElementById('edit-points').value = result.points || '';
+            } else {
+                horseSelect.value = '';
+                document.getElementById('edit-points').value = '';
+            }
+        }
+
+        document.getElementById('edit-result-form').onsubmit = async (e) => {
+            e.preventDefault();
+            if (!selectedRaceId) return;
+            const winningHorseId = document.getElementById('edit-winning-horse-id').value;
+            const points = parseInt(document.getElementById('edit-points').value, 10);
+            await setDoc(doc(db, "results", selectedRaceId), { winningHorseId, points });
+            alert("Result updated!");
+        };
+
+        // --- Existing Forms ---
         document.getElementById('race-form').onsubmit = async (e) => {
             e.preventDefault();
             const name = document.getElementById('race-name').value;
             const date = document.getElementById('race-date').value;
             await addDoc(collection(db, "races"), { name, date });
             alert("Race added!");
+            await loadRaces();
         };
 
         document.getElementById('horse-form').onsubmit = async (e) => {
@@ -68,6 +173,7 @@
             const raceId = document.getElementById('race-id').value;
             await addDoc(collection(db, `races/${raceId}/horses`), { name });
             alert("Horse added!");
+            if (selectedRaceId === raceId) await selectRace(raceId);
         };
 
         document.getElementById('result-form').onsubmit = async (e) => {
@@ -76,7 +182,11 @@
             const winningHorseId = document.getElementById('winning-horse-id').value;
             await setDoc(doc(db, "results", raceId), { winningHorseId });
             alert("Result saved!");
+            if (selectedRaceId === raceId) await selectRace(raceId);
         };
+
+        // Initial load
+        loadRaces();
     </script>
 </body>
 </html>
