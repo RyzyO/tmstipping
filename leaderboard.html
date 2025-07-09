@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Leaderboard - Mock Sports Tipping</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/bootstrap-icons.css" rel="stylesheet">
+    <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+</head>
+<body>
+    <main>
+        <!-- Navbar (reuse from other pages) -->
+        <nav class="navbar navbar-expand-lg">
+            <div class="container">
+                <a class="navbar-brand" href="index.html">
+                    <i class="bi-trophy"></i>
+                    <span>Mock Sports Tipping</span>
+                </a>
+                <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-lg-5 me-lg-auto">
+                        <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+                        <li class="nav-item"><a class="nav-link" href="tip.html">Tip Now</a></li>
+                        <li class="nav-item"><a class="nav-link" href="leaderboard.html">Leaderboard</a></li>
+                        <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
+                    </ul>
+                    <div class="d-none d-lg-block" id="desktop-auth-btns"></div>
+                </div>
+            </div>
+        </nav>
+        <div class="container mt-5">
+            <h2 class="mb-4 text-center">Leaderboard</h2>
+            <div id="leaderboard-table-section">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+        <!-- ...footer if desired... -->
+    </main>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, getDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        const firebaseConfig = {
+            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+            authDomain: "tmstipping.firebaseapp.com",
+            projectId: "tmstipping",
+            storageBucket: "tmstipping.appspot.com",
+            messagingSenderId: "401677933527",
+            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+            measurementId: "G-GXLRCHV687"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Calculate leaderboard
+        async function calculateLeaderboard() {
+            // 1. Get all results (races with winners)
+            const resultsSnap = await getDocs(collection(db, "results"));
+            const raceWinners = {};
+            resultsSnap.forEach(docSnap => {
+                const data = docSnap.data();
+                if (data.winningHorseId && data.points) {
+                    raceWinners[docSnap.id] = { horseId: data.winningHorseId, points: data.points };
+                }
+            });
+
+            // 2. Get all tips
+            const tipsSnap = await getDocs(collection(db, "tips"));
+            const userPoints = {};
+            const userNames = {};
+
+            // 3. For each tip, if matches winner, add points
+            for (const tipDoc of tipsSnap.docs) {
+                const tip = tipDoc.data();
+                const raceId = tip.raceId;
+                const userId = tip.userId;
+                if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
+                    userPoints[userId] = (userPoints[userId] || 0) + raceWinners[raceId].points;
+                }
+                // Optionally, store user display name/email for display
+                userNames[userId] = tip.displayName || tip.email || userId;
+            }
+
+            // 4. Optionally, update leaderboard collection in Firestore
+            for (const [userId, points] of Object.entries(userPoints)) {
+                await setDoc(doc(db, "leaderboard", userId), { userId, points });
+            }
+
+            // 5. Display leaderboard
+            renderLeaderboard(userPoints, userNames);
+        }
+
+        function renderLeaderboard(userPoints, userNames) {
+            const tbody = document.getElementById('leaderboard-table-body');
+            tbody.innerHTML = '';
+            // Sort by points descending
+            const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
+            for (const [userId, points] of sorted) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${userNames[userId] || userId}</td>
+                    <td>${points}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        // Optionally, show auth user in navbar
+        onAuthStateChanged(auth, (user) => {
+            // ...existing code for navbar auth buttons...
+        });
+
+        calculateLeaderboard();
+    </script>
+</body>
+</html>
