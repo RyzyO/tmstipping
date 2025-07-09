@@ -109,7 +109,7 @@
         document.getElementById('cancel-race-form').onclick = () => {
             document.getElementById('race-form-section').style.display = 'none';
         };
-        document.getElementById('add-horse-row').onclick = addHorseRow;
+        document.getElementById('add-horse-row').onclick = () => addHorseRow();
 
         function addHorseRow(name = '', number = '') {
             const horsesList = document.getElementById('horses-list');
