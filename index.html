@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Welcome to Sports Tipping</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .welcome-container {
+            background-color: #fff;
+            padding: 30px 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .welcome-container h1 {
+            margin-bottom: 10px;
+        }
+        .welcome-container p {
+            margin-bottom: 20px;
+        }
+        .logout-btn {
+            padding: 10px 20px;
+            background-color: #d9534f;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .logout-btn:hover {
+            background-color: #c9302c;
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-container">
+        <h1 id="welcome-message">Welcome!</h1>
+        <p id="team-message"></p>
+        <button class="logout-btn" id="logout-btn">Log Out</button>
+    </div>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+            authDomain: "tmstipping.firebaseapp.com",
+            projectId: "tmstipping",
+            storageBucket: "tmstipping.firebasestorage.app",
+            messagingSenderId: "401677933527",
+            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+            measurementId: "G-GXLRCHV687"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        const welcomeMessage = document.getElementById('welcome-message');
+        const teamMessage = document.getElementById('team-message');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Display name is set during signup
+                welcomeMessage.textContent = `Welcome, ${user.displayName || user.email}!`;
+                // Team name is not stored in Auth, so just show a generic message
+                teamMessage.textContent = "Glad to have you in the tipping competition!";
+            } else {
+                // Not signed in, redirect to signup
+                window.location.href = 'signup.html';
+            }
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+            await signOut(auth);
+            window.location.href = 'signup.html';
+        });
+    </script>
+</body>
+</html>
