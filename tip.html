@@ -12,9 +12,20 @@
     <link href="css/bootstrap-icons.css" rel="stylesheet">
     <link href="css/templatemo-topic-listing.css" rel="stylesheet">
     <style>
+        body {
+            background: #f4f8fb;
+        }
+        .navbar {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            background: #fff;
+        }
+        .main-content {
+            padding-top: 90px; /* Height of navbar + spacing */
+            min-height: 80vh;
+        }
         .centered-list {
             max-width: 500px;
-            margin: 3rem auto 0 auto;
+            margin: 0 auto;
         }
         .race-list { list-style: none; padding: 0; }
         .race-list li {
@@ -32,7 +43,7 @@
         }
         .race-card {
             max-width: 500px;
-            margin: 3rem auto 0 auto;
+            margin: 0 auto;
             background: #fff;
             border-radius: 12px;
             box-shadow: 0 2px 16px rgba(0,0,0,0.08);
@@ -45,12 +56,19 @@
             top: 1rem;
             right: 1rem;
         }
+        @media (max-width: 600px) {
+            .race-card, .centered-list {
+                max-width: 100%;
+                padding-left: 0.5rem;
+                padding-right: 0.5rem;
+            }
+        }
     </style>
 </head>
 <body>
     <main>
-        <!-- Navbar (copied from index.html) -->
-        <nav class="navbar navbar-expand-lg">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg fixed-top">
             <div class="container">
                 <a class="navbar-brand" href="index.html">
                     <i class="bi-trophy"></i>
@@ -72,7 +90,7 @@
             </div>
         </nav>
 
-        <div class="container">
+        <div class="main-content">
             <div id="race-list-section" class="centered-list">
                 <h2 class="mb-4 text-center">Select a Race to Tip</h2>
                 <ul id="race-list" class="race-list"></ul>
@@ -90,47 +108,8 @@
                 </div>
             </div>
         </div>
-
-        <!-- Footer (copied from index.html, simplified for brevity) -->
-        <footer class="site-footer section-padding">
-            <div class="container">
-                <div class="row">
-                    <div class="col-lg-3 col-12 mb-4 pb-2">
-                        <a class="navbar-brand mb-2" href="index.html">
-                            <i class="bi-back"></i>
-                            <span>Topic</span>
-                        </a>
-                    </div>
-                    <div class="col-lg-3 col-md-4 col-6">
-                        <h6 class="site-footer-title mb-3">Resources</h6>
-                        <ul class="site-footer-links">
-                            <li class="site-footer-link-item"><a href="index.html" class="site-footer-link">Home</a></li>
-                            <li class="site-footer-link-item"><a href="tip.html" class="site-footer-link">Tip Now</a></li>
-                            <li class="site-footer-link-item"><a href="admin.html" class="site-footer-link">Admin</a></li>
-                        </ul>
-                    </div>
-                    <div class="col-lg-3 col-md-4 col-6 mb-4 mb-lg-0">
-                        <h6 class="site-footer-title mb-3">Information</h6>
-                        <p class="text-white d-flex mb-1">
-                            <a href="mailto:info@company.com" class="site-footer-link">info@company.com</a>
-                        </p>
-                    </div>
-                    <div class="col-lg-3 col-md-4 col-12 mt-4 mt-lg-0 ms-auto">
-                        <p class="copyright-text mt-lg-5 mt-4">
-                            Copyright © 2048 Topic Listing Center.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </footer>
     </main>
-    <!-- JS FILES -->
-    <script src="js/jquery.min.js"></script>
     <script src="js/bootstrap.bundle.min.js"></script>
-    <script src="js/jquery.sticky.js"></script>
-    <script src="js/click-scroll.js"></script>
-    <script src="js/custom.js"></script>
-    <!-- Firebase Auth logic for navbar -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
@@ -173,7 +152,6 @@
             renderAuthButtons(user);
         });
     </script>
-    <!-- Tip Now logic -->
     <script type="module">
         import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
@@ -285,7 +263,7 @@
                 alert("Please select a horse to tip.");
                 return;
             }
-            // Save tip: tips/{user.uid}_${selectedRaceId}
+            // Save tip: tips/{user.uid}_{selectedRaceId}
             await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
                 userId: user.uid,
                 raceId: selectedRaceId,
