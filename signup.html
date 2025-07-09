@@ -31,6 +31,25 @@
             /* overflow: hidden; */
             overflow-x: hidden;
         }
+        /* Remove unwanted ::after and ::before pseudo-elements that may leak from global CSS */
+        body::after, body::before,
+        html::after, html::before {
+            content: none !important;
+            display: none !important;
+        }
+        /* Remove any triangle/line from .signup-container or its children */
+        .signup-container::after,
+        .signup-container::before,
+        .signup-footer::after,
+        .signup-footer::before {
+            content: none !important;
+            display: none !important;
+        }
+        /* Remove any border or background from the bottom of the page */
+        body, html {
+            border: none !important;
+            background-image: linear-gradient(135deg, #181818 0%, #232526 100%) !important;
+        }
         @media (max-width: 500px) {
             html, body {
                 height: auto;
