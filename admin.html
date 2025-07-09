@@ -130,15 +130,31 @@
             const horsesSnap = await getDocs(collection(db, `races/${raceId}/horses`));
             const horseSelect = document.getElementById('edit-winning-horse-id');
             horseSelect.innerHTML = '';
+            let horseCount = 0;
             horsesSnap.forEach(horseDoc => {
                 const opt = document.createElement('option');
                 opt.value = horseDoc.id;
                 opt.textContent = horseDoc.data().name + ` (${horseDoc.id})`;
                 horseSelect.appendChild(opt);
+                horseCount++;
             });
+            // Show message if no horses
+            if (horseCount === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'No horses for this race';
+                horseSelect.appendChild(opt);
+                horseSelect.disabled = true;
+                document.getElementById('edit-points').disabled = true;
+                document.querySelector('#edit-result-form button[type="submit"]').disabled = true;
+            } else {
+                horseSelect.disabled = false;
+                document.getElementById('edit-points').disabled = false;
+                document.querySelector('#edit-result-form button[type="submit"]').disabled = false;
+            }
             // Load result if exists
             const resultDoc = await getDoc(doc(db, "results", raceId));
-            if (resultDoc.exists()) {
+            if (resultDoc.exists() && horseCount > 0) {
                 const result = resultDoc.data();
                 horseSelect.value = result.winningHorseId || '';
                 document.getElementById('edit-points').value = result.points || '';
