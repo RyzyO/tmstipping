@@ -1,389 +1,222 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Sports Tipping Sign Up</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --gold: #FFD700;
-            --gold-dark: #bfa100;
-            --black: #181818;
-            --glass-bg: rgba(24,24,24,0.85);
-            --input-bg: rgba(255,255,255,0.08);
-            --input-border: #FFD700;
-            --error: #ff4d4f;
-        }
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        body {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #181818 0%, #232526 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-family: 'Montserrat', Arial, sans-serif;
-            /* Remove overflow: hidden to allow scrolling */
-            /* overflow: hidden; */
-            overflow-x: hidden;
-        }
-        /* Remove unwanted ::after and ::before pseudo-elements that may leak from global CSS */
-        body::after, body::before,
-        html::after, html::before {
-            content: none !important;
-            display: none !important;
-        }
-        /* Remove any triangle/line from .signup-container or its children */
-        .signup-container::after,
-        .signup-container::before,
-        .signup-footer::after,
-        .signup-footer::before {
-            content: none !important;
-            display: none !important;
-        }
-        /* Remove any border or background from the bottom of the page */
-        body, html {
-            border: none !important;
-            background-image: linear-gradient(135deg, #181818 0%, #232526 100%) !important;
-        }
-        @media (max-width: 500px) {
-            html, body {
-                height: auto;
-                min-height: 100vh;
-            }
-            body {
-                display: block;
-                padding-top: 2.5rem;
-                padding-bottom: 2.5rem;
-                align-items: flex-start;
-                justify-content: flex-start;
-                min-height: 100vh;
-                overflow-x: hidden;
-                /* allow vertical scroll */
-                overflow-y: auto;
-            }
-            .signup-container {
-                margin: 2.5rem auto 2.5rem auto;
-            }
-        }
-        .gold-glow {
-            box-shadow: 0 0 24px 4px var(--gold), 0 2px 24px 0 rgba(0,0,0,0.5);
-        }
-        .signup-container {
-            background: var(--glass-bg);
-            border-radius: 24px;
-            box-shadow: 0 8px 32px 0 rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
-            padding: 2.5rem 2rem 2rem 2rem;
-            width: 350px;
-            max-width: 95vw;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            animation: fadeInUp 1s cubic-bezier(.23,1.01,.32,1) both;
-            backdrop-filter: blur(8px);
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(40px);}
-            to { opacity: 1; transform: translateY(0);}
-        }
-        .logo {
-            width: 72px;
-            height: 72px;
-            object-fit: contain;
-            margin-bottom: 1rem;
-            filter: drop-shadow(0 0 8px var(--gold));
-            animation: logoPop 1.2s cubic-bezier(.23,1.01,.32,1);
-        }
-        @keyframes logoPop {
-            0% { transform: scale(0.7) rotate(-10deg);}
-            60% { transform: scale(1.1) rotate(5deg);}
-            100% { transform: scale(1) rotate(0);}
-        }
-        .signup-container h2 {
-            color: var(--gold);
-            text-align: center;
-            margin-bottom: 1.5rem;
-            letter-spacing: 1px;
-            font-size: 2rem;
-            font-weight: 700;
-            text-shadow: 0 2px 8px #000, 0 0 2px var(--gold);
-        }
-        .form-group {
-            margin-bottom: 1.3rem;
-            width: 100%;
-            position: relative;
-        }
-        .form-group label {
-            color: var(--gold);
-            font-size: 1rem;
-            margin-bottom: 0.3rem;
-            display: block;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 12px 44px 12px 14px;
-            border: 2px solid var(--input-border);
-            border-radius: 8px;
-            background: var(--input-bg);
-            color: #fff;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            box-shadow: 0 2px 8px 0 rgba(255,215,0,0.06);
-        }
-        .form-group input:focus {
-            border-color: var(--gold-dark);
-            box-shadow: 0 0 0 2px var(--gold);
-            background: rgba(255,255,255,0.13);
-        }
-        .form-group input:disabled {
-            background: #333;
-            color: #888;
-        }
-        .form-group .toggle-password {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            color: var(--gold);
-            font-size: 1.2rem;
-            cursor: pointer;
-            z-index: 2;
-            transition: color 0.2s;
-        }
-        .form-group .toggle-password:hover {
-            color: #fff;
-        }
-        button[type="submit"] {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%);
-            color: #181818;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-            cursor: pointer;
-            margin-top: 0.5rem;
-            box-shadow: 0 2px 16px 0 rgba(255,215,0,0.18);
-            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-        }
-        button[type="submit"]:hover {
-            background: linear-gradient(90deg, #fffbe6 0%, var(--gold) 100%);
-            color: #000;
-            box-shadow: 0 4px 24px 0 rgba(255,215,0,0.25);
-        }
-        #error-message {
-            color: var(--error);
-            text-align: center;
-            margin-top: 10px;
-            font-weight: 600;
-            min-height: 24px;
-            letter-spacing: 0.5px;
-            text-shadow: 0 1px 2px #000;
-            transition: opacity 0.3s;
-        }
-        .form-group input:invalid:not(:focus):not(:placeholder-shown) {
-            border-color: var(--error);
-        }
-        .form-group input:valid:not(:focus):not(:placeholder-shown) {
-            border-color: var(--gold-dark);
-        }
-        .form-group input:-webkit-autofill {
-            -webkit-box-shadow: 0 0 0 1000px #232526 inset;
-            -webkit-text-fill-color: #FFD700;
-        }
-        .signup-footer {
-            margin-top: 1.5rem;
-            text-align: center;
-            color: #fff;
-            font-size: 0.95rem;
-            opacity: 0.8;
-        }
-        .signup-footer a {
-            color: var(--gold);
-            text-decoration: underline;
-            transition: color 0.2s;
-        }
-        .signup-footer a:hover {
-            color: #fff;
-        }
-        /* Decorative gold lines */
-        .gold-line {
-            width: 60px;
-            height: 4px;
-            background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%);
-            border-radius: 2px;
-            margin: 0.5rem auto 1.5rem auto;
-            box-shadow: 0 0 8px 2px var(--gold);
-            animation: goldLine 1.2s cubic-bezier(.23,1.01,.32,1);
-        }
-        @keyframes goldLine {
-            from { width: 0; opacity: 0;}
-            to { width: 60px; opacity: 1;}
-        }
-        /* Responsive */
-        @media (max-width: 500px) {
-            .signup-container {
-                padding: 1.2rem 0.5rem 1.5rem 0.5rem;
-                width: 98vw;
-            }
-            .logo {
-                width: 56px;
-                height: 56px;
-            }
-        }
-        /* Animated background gold particles */
-        .gold-particles {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            pointer-events: none;
-            z-index: 0;
-        }
-        .gold-particle {
-            position: absolute;
-            border-radius: 50%;
-            background: radial-gradient(circle, #FFD700 0%, #fffbe6 80%, transparent 100%);
-            opacity: 0.7;
-            animation: floatGold 8s linear infinite;
-        }
-        @keyframes floatGold {
-            0% { transform: translateY(0) scale(1);}
-            100% { transform: translateY(-120vh) scale(1.2);}
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sports Tipping Sign Up</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --gold: #FFD700;
+      --gold-dark: #bfa100;
+      --black: #181818;
+      --glass-bg: rgba(24,24,24,0.85);
+      --input-bg: rgba(255,255,255,0.08);
+      --input-border: #FFD700;
+      --error: #ff4d4f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #181818 0%, #232526 100%);
+      color: #fff;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .signup-container {
+      background: var(--glass-bg);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
+      backdrop-filter: blur(8px);
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      animation: fadeInUp 1s ease-out both;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      display: block;
+      margin: 0 auto 1rem;
+      filter: drop-shadow(0 0 8px var(--gold));
+    }
+
+    h2 {
+      text-align: center;
+      color: var(--gold);
+      font-family: 'Outfit', sans-serif;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .gold-line {
+      width: 60px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      border-radius: 2px;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 0 8px 2px var(--gold);
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: var(--gold);
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--input-bg);
+      border: 2px solid var(--input-border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--gold-dark);
+      box-shadow: 0 0 0 2px var(--gold);
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 1rem;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--gold);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .form-group-password {
+      position: relative;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.75rem;
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      color: #181818;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+
+    button[type="submit"]:hover {
+      background: linear-gradient(90deg, #fffbe6, var(--gold));
+    }
+
+    #error-message {
+      color: var(--error);
+      text-align: center;
+      margin-top: 10px;
+      min-height: 24px;
+    }
+
+    .signup-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+
+    .signup-footer a {
+      color: var(--gold);
+      text-decoration: underline;
+    }
+
+    @media (max-width: 480px) {
+      .signup-container {
+        padding: 1.5rem 1rem;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="gold-particles" id="goldParticles"></div>
-    <div class="signup-container gold-glow">
-        <img src="logo.jfif" alt="Logo" class="logo" />
-        <div class="gold-line"></div>
-        <h2>Sign Up</h2>
-        <form id="signup-form" autocomplete="off" spellcheck="false">
-            <div class="form-group">
-                <label for="firstName">First Name</label>
-                <input type="text" id="firstName" placeholder="e.g. John" required autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label for="lastName">Last Name</label>
-                <input type="text" id="lastName" placeholder="e.g. Smith" required autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label for="teamName">Team Name</label>
-                <input type="text" id="teamName" placeholder="e.g. Golden Winners" required autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" placeholder="e.g. john@example.com" required autocomplete="off">
-            </div>
-            <div class="form-group">
-                <label for="password">Password</label>
-                <input type="password" id="password" placeholder="Create a password" required autocomplete="new-password">
-                <button type="button" class="toggle-password" tabindex="-1" aria-label="Show/Hide password">&#128065;</button>
-            </div>
-            <button type="submit">Sign Up</button>
-            <div id="error-message"></div>
-        </form>
-        <div class="signup-footer">
-            Already have an account? <a href="login.html">Log in</a>
-        </div>
+  <div class="signup-container">
+    <img src="logo.jfif" alt="Logo" class="logo">
+    <div class="gold-line"></div>
+    <h2>Sign Up</h2>
+    <form id="signup-form">
+      <div class="form-group">
+        <label for="firstName">First Name</label>
+        <input type="text" id="firstName" required>
+      </div>
+      <div class="form-group">
+        <label for="lastName">Last Name</label>
+        <input type="text" id="lastName" required>
+      </div>
+      <div class="form-group">
+        <label for="teamName">Team Name</label>
+        <input type="text" id="teamName" required>
+      </div>
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" required>
+      </div>
+      <div class="form-group form-group-password">
+        <label for="password">Password</label>
+        <input type="password" id="password" required>
+        <button type="button" class="toggle-password" onclick="togglePassword()">&#128065;</button>
+      </div>
+      <button type="submit">Sign Up</button>
+      <div id="error-message"></div>
+    </form>
+    <div class="signup-footer">
+      Already have an account? <a href="login.html">Log in</a>
     </div>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getFirestore, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-            authDomain: "tmstipping.firebaseapp.com",
-            projectId: "tmstipping",
-            storageBucket: "tmstipping.appspot.com",
-            messagingSenderId: "401677933527",
-            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-            measurementId: "G-GXLRCHV687"
-        };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+  </div>
 
-        // Gold particles animation
-        function createGoldParticles() {
-            const container = document.getElementById('goldParticles');
-            for (let i = 0; i < 18; i++) {
-                const p = document.createElement('div');
-                p.className = 'gold-particle';
-                const size = Math.random() * 18 + 12;
-                p.style.width = `${size}px`;
-                p.style.height = `${size}px`;
-                p.style.left = `${Math.random() * 100}vw`;
-                p.style.top = `${Math.random() * 100}vh`;
-                p.style.animationDuration = `${6 + Math.random() * 6}s`;
-                p.style.opacity = 0.5 + Math.random() * 0.4;
-                container.appendChild(p);
-            }
-        }
-        createGoldParticles();
-
-        // Password show/hide toggle
-        document.querySelector('.toggle-password').addEventListener('click', function() {
-            const pwd = document.getElementById('password');
-            if (pwd.type === 'password') {
-                pwd.type = 'text';
-                this.innerHTML = '&#128064;';
-            } else {
-                pwd.type = 'password';
-                this.innerHTML = '&#128065;';
-            }
-        });
-
-        // Input focus effect
-        document.querySelectorAll('.form-group input').forEach(input => {
-            input.addEventListener('focus', e => {
-                e.target.parentNode.classList.add('focused');
-            });
-            input.addEventListener('blur', e => {
-                e.target.parentNode.classList.remove('focused');
-            });
-        });
-
-        // Signup logic
-        const signupForm = document.getElementById('signup-form');
-        const errorMessage = document.getElementById('error-message');
-        signupForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            errorMessage.textContent = '';
-            const email = signupForm['email'].value.trim();
-            const password = signupForm['password'].value;
-            const firstName = signupForm['firstName'].value.trim();
-            const lastName = signupForm['lastName'].value.trim();
-            const teamName = signupForm['teamName'].value.trim();
-            try {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                await updateProfile(user, {
-                    displayName: `${firstName} ${lastName}`
-                });
-                // Store extra user info in Firestore
-                await setDoc(doc(db, "users", user.uid), {
-                    firstName,
-                    lastName,
-                    teamName,
-                    email
-                });
-                window.location.href = 'index.html';
-            } catch (error) {
-                errorMessage.textContent = error.message.replace('Firebase:', '').replace('auth/', '').replace(/-/g, ' ');
-            }
-        });
-    </script>
+  <script>
+    function togglePassword() {
+      const pwd = document.getElementById('password');
+      const btn = document.querySelector('.toggle-password');
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        btn.innerHTML = '&#128064;';
+      } else {
+        pwd.type = 'password';
+        btn.innerHTML = '&#128065;';
+      }
+    }
+  </script>
 </body>
 </html>
