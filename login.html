@@ -1,123 +1,205 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Login - Sports Tipping</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: #f4f4f4;
-        }
-        .login-container {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            width: 300px;
-        }
-        .login-container h2 {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        button {
-            width: 100%;
-            padding: 10px;
-            background-color: #0275d8;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #025aa5;
-        }
-        #error-message {
-            color: red;
-            text-align: center;
-            margin-top: 10px;
-        }
-        .signup-link {
-            text-align: center;
-            margin-top: 15px;
-        }
-        .signup-link a {
-            color: #0275d8;
-            text-decoration: none;
-        }
-        .signup-link a:hover {
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Mock Sports Tipping</title>
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --gold: #FFD700;
+      --gold-dark: #bfa100;
+      --black: #181818;
+      --glass-bg: rgba(24,24,24,0.85);
+      --input-bg: rgba(255,255,255,0.08);
+      --input-border: #FFD700;
+      --error: #ff4d4f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #181818 0%, #232526 100%);
+      color: #fff;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .login-container {
+      background: var(--glass-bg);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
+      backdrop-filter: blur(8px);
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+      animation: fadeInUp 1s ease-out both;
+    }
+
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      text-align: center;
+      color: var(--gold);
+      font-family: 'Outfit', sans-serif;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .gold-line {
+      width: 60px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      border-radius: 2px;
+      margin: 0 auto 1.5rem;
+      box-shadow: 0 0 8px 2px var(--gold);
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: var(--gold);
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--input-bg);
+      border: 2px solid var(--input-border);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--gold-dark);
+      box-shadow: 0 0 0 2px var(--gold);
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 0.75rem;
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      color: #181818;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+
+    button[type="submit"]:hover {
+      background: linear-gradient(90deg, #fffbe6, var(--gold));
+    }
+
+    #error-message {
+      color: var(--error);
+      text-align: center;
+      margin-top: 10px;
+      min-height: 24px;
+    }
+
+    .signup-link {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.95rem;
+      color: #ccc;
+    }
+
+    .signup-link a {
+      color: var(--gold);
+      text-decoration: underline;
+    }
+
+    @media (max-width: 480px) {
+      .login-container {
+        padding: 1.5rem 1rem;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="login-container">
-        <h2>Login</h2>
-        <form id="login-form">
-            <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="email" id="email" required>
-            </div>
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" required>
-            </div>
-            <button type="submit">Login</button>
-            <div id="error-message"></div>
-        </form>
-        <div class="signup-link">
-            Don't have an account? <a href="signup.html">Sign up</a>
-        </div>
+  <div class="login-container">
+    <h2>Login</h2>
+    <div class="gold-line"></div>
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="email" id="email" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" required>
+      </div>
+      <button type="submit">Login</button>
+      <div id="error-message"></div>
+    </form>
+    <div class="signup-link">
+      Don't have an account? <a href="signup.html">Sign up</a>
     </div>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  </div>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-            authDomain: "tmstipping.firebaseapp.com",
-            projectId: "tmstipping",
-            storageBucket: "tmstipping.firebasestorage.app",
-            messagingSenderId: "401677933527",
-            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-            measurementId: "G-GXLRCHV687"
-        };
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.firebasestorage.app",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
 
-        const loginForm = document.getElementById('login-form');
-        const errorMessage = document.getElementById('error-message');
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
 
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = loginForm['email'].value;
-            const password = loginForm['password'].value;
+    const loginForm = document.getElementById('login-form');
+    const errorMessage = document.getElementById('error-message');
 
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Login error:', error.code, error.message);
-                errorMessage.textContent = "Invalid email or password.";
-            }
-        });
-    </script>
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = loginForm['email'].value;
+      const password = loginForm['password'].value;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        window.location.href = 'index.html';
+      } catch (error) {
+        console.error('Login error:', error.code, error.message);
+        errorMessage.textContent = "Invalid email or password.";
+      }
+    });
+  </script>
 </body>
 </html>
