@@ -4,7 +4,7 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%) !important;
+    background-color: #fab813;
     z-index: 9999;
     display: flex;
     justify-content: space-around;
