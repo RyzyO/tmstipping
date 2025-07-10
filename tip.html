@@ -4,17 +4,15 @@
   <title>Tip Now - Mock Sports Tipping</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
- <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-      <link rel="stylesheet" href="navbar.css">
-      <link rel="stylesheet" href="fontawesome.css">
-    <link rel="apple-touch-icon" href="logo.jfif">
-    <link rel="apple-touch-startup-image" href="splash.png">
-    <link href="css/bootstrap.min.css" rel="stylesheet">
-    <link href="css/bootstrap-icons.css" rel="stylesheet">
-     <link rel="stylesheet" href="https://unpkg.com/swiper@7/swiper-bundle.min.css"/>
-    <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="logo.jfif">
+  <link rel="apple-touch-startup-image" href="splash.png">
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/swiper@7/swiper-bundle.min.css"/>
+  <link href="css/templatemo-topic-listing.css" rel="stylesheet">
   <style>
     :root {
       --gold: #FFD700;
@@ -39,10 +37,20 @@
     .navbar-brand, .nav-link {
       color: var(--gold) !important;
       font-weight: 600;
+      text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
+    }
+    .navbar-brand img {
+      height: 36px;
+      width: 36px;
+      object-fit: contain;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+      border-radius: 8px;
+      filter: drop-shadow(0 0 6px var(--gold));
     }
     .main-content {
       padding-top: 90px;
-      padding-bottom: 30px;
+      padding-bottom: 35px;
       min-height: 100vh;
     }
     .centered-list {
@@ -54,6 +62,11 @@
       margin: auto;
       width: 90%;
       backdrop-filter: blur(8px);
+    }
+    h2 {
+      color: var(--gold);
+      text-align: center;
+      margin-bottom: 1.5rem;
     }
     .race-list {
       list-style: none;
@@ -112,6 +125,31 @@
       color: var(--gold);
       text-align: center;
     }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: var(--glass-bg);
+      border-top: 2px solid var(--gold);
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+      z-index: 1000;
+    }
+    .bottom-nav a {
+      color: var(--gold);
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .bottom-nav i {
+      font-size: 1.3rem;
+      margin-bottom: 0.25rem;
+    }
     @media (max-width: 576px) {
       h2, h3 {
         font-size: 1.3rem;
@@ -134,7 +172,23 @@
 <body>
   <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container">
-      <a class="navbar-brand" href="index.html">Mock Sports Tipping</a>
+      <a class="navbar-brand" href="index.html">
+        <img src="logo.jfif" alt="Logo">
+        Mock Sports Tipping
+      </a>
+      <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-lg-5 me-lg-auto">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="tip.html">Tip Now</a></li>
+          <li class="nav-item"><a class="nav-link" href="leaderboard.html">Leaderboard</a></li>
+          <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
+        </ul>
+        <div class="d-none d-lg-block" id="desktop-auth-btns"></div>
+      </div>
     </div>
   </nav>
 
@@ -155,183 +209,172 @@
       <div id="tip-message"></div>
     </div>
   </main>
-<div class="bottom-nav">
-    <a href="index.html">
-      <i class="bi bi-house-fill"></i>
-      Home
-    </a>
-    <a href="tip.html">
-      <i class="bi bi-check2-square"></i>
-      Tip
-    </a>
-    <a href="results.html">
-      <i class="bi bi-broadcast-pin"></i>
-      Results
-    </a>
-    <a href="leaderboard.html">
-      <i class="bi bi-graph-up-arrow"></i>
-      Ladder
-    </a>
+
+  <div class="bottom-nav">
+    <a href="index.html"><i class="bi bi-house-fill"></i>Home</a>
+    <a href="tip.html"><i class="bi bi-check2-square"></i>Tip</a>
+    <a href="results.html"><i class="bi bi-broadcast-pin"></i>Results</a>
+    <a href="leaderboard.html"><i class="bi bi-graph-up-arrow"></i>Ladder</a>
   </div>
-    <script src="js/bootstrap.bundle.min.js"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-            authDomain: "tmstipping.firebaseapp.com",
-            projectId: "tmstipping",
-            storageBucket: "tmstipping.appspot.com",
-            messagingSenderId: "401677933527",
-            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-            measurementId: "G-GXLRCHV687"
+
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const desktopAuthBtns = document.getElementById('desktop-auth-btns');
+    const mobileAuthBtns = document.getElementById('mobile-auth-btns');
+    function renderAuthButtons(user) {
+      let html = '';
+      if (user) {
+        html = `<button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>`;
+      } else {
+        html = `<a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+                <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>`;
+      }
+      desktopAuthBtns.innerHTML = html;
+      mobileAuthBtns.innerHTML = html;
+      if (user) {
+        document.getElementById('logout-btn').onclick = async () => {
+          await signOut(auth);
+          window.location.href = "login.html";
         };
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const desktopAuthBtns = document.getElementById('desktop-auth-btns');
-        const mobileAuthBtns = document.getElementById('mobile-auth-btns');
-        function renderAuthButtons(user) {
-            let html = '';
-            if (user) {
-                html = `<button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>`;
-            } else {
-                html = `<a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
-                        <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>`;
-            }
-            desktopAuthBtns.innerHTML = html;
-            mobileAuthBtns.innerHTML = html;
-            if (user) {
-                document.getElementById('logout-btn').onclick = async () => {
-                    await signOut(auth);
-                    window.location.href = "login.html";
-                };
-            }
-        }
-        onAuthStateChanged(auth, (user) => {
-            renderAuthButtons(user);
-        });
-    </script>
-    <script type="module">
-        import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+      }
+    }
+    onAuthStateChanged(auth, (user) => {
+      renderAuthButtons(user);
+    });
+  </script>
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-            authDomain: "tmstipping.firebaseapp.com",
-            projectId: "tmstipping",
-            storageBucket: "tmstipping.appspot.com",
-            messagingSenderId: "401677933527",
-            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-            measurementId: "G-GXLRCHV687"
+  <script type="module">
+    import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let racesCache = {};
+    let selectedRaceId = null;
+    let user = null;
+
+    onAuthStateChanged(auth, async (_user) => {
+      if (!_user) {
+        alert("You must be logged in.");
+        window.location.href = "index.html";
+        return;
+      }
+      user = _user;
+      await loadRaces();
+    });
+
+    async function loadRaces() {
+      const raceList = document.getElementById('race-list');
+      raceList.innerHTML = '';
+      const racesSnap = await getDocs(collection(db, "races"));
+      racesCache = {};
+      racesSnap.forEach(docSnap => {
+        const race = docSnap.data();
+        racesCache[docSnap.id] = race;
+        const li = document.createElement('li');
+        li.textContent = `${race.name} (${race.date})`;
+        li.dataset.raceId = docSnap.id;
+        li.onclick = () => selectRace(docSnap.id);
+        raceList.appendChild(li);
+      });
+      document.getElementById('race-list-section').style.display = '';
+      document.getElementById('race-card-section').style.display = 'none';
+    }
+
+    async function selectRace(raceId) {
+      selectedRaceId = raceId;
+      document.getElementById('race-list-section').style.display = 'none';
+      document.getElementById('race-card-section').style.display = '';
+      const raceDoc = await getDoc(doc(db, "races", raceId));
+      const race = raceDoc.data();
+      document.getElementById('selected-race-title').textContent = race.name;
+      document.getElementById('selected-race-date').textContent = "Date: " + race.date;
+
+      let tippedHorseId = null;
+      if (user) {
+        const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
+        if (tipDoc.exists()) {
+          tippedHorseId = tipDoc.data().horseId;
+        }
+      }
+      renderHorsesRadioList(race, raceId, tippedHorseId);
+      document.getElementById('tip-message').textContent = '';
+    }
+
+    document.getElementById('exit-race-btn').onclick = () => {
+      document.getElementById('race-list-section').style.display = '';
+      document.getElementById('race-card-section').style.display = 'none';
+      selectedRaceId = null;
+    };
+
+    function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
+      const horsesDiv = document.getElementById('horses-radio-list');
+      horsesDiv.innerHTML = '';
+      const horses = race.horses || {};
+      if (Object.keys(horses).length === 0) {
+        horsesDiv.innerHTML = '<div class="text-muted">No horses for this race.</div>';
+        document.getElementById('tip-form').style.display = 'none';
+        return;
+      }
+      document.getElementById('tip-form').style.display = '';
+      const sortedHorses = Object.entries(horses).sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
+      for (const [horseId, horseData] of sortedHorses) {
+        const row = document.createElement('div');
+        row.className = 'horse-row';
+        row.dataset.horseId = horseId;
+        row.textContent = `#${horseData.number} - ${horseData.name}`;
+        if (tippedHorseId && horseId === tippedHorseId) {
+          row.classList.add('selected');
+        }
+        row.onclick = () => {
+          document.querySelectorAll('.horse-row').forEach(el => el.classList.remove('selected'));
+          row.classList.add('selected');
         };
+        horsesDiv.appendChild(row);
+      }
+    }
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        let racesCache = {};
-        let selectedRaceId = null;
-        let user = null;
-
-        onAuthStateChanged(auth, async (_user) => {
-            if (!_user) {
-                alert("You must be logged in.");
-                window.location.href = "index.html";
-                return;
-            }
-            user = _user;
-            await loadRaces();
-        });
-
-        async function loadRaces() {
-            const raceList = document.getElementById('race-list');
-            raceList.innerHTML = '';
-            const racesSnap = await getDocs(collection(db, "races"));
-            racesCache = {};
-            racesSnap.forEach(docSnap => {
-                const race = docSnap.data();
-                racesCache[docSnap.id] = race;
-                const li = document.createElement('li');
-                li.textContent = `${race.name} (${race.date})`;
-                li.dataset.raceId = docSnap.id;
-                li.onclick = () => selectRace(docSnap.id);
-                raceList.appendChild(li);
-            });
-            document.getElementById('race-list-section').style.display = '';
-            document.getElementById('race-card-section').style.display = 'none';
-        }
-
-        async function selectRace(raceId) {
-            selectedRaceId = raceId;
-            document.getElementById('race-list-section').style.display = 'none';
-            document.getElementById('race-card-section').style.display = '';
-            const raceDoc = await getDoc(doc(db, "races", raceId));
-            const race = raceDoc.data();
-            document.getElementById('selected-race-title').textContent = race.name;
-            document.getElementById('selected-race-date').textContent = "Date: " + race.date;
-
-            let tippedHorseId = null;
-            if (user) {
-                const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
-                if (tipDoc.exists()) {
-                    tippedHorseId = tipDoc.data().horseId;
-                }
-            }
-            renderHorsesRadioList(race, raceId, tippedHorseId);
-            document.getElementById('tip-message').textContent = '';
-        }
-
-        document.getElementById('exit-race-btn').onclick = () => {
-            document.getElementById('race-list-section').style.display = '';
-            document.getElementById('race-card-section').style.display = 'none';
-            selectedRaceId = null;
-        };
-
-        function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
-            const horsesDiv = document.getElementById('horses-radio-list');
-            horsesDiv.innerHTML = '';
-            const horses = race.horses || {};
-            if (Object.keys(horses).length === 0) {
-                horsesDiv.innerHTML = '<div class="text-muted">No horses for this race.</div>';
-                document.getElementById('tip-form').style.display = 'none';
-                return;
-            }
-            document.getElementById('tip-form').style.display = '';
-            const sortedHorses = Object.entries(horses).sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
-            for (const [horseId, horseData] of sortedHorses) {
-                const row = document.createElement('div');
-                row.className = 'horse-row';
-                row.dataset.horseId = horseId;
-                row.textContent = `#${horseData.number} - ${horseData.name}`;
-                if (tippedHorseId && horseId === tippedHorseId) {
-                    row.classList.add('selected');
-                }
-                row.onclick = () => {
-                    document.querySelectorAll('.horse-row').forEach(el => el.classList.remove('selected'));
-                    row.classList.add('selected');
-                };
-                horsesDiv.appendChild(row);
-            }
-        }
-
-        document.getElementById('tip-form').onsubmit = async (e) => {
-            e.preventDefault();
-            if (!selectedRaceId || !user) return;
-            const selectedRow = document.querySelector('.horse-row.selected');
-            if (!selectedRow) {
-                alert("Please select a horse to tip.");
-                return;
-            }
-            const horseId = selectedRow.dataset.horseId;
-            await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
-                userId: user.uid,
-                raceId: selectedRaceId,
-                horseId: horseId,
-                timestamp: Date.now()
-            });
-            document.getElementById('tip-message').textContent = "Tip submitted!";
-        };
-    </script>
+    document.getElementById('tip-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (!selectedRaceId || !user) return;
+      const selectedRow = document.querySelector('.horse-row.selected');
+      if (!selectedRow) {
+        alert("Please select a horse to tip.");
+        return;
+      }
+      const horseId = selectedRow.dataset.horseId;
+      await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
+        userId: user.uid,
+        raceId: selectedRaceId,
+        horseId: horseId,
+        timestamp: Date.now()
+      });
+      document.getElementById('tip-message').textContent = "Tip submitted!";
+    };
+  </script>
 </body>
 </html>
