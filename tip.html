@@ -7,12 +7,18 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Icons & Styles -->
   <link rel="apple-touch-icon" href="logo.jfif">
   <link rel="apple-touch-startup-image" href="splash.png">
   <link href="css/bootstrap.min.css" rel="stylesheet">
   <link href="css/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/swiper@7/swiper-bundle.min.css"/>
   <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+
   <style>
     :root {
       --gold: #FFD700;
@@ -25,20 +31,29 @@
     html, body {
       margin: 0;
       padding: 0;
-      font-family: 'Montserrat', Arial, sans-serif;
+      font-family: 'Inter', sans-serif;
       background: linear-gradient(135deg, #181818 0%, #232526 100%);
       color: white;
       overflow-x: hidden;
     }
+
+    h1, h2, h3, h4, h5, h6,
+    .btn, .navbar-brand, .nav-link,
+    .race-list li, .horse-row {
+      font-family: 'Outfit', sans-serif;
+    }
+
     .navbar {
       background: var(--glass-bg);
       box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
     }
+
     .navbar-brand, .nav-link {
       color: var(--gold) !important;
       font-weight: 600;
       text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
     }
+
     .navbar-brand img {
       height: 36px;
       width: 36px;
@@ -48,11 +63,13 @@
       border-radius: 8px;
       filter: drop-shadow(0 0 6px var(--gold));
     }
+
     .main-content {
       padding-top: 90px;
       padding-bottom: 35px;
       min-height: 100vh;
     }
+
     .centered-list {
       background: var(--glass-bg);
       border-radius: 24px;
@@ -63,16 +80,19 @@
       width: 90%;
       backdrop-filter: blur(8px);
     }
+
     h2 {
       color: var(--gold);
       text-align: center;
       margin-bottom: 1.5rem;
     }
+
     .race-list {
       list-style: none;
       padding: 0;
       margin: 0;
     }
+
     .race-list li {
       cursor: pointer;
       padding: 1rem;
@@ -87,16 +107,19 @@
       word-wrap: break-word;
       overflow-wrap: break-word;
     }
+
     .race-list li:hover, .race-list li.selected {
       background: linear-gradient(90deg, var(--gold), #fffbe6);
       color: var(--black);
     }
+
     .race-list li.tipped {
       opacity: 0.5;
       background: rgba(255, 255, 255, 0.08);
       color: #ccc;
       font-weight: 400;
     }
+
     .horse-row {
       margin-bottom: 1rem;
       background: rgba(255,255,255,0.04);
@@ -107,10 +130,12 @@
       cursor: pointer;
       word-wrap: break-word;
     }
+
     .horse-row:hover, .horse-row.selected {
       background: linear-gradient(90deg, var(--gold), #fffbe6);
       color: var(--black);
     }
+
     .btn-success {
       background: linear-gradient(90deg, var(--gold), #fffbe6);
       color: var(--black);
@@ -120,11 +145,13 @@
       padding: 0.6rem 1.2rem;
       width: 100%;
     }
+
     #tip-message {
       margin-top: 1rem;
       color: var(--gold);
       text-align: center;
     }
+
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -136,6 +163,7 @@
       padding: 0.5rem 0;
       z-index: 1000;
     }
+
     .bottom-nav a {
       color: var(--gold);
       text-align: center;
@@ -146,10 +174,12 @@
       flex-direction: column;
       align-items: center;
     }
+
     .bottom-nav i {
       font-size: 1.3rem;
       margin-bottom: 0.25rem;
     }
+
     @media (max-width: 576px) {
       h2, h3 {
         font-size: 1.3rem;
