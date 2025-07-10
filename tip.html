@@ -111,38 +111,20 @@
             background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%);
             color: #181818;
         }
-        .race-card {
-            position: relative;
-        }
-        .race-card h4 {
-            margin-bottom: 0.5rem;
-        }
-        .race-card .mb-3, .race-card #selected-race-date {
-            color: #fffbe6;
-            font-size: 1.05rem;
-            margin-bottom: 1.2rem;
-            text-align: center;
-        }
         .horse-row {
             margin-bottom: 1rem;
             background: rgba(255,255,255,0.04);
-            border-radius: 8px;
-            padding: 0.5rem 0.75rem;
-            display: flex;
-            align-items: center;
-            transition: background 0.2s;
-        }
-        .form-check-input {
-            accent-color: var(--gold);
-            margin-right: 0.7rem;
-            width: 1.2em;
-            height: 1.2em;
-        }
-        .form-check-label {
-            color: var(--gold);
+            border-radius: 12px;
+            padding: 1rem;
             font-weight: 600;
-            font-size: 1.08rem;
-            letter-spacing: 0.5px;
+            color: var(--gold);
+            cursor: pointer;
+            transition: box-shadow 0.2s, background 0.2s, color 0.2s;
+        }
+        .horse-row:hover, .horse-row.selected {
+            box-shadow: 0 2px 12px 0 var(--gold);
+            background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%);
+            color: #181818;
         }
         .exit-btn {
             position: absolute;
@@ -160,16 +142,15 @@
             background: var(--gold);
             color: #181818;
         }
-        .btn-success, .btn-success.mt-2 {
+        .btn-success {
             background: linear-gradient(90deg, var(--gold) 0%, #fffbe6 100%) !important;
             color: #181818 !important;
             font-weight: 700;
             border: none;
             border-radius: 8px;
             box-shadow: 0 2px 12px 0 rgba(255,215,0,0.08);
-            transition: background 0.2s, color 0.2s, box-shadow 0.2s;
         }
-        .btn-success:hover, .btn-success.mt-2:hover {
+        .btn-success:hover {
             background: linear-gradient(90deg, #fffbe6 0%, var(--gold) 100%) !important;
             color: #000 !important;
             box-shadow: 0 4px 24px 0 rgba(255,215,0,0.25);
@@ -182,7 +163,6 @@
             min-height: 24px;
             letter-spacing: 0.5px;
             text-shadow: 0 1px 2px #000;
-            transition: opacity 0.3s;
         }
         @media (max-width: 600px) {
             .race-card, .centered-list {
@@ -206,7 +186,7 @@
                     <span>Mock Sports Tipping</span>
                 </a>
                 <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="collapse navbar-collapse" id="navbarNav">
@@ -242,6 +222,7 @@
             </div>
         </div>
     </main>
+
     <script src="js/bootstrap.bundle.min.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
@@ -262,14 +243,10 @@
         function renderAuthButtons(user) {
             let html = '';
             if (user) {
-                html = `
-                    
-                `;
+                html = `<button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>`;
             } else {
-                html = `
-                    <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
-                    <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
-                `;
+                html = `<a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+                        <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>`;
             }
             desktopAuthBtns.innerHTML = html;
             mobileAuthBtns.innerHTML = html;
@@ -288,6 +265,7 @@
         import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+
         const firebaseConfig = {
             apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
             authDomain: "tmstipping.firebaseapp.com",
@@ -297,6 +275,7 @@
             appId: "1:401677933527:web:2312ad4ef69aef6551c992",
             measurementId: "G-GXLRCHV687"
         };
+
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
@@ -329,7 +308,6 @@
                 li.onclick = () => selectRace(docSnap.id);
                 raceList.appendChild(li);
             });
-            // Show race list, hide race card
             document.getElementById('race-list-section').style.display = '';
             document.getElementById('race-card-section').style.display = 'none';
         }
@@ -342,7 +320,7 @@
             const race = raceDoc.data();
             document.getElementById('selected-race-title').textContent = race.name;
             document.getElementById('selected-race-date').textContent = "Date: " + race.date;
-            // Fetch user's tip for this race
+
             let tippedHorseId = null;
             if (user) {
                 const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
@@ -370,40 +348,36 @@
                 return;
             }
             document.getElementById('tip-form').style.display = '';
-            // Sort horses by number
-            const sortedHorses = Object.entries(horses).sort(
-                (a, b) => (a[1].number || 0) - (b[1].number || 0)
-            );
+            const sortedHorses = Object.entries(horses).sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
             for (const [horseId, horseData] of sortedHorses) {
                 const row = document.createElement('div');
-                row.className = 'horse-row form-check';
-                row.innerHTML = `
-                    <input class="form-check-input" type="radio" name="horse" id="horse-${horseId}" value="${horseId}">
-                    <label class="form-check-label" for="horse-${horseId}">
-                        #${horseData.number} - ${horseData.name}
-                    </label>
-                `;
-                horsesDiv.appendChild(row);
-                // Pre-select if this is the tipped horse
+                row.className = 'horse-row';
+                row.dataset.horseId = horseId;
+                row.textContent = `#${horseData.number} - ${horseData.name}`;
                 if (tippedHorseId && horseId === tippedHorseId) {
-                    row.querySelector('input').checked = true;
+                    row.classList.add('selected');
                 }
+                row.onclick = () => {
+                    document.querySelectorAll('.horse-row').forEach(el => el.classList.remove('selected'));
+                    row.classList.add('selected');
+                };
+                horsesDiv.appendChild(row);
             }
         }
 
         document.getElementById('tip-form').onsubmit = async (e) => {
             e.preventDefault();
             if (!selectedRaceId || !user) return;
-            const horseId = document.querySelector('input[name="horse"]:checked');
-            if (!horseId) {
+            const selectedRow = document.querySelector('.horse-row.selected');
+            if (!selectedRow) {
                 alert("Please select a horse to tip.");
                 return;
             }
-            // Save tip: tips/{user.uid}_${selectedRaceId}
+            const horseId = selectedRow.dataset.horseId;
             await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
                 userId: user.uid,
                 raceId: selectedRaceId,
-                horseId: horseId.value,
+                horseId: horseId,
                 timestamp: Date.now()
             });
             document.getElementById('tip-message').textContent = "Tip submitted!";
