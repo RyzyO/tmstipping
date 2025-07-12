@@ -49,97 +49,96 @@
         <!-- ...footer if desired... -->
     </main>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, getDoc, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-            authDomain: "tmstipping.firebaseapp.com",
-            projectId: "tmstipping",
-            storageBucket: "tmstipping.appspot.com",
-            messagingSenderId: "401677933527",
-            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-            measurementId: "G-GXLRCHV687"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
-        // Calculate leaderboard
-        async function calculateLeaderboard() {
-            // 1. Get all results (races with winners)
-            const resultsSnap = await getDocs(collection(db, "results"));
-            const raceWinners = {};
-            resultsSnap.forEach(docSnap => {
-                const data = docSnap.data();
-                if (data.winningHorseId && data.points) {
-                    raceWinners[docSnap.id] = { horseId: data.winningHorseId, points: data.points };
-                }
-            });
+  const firebaseConfig = {
+    apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+    authDomain: "tmstipping.firebaseapp.com",
+    projectId: "tmstipping",
+    storageBucket: "tmstipping.appspot.com",
+    messagingSenderId: "401677933527",
+    appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+    measurementId: "G-GXLRCHV687"
+  };
 
-            // 2. Get all tips
-            const tipsSnap = await getDocs(collection(db, "tips"));
-            const userPoints = {};
-            const userNames = {};
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
 
-            // 3. For each tip, if matches winner, add points
-            for (const tipDoc of tipsSnap.docs) {
-                const tip = tipDoc.data();
-                const raceId = tip.raceId;
-                const userId = tip.userId;
-                // Try to get teamName from the user's Firestore profile if not present in tip
-                if (tip.teamName) {
-                    userNames[userId] = tip.teamName;
-                } else {
-                    // Try to get from Firestore users collection
-                    try {
-                        const userDoc = await getDoc(doc(db, "users", userId));
-                        if (userDoc.exists() && userDoc.data().teamName) {
-                            userNames[userId] = userDoc.data().teamName;
-                        } else {
-                            userNames[userId] = tip.displayName || tip.email || userId;
-                        }
-                    } catch {
-                        userNames[userId] = tip.displayName || tip.email || userId;
-                    }
-                }
-                if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
-                    userPoints[userId] = (userPoints[userId] || 0) + raceWinners[raceId].points;
-                }
-                if (!(userId in userPoints)) userPoints[userId] = 0;
-            }
+  async function calculateLeaderboard() {
+    const userPoints = {};
+    const userNames = {};
 
-            // 4. Optionally, update leaderboard collection in Firestore
-            for (const [userId, points] of Object.entries(userPoints)) {
-                await setDoc(doc(db, "leaderboard", userId), { userId, points });
-            }
+    // Step 1: Load all users and initialize to 0 points
+    const usersSnap = await getDocs(collection(db, "users"));
+    usersSnap.forEach(docSnap => {
+      const data = docSnap.data();
+      const userId = docSnap.id;
+      userPoints[userId] = 0;
+      userNames[userId] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || userId;
+    });
 
-            // 5. Display leaderboard
-            renderLeaderboard(userPoints, userNames);
-        }
+    // Step 2: Load results (winners)
+    const resultsSnap = await getDocs(collection(db, "results"));
+    const raceWinners = {};
+    resultsSnap.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.winningHorseId && data.points) {
+        raceWinners[docSnap.id] = { horseId: data.winningHorseId, points: data.points };
+      }
+    });
 
-        function renderLeaderboard(userPoints, userNames) {
-            const tbody = document.getElementById('leaderboard-table-body');
-            tbody.innerHTML = '';
-            // Sort by points descending
-            const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
-            for (const [userId, points] of sorted) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${userNames[userId] || userId}</td>
-                    <td>${points}</td>
-                `;
-                tbody.appendChild(tr);
-            }
-        }
+    // Step 3: Load all tips and match to winners
+    const tipsSnap = await getDocs(collection(db, "tips"));
+    for (const tipDoc of tipsSnap.docs) {
+      const tip = tipDoc.data();
+      const raceId = tip.raceId;
+      const userId = tip.userId;
 
-        // Optionally, show auth user in navbar
-        onAuthStateChanged(auth, (user) => {
-            // ...existing code for navbar auth buttons...
-        });
+      // Fallback if user wasn't in users collection
+      if (!(userId in userPoints)) {
+        userPoints[userId] = 0;
+        userNames[userId] = tip.teamName || tip.displayName || tip.email || userId;
+      }
 
-        calculateLeaderboard();
-    </script>
+      if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
+        userPoints[userId] += raceWinners[raceId].points;
+      }
+    }
+
+    // Step 4: (Optional) Update leaderboard collection
+    for (const [userId, points] of Object.entries(userPoints)) {
+      await setDoc(doc(db, "leaderboard", userId), { userId, points });
+    }
+
+    // Step 5: Render
+    renderLeaderboard(userPoints, userNames);
+  }
+
+  function renderLeaderboard(userPoints, userNames) {
+    const tbody = document.getElementById('leaderboard-table-body');
+    tbody.innerHTML = '';
+
+    const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
+
+    for (const [userId, points] of sorted) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${userNames[userId] || userId}</td>
+        <td>${points}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  onAuthStateChanged(auth, (user) => {
+    // Optional: display login/logout buttons or current user info
+  });
+
+  calculateLeaderboard();
+</script>
 </body>
 </html>
 </html>
