@@ -51,6 +51,7 @@
             <ul id="race-list" class="race-list"></ul>
         </div>
     </div>
+
     <!-- Winner points modal -->
     <div class="modal" tabindex="-1" id="winnerModal" style="display:none; background:rgba(0,0,0,0.5); position:fixed; top:0; left:0; width:100vw; height:100vh; align-items:center; justify-content:center;">
         <div class="modal-dialog" style="background:#fff; padding:2rem; border-radius:8px;">
@@ -60,9 +61,13 @@
             <button class="btn btn-link" id="cancelWinnerPoints">Cancel</button>
         </div>
     </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, doc, setDoc, getDocs, getDoc, updateDoc, deleteField, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import {
+            getFirestore, collection, addDoc, doc, setDoc, getDocs,
+            getDoc, updateDoc, deleteField, deleteDoc, writeBatch
+        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
         import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
@@ -81,7 +86,6 @@
         const auth = getAuth(app);
         const rtdb = getDatabase(app);
 
-        // --- Admin check ---
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 alert("You must be logged in."); window.location.href = "index.html"; return;
@@ -93,12 +97,10 @@
             }
         });
 
-        // --- UI State ---
         let racesCache = {};
         let selectedRaceId = null;
         let winnerHorseId = null;
 
-        // --- New Race Modal Logic ---
         document.getElementById('new-race-btn').onclick = () => {
             document.getElementById('race-form-section').style.display = '';
             document.getElementById('race-details-section').style.display = 'none';
@@ -149,7 +151,6 @@
             await loadRaces();
         };
 
-        // --- Sidebar and Race Selection ---
         async function loadRaces() {
             const raceList = document.getElementById('race-list');
             raceList.innerHTML = '';
@@ -198,16 +199,13 @@
                     <button class="btn btn-secondary btn-sm save-horse-row">Save</button>
                     <span class="points-label"></span>
                 `;
-                // Winner
                 row.querySelector('.winner-btn').onclick = () => showWinnerModal(horseId, raceId);
-                // Remove
                 row.querySelector('.remove-horse-row').onclick = async () => {
                     if (!confirm("Remove this horse?")) return;
                     const raceRef = doc(db, "races", raceId);
                     await updateDoc(raceRef, { [`horses.${horseId}`]: deleteField() });
                     await selectRace(raceId);
                 };
-                // Save
                 row.querySelector('.save-horse-row').onclick = async () => {
                     const name = row.querySelectorAll('input')[0].value.trim();
                     const number = row.querySelectorAll('input')[1].value.trim();
@@ -216,7 +214,6 @@
                     await updateDoc(raceRef, { [`horses.${horseId}`]: { name, number } });
                     alert("Horse updated!");
                 };
-                // Show points if winner
                 getDoc(doc(db, "results", raceId)).then(resultDoc => {
                     if (resultDoc.exists()) {
                         const result = resultDoc.data();
@@ -244,7 +241,6 @@
             await selectRace(selectedRaceId);
         };
 
-        // --- Winner Modal Logic ---
         function showWinnerModal(horseId, raceId) {
             winnerHorseId = horseId;
             document.getElementById('winnerModal').style.display = 'flex';
@@ -253,6 +249,10 @@
                 const points = parseInt(document.getElementById('winnerPoints').value, 10);
                 if (isNaN(points)) { alert("Enter points."); return; }
                 await setDoc(doc(db, "results", raceId), { winningHorseId: horseId, points });
+
+                // ✅ Trigger leaderboard update
+                await calculateAndSaveLeaderboard();
+
                 document.getElementById('winnerModal').style.display = 'none';
                 await selectRace(raceId);
             };
@@ -261,7 +261,51 @@
             };
         }
 
-        // --- Initial load ---
+        async function calculateAndSaveLeaderboard() {
+            const userPoints = {};
+            const userNames = {};
+
+            const usersSnap = await getDocs(collection(db, "users"));
+            usersSnap.forEach(doc => {
+                const data = doc.data();
+                userPoints[doc.id] = 0;
+                userNames[doc.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || doc.id;
+            });
+
+            const resultsSnap = await getDocs(collection(db, "results"));
+            const raceWinners = {};
+            resultsSnap.forEach(doc => {
+                const data = doc.data();
+                if (data.winningHorseId && data.points) {
+                    raceWinners[doc.id] = { horseId: data.winningHorseId, points: data.points };
+                }
+            });
+
+            const tipsSnap = await getDocs(collection(db, "tips"));
+            tipsSnap.forEach(doc => {
+                const tip = doc.data();
+                const raceId = tip.raceId;
+                const userId = tip.userId;
+                if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
+                    userPoints[userId] += raceWinners[raceId].points;
+                }
+            });
+
+            const leaderboardRef = collection(db, "leaderboard");
+            const batch = writeBatch(db);
+
+            Object.entries(userPoints).forEach(([userId, points]) => {
+                batch.set(doc(leaderboardRef, userId), {
+                    userId,
+                    teamName: userNames[userId],
+                    points
+                });
+            });
+
+            await batch.commit();
+            console.log("Leaderboard updated.");
+        }
+
         loadRaces();
     </script>
 </body>

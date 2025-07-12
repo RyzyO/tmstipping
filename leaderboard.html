@@ -164,7 +164,7 @@
         <div class="d-none d-lg-block" id="desktop-auth-btns"></div>
       </div>
     </div>
-  </nav>
+  </nav> 
 
   <main class="container">
     <h2>Leaderboard</h2>
@@ -203,133 +203,98 @@
   </div>
 
   <script src="js/bootstrap.bundle.min.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+ <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+    authDomain: "tmstipping.firebaseapp.com",
+    projectId: "tmstipping",
+    storageBucket: "tmstipping.appspot.com",
+    messagingSenderId: "401677933527",
+    appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+    measurementId: "G-GXLRCHV687"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
 
-    const desktopAuthBtns = document.getElementById('desktop-auth-btns');
-    const mobileAuthBtns = document.getElementById('mobile-auth-btns');
+  const desktopAuthBtns = document.getElementById('desktop-auth-btns');
+  const mobileAuthBtns = document.getElementById('mobile-auth-btns');
 
-    let currentUserTeamName = null;
+  let currentUserTeamName = null;
 
-    function renderAuthButtons(user) {
-      let html = '';
-      if (user) {
-        html = `
-          <span class="me-3">Hi, ${user.displayName || user.email}</span>
-          <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
-        `;
-      } else {
-        html = `
-          <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
-          <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
-        `;
-      }
-      desktopAuthBtns.innerHTML = html;
-      mobileAuthBtns.innerHTML = html;
-
-      if (user) {
-        document.getElementById('logout-btn').onclick = async () => {
-          await signOut(auth);
-          window.location.href = "login.html";
-        };
-      }
+  function renderAuthButtons(user) {
+    let html = '';
+    if (user) {
+      html = `
+        <span class="me-3">Hi, ${user.displayName || user.email}</span>
+        <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
+      `;
+    } else {
+      html = `
+        <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+        <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
+      `;
     }
+    desktopAuthBtns.innerHTML = html;
+    mobileAuthBtns.innerHTML = html;
 
-    onAuthStateChanged(auth, async (user) => {
-      renderAuthButtons(user);
-      if (user) {
-        const userSnap = await getDocs(collection(db, "users"));
-        userSnap.forEach(docSnap => {
-          if (docSnap.id === user.uid) {
-            const data = docSnap.data();
-            currentUserTeamName = data.teamName || null;
-          }
-        });
-      }
-      calculateLeaderboard();
+    if (user) {
+      document.getElementById('logout-btn').onclick = async () => {
+        await signOut(auth);
+        window.location.href = "login.html";
+      };
+    }
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    renderAuthButtons(user);
+    if (user) {
+      const userSnap = await getDocs(collection(db, "users"));
+      userSnap.forEach(docSnap => {
+        if (docSnap.id === user.uid) {
+          const data = docSnap.data();
+          currentUserTeamName = data.teamName || null;
+        }
+      });
+    }
+    loadLeaderboard();
+  });
+
+  async function loadLeaderboard() {
+    const snapshot = await getDocs(collection(db, "leaderboard"));
+    const leaderboard = [];
+
+    snapshot.forEach(doc => {
+      leaderboard.push({ id: doc.id, ...doc.data() });
     });
 
-    async function calculateLeaderboard() {
-      const userPoints = {};
-      const userNames = {};
+    leaderboard.sort((a, b) => b.points - a.points);
 
-      const usersSnap = await getDocs(collection(db, "users"));
-      usersSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        const userId = docSnap.id;
-        userPoints[userId] = 0;
-        userNames[userId] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || userId;
-      });
+    const tbody = document.getElementById('leaderboard-table-body');
+    tbody.innerHTML = '';
+    let rank = 1;
 
-      const resultsSnap = await getDocs(collection(db, "results"));
-      const raceWinners = {};
-      resultsSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.winningHorseId && data.points) {
-          raceWinners[docSnap.id] = { horseId: data.winningHorseId, points: data.points };
-        }
-      });
-
-      const tipsSnap = await getDocs(collection(db, "tips"));
-      for (const tipDoc of tipsSnap.docs) {
-        const tip = tipDoc.data();
-        const raceId = tip.raceId;
-        const userId = tip.userId;
-
-        if (!(userId in userPoints)) {
-          userPoints[userId] = 0;
-          userNames[userId] = tip.teamName || tip.displayName || tip.email || userId;
-        }
-
-        if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
-          userPoints[userId] += raceWinners[raceId].points;
-        }
+    for (const entry of leaderboard) {
+      const tr = document.createElement('tr');
+      if (entry.teamName === currentUserTeamName) {
+        tr.style.fontWeight = 'bold';
+        tr.style.backgroundColor = 'rgba(255, 215, 0, 0.15)';
       }
-
-      for (const [userId, points] of Object.entries(userPoints)) {
-        await setDoc(doc(db, "leaderboard", userId), { userId, points });
-      }
-
-      renderLeaderboard(userPoints, userNames);
+      tr.innerHTML = `
+        <td>${rank}</td>
+        <td>${entry.teamName || entry.userId}</td>
+        <td>${entry.points}</td>
+      `;
+      tbody.appendChild(tr);
+      rank++;
     }
+  }
+</script>
 
-    function renderLeaderboard(userPoints, userNames) {
-      const tbody = document.getElementById('leaderboard-table-body');
-      tbody.innerHTML = '';
-      const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
-      let rank = 1;
-      for (const [userId, points] of sorted) {
-        const teamName = userNames[userId] || userId;
-        const tr = document.createElement('tr');
-        if (teamName === currentUserTeamName) {
-          tr.style.fontWeight = 'bold';
-          tr.style.backgroundColor = 'rgba(255, 215, 0, 0.15)';
-        }
-        tr.innerHTML = `
-          <td>${rank}</td>
-          <td>${teamName}</td>
-          <td>${points}</td>
-        `;
-        tbody.appendChild(tr);
-        rank++;
-      }
-    }
-  </script>
 </body>
 </html>
