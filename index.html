@@ -264,7 +264,7 @@
               <div class="gold-line"></div>
               <h1 id="welcome-message">Welcome to Mock Sports Tipping</h1>
               <h6>Compete, predict, and have fun with friends!</h6>
-              <a href="tip.html" class="btn btn-success btn-lg">Tip Now</a>
+              <a id="tip-now-btn" href="tip.html" class="btn btn-success btn-lg">Tip Now</a>
             </div>
           </div>
         </div>
@@ -379,8 +379,15 @@
     onAuthStateChanged(auth, async (user) => {
       renderAuthButtons(user);
       welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to Mock Sports Tipping";
+
+    const tipNowBtn = document.getElementById('tip-now-btn');
+    if (tipNowBtn) {
+      tipNowBtn.href = user ? "tip.html" : "login.html";
+    }
+
+
       if (user) loadTeamRank(user);
-      
+
       const teamBox = document.getElementById('team-box');
       if (user) {
         teamBox.style.display = "block";
