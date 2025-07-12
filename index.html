@@ -269,19 +269,20 @@
           </div>
         </div>
       </div>
-       <div class="container">
-        <div class="row">
-          <div class="col-lg-8 col-12 mx-auto">
-            <div class="hero-card">
-              <div class="gold-line"></div>
-              <h1>Your Team</h1>
-              <h6><strong>Name:</strong> <span id="team-name">Loading...</span></h6>
-              <h6><strong>Current Rank:</strong> <span id="team-rank">...</span></h6>
-              <a href="leaderboard.html" class="btn btn-success btn-lg">View Full Leaderboard</a>
-            </div>
-          </div>
-        </div>
+      <div class="container" id="team-box" style="display: none;">
+  <div class="row">
+    <div class="col-lg-8 col-12 mx-auto">
+      <div class="hero-card">
+        <div class="gold-line"></div>
+        <h1>Your Team</h1>
+        <h6><strong>Name:</strong> <span id="team-name">Loading...</span></h6>
+        <h6><strong>Current Rank:</strong> <span id="team-rank">...</span></h6>
+        <a href="leaderboard.html" class="btn btn-success btn-lg">View Full Leaderboard</a>
       </div>
+    </div>
+  </div>
+</div>
+
     </section>
   </main>
     
@@ -379,6 +380,16 @@
       renderAuthButtons(user);
       welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to Mock Sports Tipping";
       if (user) loadTeamRank(user);
+      
+      const teamBox = document.getElementById('team-box');
+      if (user) {
+        teamBox.style.display = "block";
+        loadTeamRank(user);
+      } else {
+        teamBox.style.display = "none";
+      }
+
+
     });
   </script>
 </body>
