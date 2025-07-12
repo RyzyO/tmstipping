@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Results - Mock Sports Tipping</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+  <link href="navbar.css" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #181818 0%, #232526 100%);
+      color: white;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+    }
+    .navbar {
+      background: rgba(24,24,24,0.85);
+      box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px #FFD700;
+    }
+    .navbar-brand, .nav-link {
+      color: #FFD700 !important;
+      font-weight: 600;
+    }
+    .main-content {
+      padding-top: 90px;
+      padding-bottom: 35px;
+    }
+    .centered-list {
+      max-width: 700px;
+      margin: auto;
+      background: rgba(24,24,24,0.85);
+      padding: 2rem;
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px #FFD700;
+    }
+    h2 {
+      text-align: center;
+      color: #FFD700;
+      margin-bottom: 2rem;
+    }
+    .date-button {
+      display: block;
+      margin: 0.5rem auto;
+      padding: 0.5rem 1rem;
+      background: #FFD700;
+      color: #181818;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+    .race-result {
+      border-radius: 12px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    .race-result.correct {
+      background: linear-gradient(to right, #28a745, #c2f0c2);
+      color: #000;
+    }
+    .race-result.incorrect {
+      background: linear-gradient(to right, #dc3545, #f5b7b7);
+      color: #000;
+    }
+    .race-name {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+    .result-details {
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: rgba(24,24,24,0.85);
+      border-top: 2px solid #FFD700;
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+    }
+    .bottom-nav a {
+      color: #FFD700;
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .bottom-nav i {
+      font-size: 1.3rem;
+      margin-bottom: 0.25rem;
+    }
+
+.points-earned {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #155724;
+  background: #c2f0c2;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">
+        <img src="logo.jfif" alt="Logo" style="height:36px; width:36px; margin-right:0.5rem; border-radius:8px;">
+        Mock Sports Tipping
+      </a>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="centered-list">
+      <h2>Select a Date</h2>
+      <div id="date-list"></div>
+      <div id="results-container" style="margin-top: 2rem;"></div>
+    </div>
+  </main>
+
+  <div class="bottom-nav">
+    <a href="index.html">
+      <i class="bi bi-house-fill"></i> Home
+    </a>
+    <a href="tip.html">
+      <i class="bi bi-check2-square"></i> Tip
+    </a>
+    <a href="results.html">
+      <i class="bi bi-broadcast-pin"></i> Results
+    </a>
+    <a href="leaderboard.html">
+      <i class="bi bi-graph-up-arrow"></i> Ladder
+    </a>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let user = null;
+
+    onAuthStateChanged(auth, async (_user) => {
+      if (!_user) {
+        alert("You must be logged in.");
+        window.location.href = "index.html";
+        return;
+      }
+      user = _user;
+      loadDates();
+    });
+
+    async function loadDates() {
+      const raceSnap = await getDocs(collection(db, "races"));
+      const dateSet = new Set();
+      raceSnap.forEach(doc => {
+        const race = doc.data();
+        if (race.date) dateSet.add(race.date);
+      });
+      const dateList = document.getElementById("date-list");
+      [...dateSet].sort().forEach(date => {
+        const btn = document.createElement("button");
+        btn.className = "date-button";
+        btn.textContent = date;
+        btn.onclick = () => loadResultsForDate(date);
+        dateList.appendChild(btn);
+      });
+    }
+
+  async function loadResultsForDate(date) {
+  const resultsContainer = document.getElementById("results-container");
+  resultsContainer.innerHTML = "";
+
+  const raceSnap = await getDocs(collection(db, "races"));
+  const races = [];
+  raceSnap.forEach(doc => {
+    const race = { id: doc.id, ...doc.data() };
+    if (race.date === date) races.push(race);
+  });
+
+  for (const race of races) {
+    const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${race.id}`));
+    const tippedHorseId = tipDoc.exists() ? tipDoc.data().horseId : null;
+
+    const resultDoc = await getDoc(doc(db, "results", race.id));
+    const resultData = resultDoc.exists() ? resultDoc.data() : {};
+    const winningHorseId = resultData.winningHorseId || null;
+    const points = resultData.points || 0;
+
+    const tippedHorseName = tippedHorseId && race.horses?.[tippedHorseId]?.name;
+    const winnerHorseName = winningHorseId && race.horses?.[winningHorseId]?.name;
+
+    const correct = tippedHorseId && winningHorseId && tippedHorseId === winningHorseId;
+
+    const raceDiv = document.createElement("div");
+    raceDiv.className = `race-result ${correct ? "correct" : "incorrect"}`;
+
+    raceDiv.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div class="race-name">${race.name}</div>
+          <div class="result-details">
+            Tipped: <strong>${tippedHorseName || "No tip"}</strong><br>
+            Winner: <strong>${winnerHorseName || "Not set"}</strong>
+          </div>
+        </div>
+        ${correct ? `<div class="points-earned">+${points}</div>` : ""}
+      </div>
+    `;
+
+    resultsContainer.appendChild(raceDiv);
+  }
+}
+
+
+  </script>
+</body>
+</html>
