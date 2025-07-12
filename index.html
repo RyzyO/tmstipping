@@ -1,15 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <title>Leaderboard - Mock Sports Tipping</title>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TMS Tipping</title>
 
   <!-- Google Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Web app meta -->
+  <link rel="manifest" href="site.webmanifest" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
   <!-- Icons & Styles -->
   <link rel="apple-touch-icon" href="logo.jfif">
@@ -17,155 +20,256 @@
   <link href="css/bootstrap.min.css" rel="stylesheet">
   <link href="css/bootstrap-icons.css" rel="stylesheet">
   <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+     <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16_Pro_Max_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16_Pro_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16_Plus__iPhone_15_Pro_Max__iPhone_15_Plus__iPhone_14_Pro_Max_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16__iPhone_15_Pro__iPhone_15__iPhone_14_Pro_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_14_Plus__iPhone_13_Pro_Max__iPhone_12_Pro_Max_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16e__iPhone_14__iPhone_13_Pro__iPhone_13__iPhone_12_Pro__iPhone_12_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_13_mini__iPhone_12_mini__iPhone_11_Pro__iPhone_XS__iPhone_X_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_11_Pro_Max__iPhone_XS_Max_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/iPhone_11__iPhone_XR_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_8_Plus__iPhone_7_Plus__iPhone_6s_Plus__iPhone_6_Plus_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/iPhone_8__iPhone_7__iPhone_6s__iPhone_6__4.7__iPhone_SE_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/4__iPhone_SE__iPod_touch_5th_generation_and_later_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 1032px) and (device-height: 1376px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/13__iPad_Pro_M4_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/12.9__iPad_Pro_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1210px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/11__iPad_Pro_M4_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/11__iPad_Pro__10.5__iPad_Pro_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/10.9__iPad_Air_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/10.5__iPad_Air_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/10.2__iPad_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/9.7__iPad_Pro__7.9__iPad_mini__9.7__iPad_Air__9.7__iPad_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="splash_screens/8.3__iPad_Mini_landscape.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_16_Pro_Max_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_16_Pro_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_16_Plus__iPhone_15_Pro_Max__iPhone_15_Plus__iPhone_14_Pro_Max_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_16__iPhone_15_Pro__iPhone_15__iPhone_14_Pro_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_14_Plus__iPhone_13_Pro_Max__iPhone_12_Pro_Max_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_16e__iPhone_14__iPhone_13_Pro__iPhone_13__iPhone_12_Pro__iPhone_12_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_13_mini__iPhone_12_mini__iPhone_11_Pro__iPhone_XS__iPhone_X_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_11_Pro_Max__iPhone_XS_Max_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/iPhone_11__iPhone_XR_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash_screens/iPhone_8_Plus__iPhone_7_Plus__iPhone_6s_Plus__iPhone_6_Plus_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/iPhone_8__iPhone_7__iPhone_6s__iPhone_6__4.7__iPhone_SE_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/4__iPhone_SE__iPod_touch_5th_generation_and_later_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 1032px) and (device-height: 1376px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/13__iPad_Pro_M4_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/12.9__iPad_Pro_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1210px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/11__iPad_Pro_M4_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/11__iPad_Pro__10.5__iPad_Pro_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/10.9__iPad_Air_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/10.5__iPad_Air_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/10.2__iPad_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/9.7__iPad_Pro__7.9__iPad_mini__9.7__iPad_Air__9.7__iPad_portrait.png">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/8.3__iPad_Mini_portrait.png">
+
+
 
   <style>
     :root {
       --gold: #FFD700;
-      --glass-bg: rgba(24,24,24,0.85);
+      --gold-dark: #bfa100;
       --black: #181818;
+      --glass-bg: rgba(24,24,24,0.85);
     }
-
     html, body {
+      height: 100%;
       margin: 0;
       padding: 0;
+      color: #fff;
       font-family: 'Inter', sans-serif;
       background: linear-gradient(135deg, #181818 0%, #232526 100%);
-      color: white;
     }
-
+    h1, h2, h3, h4, h5, h6, .navbar-brand, .btn {
+      font-family: 'Outfit', sans-serif;
+    }
     .navbar {
-      background: var(--glass-bg);
+      background: var(--glass-bg) !important;
       box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
     }
-
-    .navbar-brand, .nav-link {
+    .navbar-brand, .navbar-nav .nav-link {
       color: var(--gold) !important;
       font-weight: 600;
-      font-family: 'Outfit', sans-serif;
+      padding-bottom: 35px;
+      letter-spacing: 0.5px;
       text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
     }
-
-    .navbar-brand img {
-      height: 36px;
-      width: 36px;
-      object-fit: contain;
-      vertical-align: middle;
+    .navbar-brand i {
+      color: var(--gold);
       margin-right: 0.5rem;
-      border-radius: 8px;
-      filter: drop-shadow(0 0 6px var(--gold));
-    }
-
-    h2 {
-      color: var(--gold);
-      font-family: 'Outfit', sans-serif;
-      text-align: center;
-      margin: 2rem 0 1rem;
-    }
-
-    .table {
-      background-color: rgba(255,255,255,0.04);
-      border-radius: 12px;
-      overflow: hidden;
-    }
-
-    .table thead {
-      background-color: rgba(255, 215, 0, 0.15);
-      color: var(--gold);
-    }
-
-    .table-striped tbody tr td,
-    .table-striped tbody tr th {
-      color: var(--gold) !important;
-    }
-
-    .table-striped tbody tr:nth-of-type(odd) {
-      background-color: rgba(255,255,255,0.025);
-    }
-
-    .table-striped tbody tr:nth-of-type(even) {
-      background-color: rgba(255,255,255,0.05);
-    }
-
-    .table td, .table th {
+      font-size: 1.5rem;
       vertical-align: middle;
     }
-
-    #user-info-box {
-      background: rgba(255, 255, 255, 0.05);
-      border: 2px solid var(--gold);
-      border-radius: 16px;
-      padding: 1rem;
-      max-width: 420px;
-      margin: 0 auto 2rem;
-      font-family: 'Outfit', sans-serif;
-      color: var(--gold);
-      font-weight: 600;
+    .navbar-nav .nav-link.active, .navbar-nav .nav-link:hover, .navbar-nav .nav-link:focus {
+      color: #fff !important;
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 2px 8px #000;
+    }
+    .hero-section {
+      min-height: 60vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      position: relative;
+    }
+    .hero-card {
+      background: var(--glass-bg);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
+      padding: 3rem 2.5rem 2.5rem;
+      max-width: 500px;
+      margin: 0 auto;
       text-align: center;
+      animation: fadeInUp 1s ease-out both;
+      backdrop-filter: blur(8px);
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .hero-card h1 {
+      color: var(--gold);
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin-bottom: 1.2rem;
+      text-shadow: 0 2px 8px #000, 0 0 2px var(--gold);
+    }
+    .hero-card h6 {
+      color: #fff;
+      font-size: 1.2rem;
+      margin-bottom: 2rem;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .gold-line {
+      width: 60px;
+      height: 4px;
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      border-radius: 2px;
+      margin: 0.5rem auto 1.5rem auto;
+      box-shadow: 0 0 8px 2px var(--gold);
+    }
+    .btn-success.btn-lg {
+      font-size: 1.5rem;
+      padding: 0.75rem 2.5rem;
+      border-radius: 2rem;
+      background: linear-gradient(90deg, var(--gold), #fffbe6) !important;
+      color: #181818 !important;
+      font-weight: 700;
+      border: none;
+      transition: all 0.2s ease-in-out;
+    }
+    .btn-success.btn-lg:hover {
+      background: linear-gradient(90deg, #fffbe6, var(--gold)) !important;
+      color: #000 !important;
+      box-shadow: 0 4px 24px rgba(255,215,0,0.25);
+    }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: var(--glass-bg);
+      border-top: 2px solid var(--gold);
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+      z-index: 1000;
+    }
+    .bottom-nav a {
+      color: var(--gold);
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .bottom-nav i {
+      font-size: 1.3rem;
+      margin-bottom: 0.25rem;
+    }
+    @media (max-width: 480px) {
+      .hero-card {
+        padding: 1.5rem 0.5rem;
+        max-width: 95vw;
+      }
+      .hero-card h1 { font-size: 1.4rem; }
+      .hero-card h6 { font-size: 1rem; }
+      .btn-success.btn-lg { font-size: 1.1rem; padding: 0.6rem 1.5rem; }
     }
 
-    @media (max-width: 576px) {
-      h2 {
-        font-size: 1.4rem;
-      }
-
-      .navbar-brand {
-        font-size: 1rem;
-      }
-    }
+    .navbar-brand span {
+  font-family: 'Outfit', sans-serif;
+}
   </style>
 </head>
-<body>
-
-  <nav class="navbar navbar-expand-lg fixed-top">
-    <div class="container">
-      <a class="navbar-brand" href="index.html">
-        <img src="logo.jfif" alt="Logo">
-        Mock Sports Tipping
-      </a>
-      <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-lg-5 me-lg-auto">
-          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-          <li class="nav-item"><a class="nav-link" href="tip.html">Tip Now</a></li>
-          <li class="nav-item"><a class="nav-link" href="leaderboard.html">Leaderboard</a></li>
-          <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
-        </ul>
-        <div class="d-none d-lg-block" id="desktop-auth-btns"></div>
+<body id="top">
+  <main>
+    <nav class="navbar navbar-expand-lg">
+      <div class="container">
+        <a class="navbar-brand" href="index.html">
+          <img src="logo.jfif" alt="Logo" style="height:36px;width:36px;object-fit:contain;margin-right:0.5rem;border-radius:8px;filter:drop-shadow(0 0 6px var(--gold));">
+          <span>Mock Sports Tipping</span>
+        </a>
+        <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-lg-5 me-lg-auto">
+            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="tip.html">Tip Now</a></li>
+            <li class="nav-item"><a class="nav-link" href="leaderboard.html">Leaderboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
+          </ul>
+          <div class="d-none d-lg-block" id="desktop-auth-btns"></div>
+        </div>
       </div>
-    </div>
-  </nav>
+    </nav>
 
-  <main class="container pt-5" style="padding-top: 100px !important;">
-    <h2>Leaderboard</h2>
-
-    <!-- ✅ User Info Box -->
-    <div id="user-info-box">
-      <div>Your Team: <span id="team-name">...</span></div>
-      <div>Rank: <span id="team-rank">...</span></div>
-    </div>
-
-    <div id="leaderboard-table-section">
-      <table class="table table-striped text-white">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>User</th>
-            <th>Points</th>
-          </tr>
-        </thead>
-        <tbody id="leaderboard-table-body"></tbody>
-      </table>
-    </div>
+    <section class="hero-section">
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-8 col-12 mx-auto">
+            <div class="hero-card">
+              <div class="gold-line"></div>
+              <h1 id="welcome-message">Welcome to Mock Sports Tipping</h1>
+              <h6>Compete, predict, and have fun with friends!</h6>
+              <a href="tip.html" class="btn btn-success btn-lg">Tip Now</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
+
+  <div class="bottom-nav">
+    <a href="index.html">
+      <i class="bi bi-house-fill"></i>
+      Home
+    </a>
+    <a href="tip.html">
+      <i class="bi bi-check2-square"></i>
+      Tip
+    </a>
+    <a href="results.html">
+      <i class="bi bi-broadcast-pin"></i>
+      Results
+    </a>
+    <a href="leaderboard.html">
+      <i class="bi bi-graph-up-arrow"></i>
+      Ladder
+    </a>
+  </div>
 
   <script src="js/bootstrap.bundle.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
@@ -178,98 +282,40 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
     const auth = getAuth(app);
 
-    let currentUserTeamName = null;
+    const welcomeMessage = document.getElementById('welcome-message');
+    const desktopAuthBtns = document.getElementById('desktop-auth-btns');
+    const mobileAuthBtns = document.getElementById('mobile-auth-btns');
 
-    onAuthStateChanged(auth, async (user) => {
+    function renderAuthButtons(user) {
+      let html = '';
       if (user) {
-        const userSnap = await getDocs(collection(db, "users"));
-        userSnap.forEach(docSnap => {
-          if (docSnap.id === user.uid) {
-            const data = docSnap.data();
-            currentUserTeamName = data.teamName || null;
-          }
-        });
-      }
-      calculateLeaderboard();
-    });
-
-    async function calculateLeaderboard() {
-      const userPoints = {};
-      const userNames = {};
-
-      const usersSnap = await getDocs(collection(db, "users"));
-      usersSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        const userId = docSnap.id;
-        userPoints[userId] = 0;
-        userNames[userId] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || userId;
-      });
-
-      const resultsSnap = await getDocs(collection(db, "results"));
-      const raceWinners = {};
-      resultsSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data.winningHorseId && data.points) {
-          raceWinners[docSnap.id] = { horseId: data.winningHorseId, points: data.points };
-        }
-      });
-
-      const tipsSnap = await getDocs(collection(db, "tips"));
-      for (const tipDoc of tipsSnap.docs) {
-        const tip = tipDoc.data();
-        const raceId = tip.raceId;
-        const userId = tip.userId;
-
-        if (!(userId in userPoints)) {
-          userPoints[userId] = 0;
-          userNames[userId] = tip.teamName || tip.displayName || tip.email || userId;
-        }
-
-        if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
-          userPoints[userId] += raceWinners[raceId].points;
-        }
-      }
-
-      for (const [userId, points] of Object.entries(userPoints)) {
-        await setDoc(doc(db, "leaderboard", userId), { userId, points });
-      }
-
-      renderLeaderboard(userPoints, userNames);
-    }
-
-    function renderLeaderboard(userPoints, userNames) {
-      const tbody = document.getElementById('leaderboard-table-body');
-      tbody.innerHTML = '';
-      const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
-      let rank = 1;
-      let userRank = null;
-      let userTeam = currentUserTeamName;
-
-      for (const [userId, points] of sorted) {
-        const teamName = userNames[userId] || userId;
-        const tr = document.createElement('tr');
-
-        if (teamName === currentUserTeamName) {
-          tr.style.fontWeight = 'bold';
-          tr.style.backgroundColor = 'rgba(255, 215, 0, 0.15)';
-          userRank = rank;
-        }
-
-        tr.innerHTML = `
-          <td>${rank}</td>
-          <td>${teamName}</td>
-          <td>${points}</td>
+        html = `
+          <span class="me-3">Hi, ${user.displayName || user.email}</span>
+          <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
         `;
-        tbody.appendChild(tr);
-        rank++;
+      } else {
+        html = `
+          <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+          <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
+        `;
       }
+      desktopAuthBtns.innerHTML = html;
+      mobileAuthBtns.innerHTML = html;
 
-      document.getElementById('team-name').textContent = userTeam || 'Unknown';
-      document.getElementById('team-rank').textContent = userRank !== null ? userRank : 'N/A';
+      if (user) {
+        document.getElementById('logout-btn').onclick = async () => {
+          await signOut(auth);
+          window.location.href = "login.html";
+        };
+      }
     }
+
+    onAuthStateChanged(auth, (user) => {
+      renderAuthButtons(user);
+      welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to Mock Sports Tipping";
+    });
   </script>
 </body>
 </html>
