@@ -205,6 +205,24 @@
     .navbar-brand span {
   font-family: 'Outfit', sans-serif;
 }
+
+@media (max-width: 768px) {
+  .hero-section {
+    flex-direction: column;
+    flex-wrap: wrap;
+  }
+
+  .hero-section > .container:first-of-type {
+    order: 1;
+  }
+
+  .hero-section > .container:last-of-type {
+    order: 2;
+    margin-top: 2rem;
+  }
+}
+
+
   </style>
 </head>
 <body id="top">
@@ -244,8 +262,22 @@
           </div>
         </div>
       </div>
+       <div class="container">
+        <div class="row">
+          <div class="col-lg-8 col-12 mx-auto">
+            <div class="hero-card">
+              <div class="gold-line"></div>
+              <h1>Your Team</h1>
+              <h6><strong>Name:</strong> <span id="team-name">Loading...</span></h6>
+              <h6><strong>Current Rank:</strong> <span id="team-rank">...</span></h6>
+              <a href="leaderboard.html" class="btn btn-success btn-lg">View Full Leaderboard</a>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
+    
 
   <div class="bottom-nav">
     <a href="index.html">
@@ -266,9 +298,10 @@
     </a>
   </div>
 
-  <script src="js/bootstrap.bundle.min.js"></script>
+   <script src="js/bootstrap.bundle.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const firebaseConfig = {
@@ -282,6 +315,7 @@
     };
 
     const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
     const auth = getAuth(app);
 
     const welcomeMessage = document.getElementById('welcome-message');
@@ -312,9 +346,32 @@
       }
     }
 
-    onAuthStateChanged(auth, (user) => {
+    async function loadTeamRank(user) {
+      const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+      const userSnap = await getDocs(collection(db, "users"));
+      let userTeamName = null;
+      userSnap.forEach(doc => {
+        if (doc.id === user.uid) {
+          userTeamName = doc.data().teamName;
+        }
+      });
+
+      const leaderboard = [];
+      leaderboardSnap.forEach(doc => {
+        leaderboard.push({ id: doc.id, ...doc.data() });
+      });
+
+      leaderboard.sort((a, b) => b.points - a.points);
+      const rank = leaderboard.findIndex(entry => entry.id === user.uid) + 1;
+
+      document.getElementById("team-name").textContent = userTeamName || "Your Team";
+      document.getElementById("team-rank").textContent = rank || "-";
+    }
+
+    onAuthStateChanged(auth, async (user) => {
       renderAuthButtons(user);
       welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to Mock Sports Tipping";
+      if (user) loadTeamRank(user);
     });
   </script>
 </body>
