@@ -38,10 +38,11 @@
                 <table class="table table-striped">
                     <thead>
                         <tr>
+                            <th>Rank</th>
                             <th>User</th>
                             <th>Points</th>
                         </tr>
-                    </thead>
+                        </thead>
                     <tbody id="leaderboard-table-body"></tbody>
                 </table>
             </div>
@@ -67,11 +68,29 @@
   const db = getFirestore(app);
   const auth = getAuth(app);
 
+  let currentUserTeamName = null;
+
+  // Auth check first to get the logged-in user's team name
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      const userDoc = await getDocs(collection(db, "users"));
+      userDoc.forEach(docSnap => {
+        if (docSnap.id === user.uid) {
+          const data = docSnap.data();
+          currentUserTeamName = data.teamName || null;
+        }
+      });
+    }
+
+    // Now calculate the leaderboard
+    calculateLeaderboard();
+  });
+
   async function calculateLeaderboard() {
     const userPoints = {};
     const userNames = {};
 
-    // Step 1: Load all users and initialize to 0 points
+    // 1. Load all users
     const usersSnap = await getDocs(collection(db, "users"));
     usersSnap.forEach(docSnap => {
       const data = docSnap.data();
@@ -80,7 +99,7 @@
       userNames[userId] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || userId;
     });
 
-    // Step 2: Load results (winners)
+    // 2. Load race results
     const resultsSnap = await getDocs(collection(db, "results"));
     const raceWinners = {};
     resultsSnap.forEach(docSnap => {
@@ -90,14 +109,13 @@
       }
     });
 
-    // Step 3: Load all tips and match to winners
+    // 3. Load tips
     const tipsSnap = await getDocs(collection(db, "tips"));
     for (const tipDoc of tipsSnap.docs) {
       const tip = tipDoc.data();
       const raceId = tip.raceId;
       const userId = tip.userId;
 
-      // Fallback if user wasn't in users collection
       if (!(userId in userPoints)) {
         userPoints[userId] = 0;
         userNames[userId] = tip.teamName || tip.displayName || tip.email || userId;
@@ -108,12 +126,12 @@
       }
     }
 
-    // Step 4: (Optional) Update leaderboard collection
+    // 4. (Optional) Save to leaderboard collection
     for (const [userId, points] of Object.entries(userPoints)) {
       await setDoc(doc(db, "leaderboard", userId), { userId, points });
     }
 
-    // Step 5: Render
+    // 5. Render
     renderLeaderboard(userPoints, userNames);
   }
 
@@ -123,22 +141,27 @@
 
     const sorted = Object.entries(userPoints).sort((a, b) => b[1] - a[1]);
 
+    let rank = 1;
     for (const [userId, points] of sorted) {
+      const teamName = userNames[userId] || userId;
+
       const tr = document.createElement('tr');
+      if (teamName === currentUserTeamName) {
+        tr.style.fontWeight = 'bold';
+        tr.style.backgroundColor = 'rgba(255, 215, 0, 0.15)';
+      }
+
       tr.innerHTML = `
-        <td>${userNames[userId] || userId}</td>
+        <td>${rank}</td>
+        <td>${teamName}</td>
         <td>${points}</td>
       `;
       tbody.appendChild(tr);
+      rank++;
     }
   }
-
-  onAuthStateChanged(auth, (user) => {
-    // Optional: display login/logout buttons or current user info
-  });
-
-  calculateLeaderboard();
 </script>
+
 </body>
 </html>
 </html>
