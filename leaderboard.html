@@ -17,108 +17,138 @@
   <link href="css/bootstrap.min.css" rel="stylesheet">
   <link href="css/bootstrap-icons.css" rel="stylesheet">
   <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+  <link href="navbar.css" rel="stylesheet">
 
- <style>
-  :root {
-    --gold: #FFD700;
-    --glass-bg: rgba(24,24,24,0.85);
-    --black: #181818;
-  }
+  <style>
+    :root {
+      --gold: #FFD700;
+      --glass-bg: rgba(24,24,24,0.85);
+      --black: #181818;
+    }
 
-  html, body {
-    margin: 0;
-    padding: 0;
-    font-family: 'Inter', sans-serif;
-    background: linear-gradient(135deg, #181818 0%, #232526 100%);
-    color: white;
-  }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #181818 0%, #232526 100%);
+      color: white;
+    }
 
-  .navbar {
-    background: var(--glass-bg);
-    box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
-  }
+    .navbar {
+      background: var(--glass-bg);
+      box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
+    }
 
-  .navbar-brand, .nav-link {
-    color: var(--gold) !important;
-    font-weight: 600;
-    font-family: 'Outfit', sans-serif;
-    text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
-  }
+    .navbar-brand, .nav-link {
+      color: var(--gold) !important;
+      font-weight: 600;
+      font-family: 'Outfit', sans-serif;
+      text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
+    }
 
-  .navbar-brand img {
-    height: 36px;
-    width: 36px;
-    object-fit: contain;
-    vertical-align: middle;
-    margin-right: 0.5rem;
-    border-radius: 8px;
-    filter: drop-shadow(0 0 6px var(--gold));
-  }
+    .navbar-brand img {
+      height: 36px;
+      width: 36px;
+      object-fit: contain;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+      border-radius: 8px;
+      filter: drop-shadow(0 0 6px var(--gold));
+    }
 
-  h2 {
-    color: var(--gold);
-    font-family: 'Outfit', sans-serif;
-    text-align: center;
-    margin: 2rem 0 1rem;
-  }
-
-  .table {
-    background-color: rgba(255,255,255,0.04);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .table thead {
-    background-color: rgba(255, 215, 0, 0.15);
-    color: var(--gold);
-  }
-
-  /* ✅ Force gold text for all cells */
-  .table-striped tbody tr td,
-  .table-striped tbody tr th {
-    color: var(--gold) !important;
-  }
-
-  .table-striped tbody tr:nth-of-type(odd) {
-    background-color: rgba(255,255,255,0.025);
-  }
-
-  .table-striped tbody tr:nth-of-type(even) {
-    background-color: rgba(255,255,255,0.05);
-  }
-
-  .table td, .table th {
-    vertical-align: middle;
-  }
-
-  @media (max-width: 576px) {
     h2 {
-      font-size: 1.4rem;
+      color: var(--gold);
+      font-family: 'Outfit', sans-serif;
+      text-align: center;
+      margin: 2rem 0 1rem;
     }
 
-    .navbar-brand {
-      font-size: 1rem;
+    .table {
+      background-color: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      overflow: hidden;
     }
-  }
 
-@media (max-width: 576px) {
-  .hero-section {
-    margin-top: 0;
-    padding-top: 1rem; /* adjust if needed */
-  }
-}
+    .table thead {
+      background-color: rgba(255, 215, 0, 0.15);
+      color: var(--gold);
+    }
 
+    .table-striped tbody tr td,
+    .table-striped tbody tr th {
+      color: var(--gold) !important;
+    }
 
-</style>
+    .table-striped tbody tr:nth-of-type(odd) {
+      background-color: rgba(255,255,255,0.025);
+    }
 
+    .table-striped tbody tr:nth-of-type(even) {
+      background-color: rgba(255,255,255,0.05);
+    }
+
+    .table td, .table th {
+      vertical-align: middle;
+    }
+
+    @media (max-width: 576px) {
+      h2 {
+        font-size: 1.4rem;
+      }
+
+      .navbar-brand {
+        font-size: 1rem;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .hero-section {
+        margin-top: 0;
+        padding-top: 1rem;
+      }
+    }
+
+    main {
+      padding-top: 100px !important;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: #181818;
+      border-top: 2px solid var(--gold);
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+      z-index: 1000;
+    }
+
+    .bottom-nav a {
+      color: var(--gold);
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .bottom-nav i {
+      font-size: 1.3rem;
+      margin-bottom: 0.25rem;
+    }
+  </style>
 </head>
 <body>
 
+  <!-- Full Navbar copied from index.html -->
   <nav class="navbar navbar-expand-lg fixed-top">
     <div class="container">
       <a class="navbar-brand" href="index.html">
         <img src="logo.jfif" alt="Logo">
-        Mock Sports Tipping
+        <span>Mock Sports Tipping</span>
       </a>
       <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -136,7 +166,7 @@
     </div>
   </nav>
 
-  <main class="container pt-5" style="padding-top: 100px !important;">
+  <main class="container">
     <h2>Leaderboard</h2>
     <div id="leaderboard-table-section">
       <table class="table table-striped text-white">
@@ -152,11 +182,31 @@
     </div>
   </main>
 
+  <!-- Bottom Navigation -->
+  <div class="bottom-nav">
+    <a href="index.html">
+      <i class="bi bi-house-fill"></i>
+      Home
+    </a>
+    <a href="tip.html">
+      <i class="bi bi-check2-square"></i>
+      Tip
+    </a>
+    <a href="results.html">
+      <i class="bi bi-broadcast-pin"></i>
+      Results
+    </a>
+    <a href="leaderboard.html">
+      <i class="bi bi-graph-up-arrow"></i>
+      Ladder
+    </a>
+  </div>
+
   <script src="js/bootstrap.bundle.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
@@ -172,9 +222,37 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
+    const desktopAuthBtns = document.getElementById('desktop-auth-btns');
+    const mobileAuthBtns = document.getElementById('mobile-auth-btns');
+
     let currentUserTeamName = null;
 
+    function renderAuthButtons(user) {
+      let html = '';
+      if (user) {
+        html = `
+          <span class="me-3">Hi, ${user.displayName || user.email}</span>
+          <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
+        `;
+      } else {
+        html = `
+          <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+          <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
+        `;
+      }
+      desktopAuthBtns.innerHTML = html;
+      mobileAuthBtns.innerHTML = html;
+
+      if (user) {
+        document.getElementById('logout-btn').onclick = async () => {
+          await signOut(auth);
+          window.location.href = "login.html";
+        };
+      }
+    }
+
     onAuthStateChanged(auth, async (user) => {
+      renderAuthButtons(user);
       if (user) {
         const userSnap = await getDocs(collection(db, "users"));
         userSnap.forEach(docSnap => {
