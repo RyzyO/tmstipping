@@ -163,6 +163,35 @@ select.form-select {
   font-size: 1rem;
 }
 
+
+.race-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: nowrap;
+}
+
+.race-info {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 576px) {
+  .race-flex {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .points-earned {
+    margin-left: auto;
+    font-size: 1.4rem;
+    padding: 0.4rem 0.75rem;
+    margin-top: 0.25rem;
+  }
+}
+
+
   </style>
 </head>
 <body>
@@ -286,7 +315,7 @@ select.form-select {
     raceDiv.className = `race-result ${correct ? "correct" : "incorrect"}`;
 
     raceDiv.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center;">
+     <div class="race-flex">
         <div>
           <div class="race-name">${race.name}</div>
           <div class="result-details">
