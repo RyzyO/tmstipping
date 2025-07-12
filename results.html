@@ -10,114 +10,142 @@
   <link href="css/templatemo-topic-listing.css" rel="stylesheet">
   <link href="navbar.css" rel="stylesheet">
   <style>
-    body {
-      background: linear-gradient(135deg, #181818 0%, #232526 100%);
-      color: white;
-      font-family: 'Inter', sans-serif;
-      margin: 0;
-    }
-    .navbar {
-      background: rgba(24,24,24,0.85);
-      box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px #FFD700;
-    }
-    .navbar-brand, .nav-link {
-      color: #FFD700 !important;
-      font-weight: 600;
-    }
-    .main-content {
-      padding-top: 90px;
-      padding-bottom: 35px;
-    }
-    .centered-list {
-      max-width: 700px;
-      margin: auto;
-      background: rgba(24,24,24,0.85);
-      padding: 2rem;
-      border-radius: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px #FFD700;
-    }
-    h2 {
-      text-align: center;
-      color: #FFD700;
-      margin-bottom: 2rem;
-    }
-    .date-button {
-      display: block;
-      margin: 0.5rem auto;
-      padding: 0.5rem 1rem;
-      background: #FFD700;
-      color: #181818;
-      border: none;
-      border-radius: 8px;
-      font-weight: bold;
-    }
-    .race-result {
-      border-radius: 12px;
-      padding: 1rem;
-      margin-bottom: 1rem;
-      font-weight: 600;
-    }
-    .race-result.correct {
-      background: linear-gradient(to right, #28a745, #c2f0c2);
-      color: #000;
-    }
-    .race-result.incorrect {
-      background: linear-gradient(to right, #dc3545, #f5b7b7);
-      color: #000;
-    }
-    .race-name {
-      font-size: 1.1rem;
-      font-weight: bold;
-    }
-    .result-details {
-      margin-top: 0.5rem;
-      font-size: 0.95rem;
-    }
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      background: rgba(24,24,24,0.85);
-      border-top: 2px solid #FFD700;
-      display: flex;
-      justify-content: space-around;
-      padding: 0.5rem 0;
-    }
-    .bottom-nav a {
-      color: #FFD700;
-      text-align: center;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-decoration: none;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .bottom-nav i {
-      font-size: 1.3rem;
-      margin-bottom: 0.25rem;
-    }
+   body {
+  background: linear-gradient(135deg, #181818 0%, #232526 100%);
+  color: white;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+}
+
+.navbar {
+  background: rgba(24,24,24,0.85);
+  box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px #FFD700;
+}
+
+.navbar-brand, .nav-link {
+  color: #FFD700 !important;
+  font-weight: 600;
+  font-family: 'Outfit', sans-serif;
+}
+
+.main-content {
+  padding-top: 90px;
+  padding-bottom: 35px;
+}
+
+h2 {
+  text-align: center;
+  color: #FFD700;
+  margin-bottom: 2rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+}
+
+.race-result {
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+}
+
+.race-result.correct {
+  background: linear-gradient(to right, #28a745, #c2f0c2);
+  color: #000;
+}
+
+.race-result.incorrect {
+  background: linear-gradient(to right, #dc3545, #f5b7b7);
+  color: #000;
+}
+
+.race-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+}
+
+.result-details {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  font-family: 'Inter', sans-serif;
+}
 
 .points-earned {
+  white-space: nowrap;
   font-size: 2rem;
-  font-weight: bold;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
   color: #155724;
   background: #c2f0c2;
   padding: 0.5rem 1rem;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
-select.form-select {
+
+.select.form-select {
+  font-family: 'Inter', sans-serif;
   background-color: #222;
   color: #FFD700;
   border: 2px solid #FFD700;
   border-radius: 12px;
+  font-weight: bold;
+  font-size: 1rem;
 }
 
+.dropdown-wrapper {
+  padding: 0 1rem;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: rgba(24,24,24,0.85);
+  border-top: 2px solid #FFD700;
+  display: flex;
+  justify-content: space-around;
+  padding: 0.5rem 0;
+}
+
+.bottom-nav a {
+  color: #FFD700;
+  text-align: center;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Outfit', sans-serif;
+}
+
+.bottom-nav i {
+  font-size: 1.3rem;
+  margin-bottom: 0.25rem;
+}
+
+.race-entry {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: nowrap;
+}
+
+.race-info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Mobile responsive tweaks */
 @media (max-width: 576px) {
-  .centered-list {
-    padding: 1rem;
-    border-radius: 16px;
+  .race-entry {
+    flex-wrap: wrap;
+    align-items: flex-start;
   }
 
   .race-result {
@@ -136,90 +164,6 @@ select.form-select {
   .points-earned {
     font-size: 1.4rem;
     padding: 0.4rem 0.75rem;
-    margin-top: 0.75rem;
-    margin-left: 0;
-    align-self: flex-start;
-  }
-
-  .race-result > div {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 0.5rem;
-  }
-}
-
-.dropdown-wrapper {
-  padding: 0 1rem;
-  max-width: 500px;
-  margin: 0 auto;
-}
-
-select.form-select {
-  background-color: #222;
-  color: #FFD700;
-  border: 2px solid #FFD700;
-  border-radius: 12px;
-  font-weight: bold;
-  font-size: 1rem;
-}
-
-
-.race-flex {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: nowrap;
-}
-
-.race-info {
-  flex: 1;
-  min-width: 0;
-}
-
-@media (max-width: 576px) {
-  .race-flex {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
-  .points-earned {
-    margin-left: auto;
-    font-size: 1.4rem;
-    padding: 0.4rem 0.75rem;
-    margin-top: 0.25rem;
-  }
-}
-
-.race-entry {
-  width: 100%;
-  gap: 1rem;
-  flex-wrap: nowrap;
-}
-
-.race-info {
-  flex-grow: 1;
-  min-width: 0;
-}
-
-.points-earned {
-  white-space: nowrap;
-  font-size: 2rem;
-  font-weight: bold;
-  color: #155724;
-  background: #c2f0c2;
-  padding: 0.5rem 1rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-}
-
-@media (max-width: 576px) {
-  .race-entry {
-    flex-wrap: wrap;
-  }
-
-  .points-earned {
-    font-size: 1.4rem;
     margin-top: 0.5rem;
     margin-left: auto;
   }
@@ -238,7 +182,7 @@ select.form-select {
   </nav>
 
   <main class="main-content">
-  <h2 class="text-center">Select a Date</h2>
+  <h2 class="text-center">Results</h2>
 <div class="dropdown-wrapper">
   <select id="date-dropdown" class="form-select mb-4"></select>
 </div>
