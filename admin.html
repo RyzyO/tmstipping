@@ -36,15 +36,30 @@
                 </form>
                 <hr>
             </div>
-            <div id="race-details-section" style="display:none;">
-                <h2 id="selected-race-title"></h2>
-                <div id="selected-race-date"></div>
-                <div id="selected-race-time"></div>
-                <div id="selected-race-distance"></div>
-                <h5>Horses</h5>
-                <div id="selected-horses-list"></div>
-                <button class="btn btn-secondary mt-2" id="add-horse-to-race">Add Horse</button>
-            </div>
+           <div id="race-details-section" style="display:none;">
+    <h2 id="selected-race-title"></h2>
+
+    <div class="mb-2">
+        <label>Date:</label>
+        <input type="date" id="edit-race-date" class="form-control d-inline-block" style="width:auto;">
+        <button class="btn btn-sm btn-outline-primary" id="save-race-date">Save</button>
+    </div>
+    <div class="mb-2">
+        <label>Time:</label>
+        <input type="time" id="edit-race-time" class="form-control d-inline-block" style="width:auto;">
+        <button class="btn btn-sm btn-outline-primary" id="save-race-time">Save</button>
+    </div>
+    <div class="mb-2">
+        <label>Distance:</label>
+        <input type="text" id="edit-race-distance" class="form-control d-inline-block" style="width:auto;">
+        <button class="btn btn-sm btn-outline-primary" id="save-race-distance">Save</button>
+    </div>
+
+    <h5>Horses</h5>
+    <div id="selected-horses-list"></div>
+    <button class="btn btn-secondary mt-2" id="add-horse-to-race">Add Horse</button>
+</div>
+
         </div>
         <div class="admin-sidebar">
             <h4>Races</h4>
@@ -62,251 +77,287 @@
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import {
-            getFirestore, collection, addDoc, doc, setDoc, getDocs,
-            getDoc, updateDoc, deleteField, deleteDoc, writeBatch
-        } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import {
+    getFirestore, collection, addDoc, doc, setDoc, getDocs,
+    getDoc, updateDoc, deleteField, writeBatch
+} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-            authDomain: "tmstipping.firebaseapp.com",
-            projectId: "tmstipping",
-            storageBucket: "tmstipping.appspot.com",
-            messagingSenderId: "401677933527",
-            appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-            measurementId: "G-GXLRCHV687"
+// Firebase config
+const firebaseConfig = {
+    apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+    authDomain: "tmstipping.firebaseapp.com",
+    projectId: "tmstipping",
+    storageBucket: "tmstipping.appspot.com",
+    messagingSenderId: "401677933527",
+    appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+    measurementId: "G-GXLRCHV687"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const rtdb = getDatabase(app);
+
+// Admin-only access
+onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        alert("You must be logged in.");
+        window.location.href = "index.html";
+        return;
+    }
+    const adminRef = ref(rtdb, `users/${user.uid}/admin`);
+    const snapshot = await get(adminRef);
+    if (!snapshot.exists() || snapshot.val() !== true) {
+        alert("You are not authorized to access this page.");
+        window.location.href = "index.html";
+    }
+});
+
+// GLOBALS
+let racesCache = {};
+let selectedRaceId = null;
+let winnerHorseId = null;
+
+// Event bindings
+document.getElementById('new-race-btn').onclick = () => {
+    document.getElementById('race-form-section').style.display = '';
+    document.getElementById('race-details-section').style.display = 'none';
+    document.getElementById('race-form').reset();
+    document.getElementById('horses-list').innerHTML = '';
+    addHorseRow();
+};
+
+document.getElementById('cancel-race-form').onclick = () => {
+    document.getElementById('race-form-section').style.display = 'none';
+};
+
+document.getElementById('add-horse-row').onclick = () => addHorseRow();
+
+function addHorseRow(name = '', number = '') {
+    const horsesList = document.getElementById('horses-list');
+    const div = document.createElement('div');
+    div.className = 'horse-row mb-2';
+    div.innerHTML = `
+        <input type="text" placeholder="Horse Name" class="form-control d-inline-block" style="width:150px;" value="${name}" required>
+        <input type="text" placeholder="Horse Number" class="form-control d-inline-block" style="width:100px;" value="${number}" required>
+        <button type="button" class="btn btn-danger btn-sm remove-horse-row">Remove</button>
+    `;
+    div.querySelector('.remove-horse-row').onclick = () => div.remove();
+    horsesList.appendChild(div);
+}
+
+document.getElementById('race-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('race-name').value;
+    const date = document.getElementById('race-date').value;
+    const time = document.getElementById('race-time').value;
+    const distance = document.getElementById('race-distance').value;
+    const horses = {};
+    document.querySelectorAll('#horses-list .horse-row').forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        const horseName = inputs[0].value.trim();
+        const horseNumber = inputs[1].value.trim();
+        if (horseName && horseNumber) {
+            const horseId = doc(collection(db, "_")).id;
+            horses[horseId] = { name: horseName, number: horseNumber };
+        }
+    });
+    if (Object.keys(horses).length === 0) {
+        alert("Please add at least one horse.");
+        return;
+    }
+    await addDoc(collection(db, "races"), { name, date, time, distance, horses });
+    document.getElementById('race-form-section').style.display = 'none';
+    await loadRaces();
+};
+
+async function loadRaces() {
+    const raceList = document.getElementById('race-list');
+    raceList.innerHTML = '';
+    const racesSnap = await getDocs(collection(db, "races"));
+    racesCache = {};
+    racesSnap.forEach(docSnap => {
+        const race = docSnap.data();
+        racesCache[docSnap.id] = race;
+        const li = document.createElement('li');
+        li.textContent = `${race.name} (${race.date})`;
+        li.dataset.raceId = docSnap.id;
+        li.onclick = () => selectRace(docSnap.id);
+        if (selectedRaceId === docSnap.id) li.classList.add('selected');
+        raceList.appendChild(li);
+    });
+}
+
+async function selectRace(raceId) {
+    selectedRaceId = raceId;
+    Array.from(document.querySelectorAll('#race-list li')).forEach(li => {
+        li.classList.toggle('selected', li.dataset.raceId === raceId);
+    });
+    document.getElementById('race-form-section').style.display = 'none';
+    document.getElementById('race-details-section').style.display = '';
+    const raceDoc = await getDoc(doc(db, "races", raceId));
+    const race = raceDoc.data();
+    document.getElementById('selected-race-title').textContent = race.name;
+    document.getElementById('edit-race-date').value = race.date || '';
+document.getElementById('edit-race-time').value = race.time || '';
+document.getElementById('edit-race-distance').value = race.distance || '';
+
+    renderHorsesList(race, raceId);
+}
+
+function renderHorsesList(race, raceId) {
+    const horsesDiv = document.getElementById('selected-horses-list');
+    horsesDiv.innerHTML = '';
+    const horses = race.horses || {};
+    for (const [horseId, horseData] of Object.entries(horses)) {
+        const row = document.createElement('div');
+        row.className = 'horse-row mb-2';
+        row.innerHTML = `
+            <input type="text" value="${horseData.name}" class="form-control d-inline-block" style="width:150px;">
+            <input type="text" value="${horseData.number}" class="form-control d-inline-block" style="width:100px;">
+            <button class="btn btn-primary btn-sm winner-btn">Winner</button>
+            <button class="btn btn-danger btn-sm remove-horse-row">Remove</button>
+            <button class="btn btn-secondary btn-sm save-horse-row">Save</button>
+            <span class="points-label"></span>
+        `;
+        row.querySelector('.winner-btn').onclick = () => showWinnerModal(horseId, raceId);
+        row.querySelector('.remove-horse-row').onclick = async () => {
+            if (!confirm("Remove this horse?")) return;
+            await updateDoc(doc(db, "races", raceId), { [`horses.${horseId}`]: deleteField() });
+            await selectRace(raceId);
         };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        const rtdb = getDatabase(app);
-
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                alert("You must be logged in."); window.location.href = "index.html"; return;
-            }
-            const adminRef = ref(rtdb, `users/${user.uid}/admin`);
-            const snapshot = await get(adminRef);
-            if (!snapshot.exists() || snapshot.val() !== true) {
-                alert("You are not authorized to access this page."); window.location.href = "index.html";
+        row.querySelector('.save-horse-row').onclick = async () => {
+            const name = row.querySelectorAll('input')[0].value.trim();
+            const number = row.querySelectorAll('input')[1].value.trim();
+            if (!name || !number) return alert("Name and number required.");
+            await updateDoc(doc(db, "races", raceId), { [`horses.${horseId}`]: { name, number } });
+            alert("Horse updated!");
+        };
+        getDoc(doc(db, "results", raceId)).then(resultDoc => {
+            if (resultDoc.exists() && resultDoc.data().winningHorseId === horseId) {
+                row.querySelector('.points-label').textContent = `Points: ${resultDoc.data().points}`;
             }
         });
+        horsesDiv.appendChild(row);
+    }
+}
 
-        let racesCache = {};
-        let selectedRaceId = null;
-        let winnerHorseId = null;
+document.getElementById('add-horse-to-race').onclick = async () => {
+    if (!selectedRaceId) return;
+    const horseName = prompt("Horse name?");
+    const horseNumber = prompt("Horse number?");
+    if (!horseName || !horseNumber) return;
+    const horseId = doc(collection(db, "_")).id;
+    const raceRef = doc(db, "races", selectedRaceId);
+    const raceSnap = await getDoc(raceRef);
+    const horses = raceSnap.data().horses || {};
+    horses[horseId] = { name: horseName, number: horseNumber };
+    await updateDoc(raceRef, { horses });
+    await selectRace(selectedRaceId);
+};
 
-        document.getElementById('new-race-btn').onclick = () => {
-            document.getElementById('race-form-section').style.display = '';
-            document.getElementById('race-details-section').style.display = 'none';
-            document.getElementById('race-form').reset();
-            document.getElementById('horses-list').innerHTML = '';
-            addHorseRow();
-        };
-        document.getElementById('cancel-race-form').onclick = () => {
-            document.getElementById('race-form-section').style.display = 'none';
-        };
-        document.getElementById('add-horse-row').onclick = () => addHorseRow();
+function showWinnerModal(horseId, raceId) {
+    winnerHorseId = horseId;
+    document.getElementById('winnerModal').style.display = 'flex';
+    document.getElementById('winnerPoints').value = '';
+    document.getElementById('saveWinnerPoints').onclick = async () => {
+        const points = parseInt(document.getElementById('winnerPoints').value, 10);
+        if (isNaN(points)) return alert("Enter valid points.");
+        await setDoc(doc(db, "results", raceId), { winningHorseId: horseId, points });
+        await calculateAndSaveLeaderboard();
+        document.getElementById('winnerModal').style.display = 'none';
+        await selectRace(raceId);
+    };
+    document.getElementById('cancelWinnerPoints').onclick = () => {
+        document.getElementById('winnerModal').style.display = 'none';
+    };
+}
 
-        function addHorseRow(name = '', number = '') {
-            const horsesList = document.getElementById('horses-list');
-            const div = document.createElement('div');
-            div.className = 'horse-row mb-2';
-            div.innerHTML = `
-                <input type="text" placeholder="Horse Name" class="form-control d-inline-block" style="width:150px;" value="${name}" required>
-                <input type="text" placeholder="Horse Number" class="form-control d-inline-block" style="width:100px;" value="${number}" required>
-                <button type="button" class="btn btn-danger btn-sm remove-horse-row">Remove</button>
-            `;
-            div.querySelector('.remove-horse-row').onclick = () => div.remove();
-            horsesList.appendChild(div);
+// 🔁 Leaderboard logic with logging
+async function calculateAndSaveLeaderboard() {
+    const userPoints = {};
+    const userNames = {};
+
+    const usersSnap = await getDocs(collection(db, "users"));
+    usersSnap.forEach(doc => {
+        const data = doc.data();
+        userPoints[doc.id] = 0;
+        userNames[doc.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || doc.id;
+    });
+
+    console.log(`✅ Loaded ${Object.keys(userNames).length} users with team names.`);
+
+    const resultsSnap = await getDocs(collection(db, "results"));
+    const raceWinners = {};
+    resultsSnap.forEach(doc => {
+        const data = doc.data();
+        if (data.winningHorseId && data.points) {
+            raceWinners[doc.id] = { horseId: data.winningHorseId, points: data.points };
         }
+    });
 
-        document.getElementById('race-form').onsubmit = async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('race-name').value;
-            const date = document.getElementById('race-date').value;
-            const time = document.getElementById('race-time').value;
-            const distance = document.getElementById('race-distance').value;
-            const horses = {};
-            document.querySelectorAll('#horses-list .horse-row').forEach(row => {
-                const inputs = row.querySelectorAll('input');
-                const horseName = inputs[0].value.trim();
-                const horseNumber = inputs[1].value.trim();
-                if (horseName && horseNumber) {
-                    const horseId = doc(collection(db, "_")).id;
-                    horses[horseId] = { name: horseName, number: horseNumber };
-                }
-            });
-            if (Object.keys(horses).length === 0) {
-                alert("Please add at least one horse.");
-                return;
-            }
-            await addDoc(collection(db, "races"), { name, date, time, distance, horses });
-            document.getElementById('race-form-section').style.display = 'none';
-            await loadRaces();
-        };
-
-        async function loadRaces() {
-            const raceList = document.getElementById('race-list');
-            raceList.innerHTML = '';
-            const racesSnap = await getDocs(collection(db, "races"));
-            racesCache = {};
-            racesSnap.forEach(docSnap => {
-                const race = docSnap.data();
-                racesCache[docSnap.id] = race;
-                const li = document.createElement('li');
-                li.textContent = `${race.name} (${race.date})`;
-                li.dataset.raceId = docSnap.id;
-                li.onclick = () => selectRace(docSnap.id);
-                if (selectedRaceId === docSnap.id) li.classList.add('selected');
-                raceList.appendChild(li);
-            });
+    const tipsSnap = await getDocs(collection(db, "tips"));
+    tipsSnap.forEach(doc => {
+        const tip = doc.data();
+        const { raceId, userId, horseId } = tip;
+        if (!(userId in userNames)) {
+            console.warn("⚠️ Tip from unknown user (missing in users collection):", userId);
+            return;
         }
-
-        async function selectRace(raceId) {
-            selectedRaceId = raceId;
-            Array.from(document.querySelectorAll('#race-list li')).forEach(li => {
-                li.classList.toggle('selected', li.dataset.raceId === raceId);
-            });
-            document.getElementById('race-form-section').style.display = 'none';
-            document.getElementById('race-details-section').style.display = '';
-            const raceDoc = await getDoc(doc(db, "races", raceId));
-            const race = raceDoc.data();
-            document.getElementById('selected-race-title').textContent = race.name;
-            document.getElementById('selected-race-date').textContent = "Date: " + race.date;
-            document.getElementById('selected-race-time').textContent = "Time: " + (race.time || '');
-            document.getElementById('selected-race-distance').textContent = "Distance: " + (race.distance || '');
-            renderHorsesList(race, raceId);
+        if (raceWinners[raceId] && horseId === raceWinners[raceId].horseId) {
+            userPoints[userId] += raceWinners[raceId].points;
         }
+    });
 
-        function renderHorsesList(race, raceId) {
-            const horsesDiv = document.getElementById('selected-horses-list');
-            horsesDiv.innerHTML = '';
-            const horses = race.horses || {};
-            for (const [horseId, horseData] of Object.entries(horses)) {
-                const row = document.createElement('div');
-                row.className = 'horse-row mb-2';
-                row.innerHTML = `
-                    <input type="text" value="${horseData.name}" class="form-control d-inline-block" style="width:150px;">
-                    <input type="text" value="${horseData.number}" class="form-control d-inline-block" style="width:100px;">
-                    <button class="btn btn-primary btn-sm winner-btn">Winner</button>
-                    <button class="btn btn-danger btn-sm remove-horse-row">Remove</button>
-                    <button class="btn btn-secondary btn-sm save-horse-row">Save</button>
-                    <span class="points-label"></span>
-                `;
-                row.querySelector('.winner-btn').onclick = () => showWinnerModal(horseId, raceId);
-                row.querySelector('.remove-horse-row').onclick = async () => {
-                    if (!confirm("Remove this horse?")) return;
-                    const raceRef = doc(db, "races", raceId);
-                    await updateDoc(raceRef, { [`horses.${horseId}`]: deleteField() });
-                    await selectRace(raceId);
-                };
-                row.querySelector('.save-horse-row').onclick = async () => {
-                    const name = row.querySelectorAll('input')[0].value.trim();
-                    const number = row.querySelectorAll('input')[1].value.trim();
-                    if (!name || !number) { alert("Name and number required."); return; }
-                    const raceRef = doc(db, "races", raceId);
-                    await updateDoc(raceRef, { [`horses.${horseId}`]: { name, number } });
-                    alert("Horse updated!");
-                };
-                getDoc(doc(db, "results", raceId)).then(resultDoc => {
-                    if (resultDoc.exists()) {
-                        const result = resultDoc.data();
-                        if (result.winningHorseId === horseId) {
-                            row.querySelector('.points-label').textContent = `Points: ${result.points}`;
-                        }
-                    }
-                });
-                horsesDiv.appendChild(row);
-            }
-        }
+    const leaderboardRef = collection(db, "leaderboard");
+    const batch = writeBatch(db);
+    let written = 0;
 
-        document.getElementById('add-horse-to-race').onclick = async () => {
-            if (!selectedRaceId) return;
-            const horseName = prompt("Horse name?");
-            if (!horseName) return;
-            const horseNumber = prompt("Horse number?");
-            if (!horseNumber) return;
-            const horseId = doc(collection(db, "_")).id;
-            const raceRef = doc(db, "races", selectedRaceId);
-            const raceSnap = await getDoc(raceRef);
-            const horses = raceSnap.data().horses || {};
-            horses[horseId] = { name: horseName, number: horseNumber };
-            await updateDoc(raceRef, { horses });
-            await selectRace(selectedRaceId);
-        };
+    Object.entries(userPoints).forEach(([userId, points]) => {
+        batch.set(doc(leaderboardRef, userId), {
+            userId,
+            teamName: userNames[userId],
+            points
+        });
+        written++;
+    });
 
-        function showWinnerModal(horseId, raceId) {
-            winnerHorseId = horseId;
-            document.getElementById('winnerModal').style.display = 'flex';
-            document.getElementById('winnerPoints').value = '';
-            document.getElementById('saveWinnerPoints').onclick = async () => {
-                const points = parseInt(document.getElementById('winnerPoints').value, 10);
-                if (isNaN(points)) { alert("Enter points."); return; }
-                await setDoc(doc(db, "results", raceId), { winningHorseId: horseId, points });
+    await batch.commit();
+    console.log(`✅ Leaderboard updated. ${written} users saved.`);
+}
 
-                // ✅ Trigger leaderboard update
-                await calculateAndSaveLeaderboard();
+document.getElementById('save-race-date').onclick = async () => {
+    const newDate = document.getElementById('edit-race-date').value;
+    if (!newDate) return alert("Enter a date.");
+    await updateDoc(doc(db, "races", selectedRaceId), { date: newDate });
+    alert("Date updated.");
+    await selectRace(selectedRaceId);
+};
 
-                document.getElementById('winnerModal').style.display = 'none';
-                await selectRace(raceId);
-            };
-            document.getElementById('cancelWinnerPoints').onclick = () => {
-                document.getElementById('winnerModal').style.display = 'none';
-            };
-        }
+document.getElementById('save-race-time').onclick = async () => {
+    const newTime = document.getElementById('edit-race-time').value;
+    if (!newTime) return alert("Enter a time.");
+    await updateDoc(doc(db, "races", selectedRaceId), { time: newTime });
+    alert("Time updated.");
+    await selectRace(selectedRaceId);
+};
 
-        async function calculateAndSaveLeaderboard() {
-            const userPoints = {};
-            const userNames = {};
+document.getElementById('save-race-distance').onclick = async () => {
+    const newDistance = document.getElementById('edit-race-distance').value;
+    if (!newDistance) return alert("Enter a distance.");
+    await updateDoc(doc(db, "races", selectedRaceId), { distance: newDistance });
+    alert("Distance updated.");
+    await selectRace(selectedRaceId);
+};
 
-            const usersSnap = await getDocs(collection(db, "users"));
-            usersSnap.forEach(doc => {
-                const data = doc.data();
-                userPoints[doc.id] = 0;
-                userNames[doc.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || doc.id;
-            });
 
-            const resultsSnap = await getDocs(collection(db, "results"));
-            const raceWinners = {};
-            resultsSnap.forEach(doc => {
-                const data = doc.data();
-                if (data.winningHorseId && data.points) {
-                    raceWinners[doc.id] = { horseId: data.winningHorseId, points: data.points };
-                }
-            });
+// Load races initially
+loadRaces();
+</script>
 
-            const tipsSnap = await getDocs(collection(db, "tips"));
-            tipsSnap.forEach(doc => {
-                const tip = doc.data();
-                const raceId = tip.raceId;
-                const userId = tip.userId;
-                if (raceWinners[raceId] && tip.horseId === raceWinners[raceId].horseId) {
-                    userPoints[userId] += raceWinners[raceId].points;
-                }
-            });
-
-            const leaderboardRef = collection(db, "leaderboard");
-            const batch = writeBatch(db);
-
-            Object.entries(userPoints).forEach(([userId, points]) => {
-                batch.set(doc(leaderboardRef, userId), {
-                    userId,
-                    teamName: userNames[userId],
-                    points
-                });
-            });
-
-            await batch.commit();
-            console.log("Leaderboard updated.");
-        }
-
-        loadRaces();
-    </script>
 </body>
 </html>
