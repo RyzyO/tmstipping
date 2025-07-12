@@ -191,6 +191,39 @@ select.form-select {
   }
 }
 
+.race-entry {
+  width: 100%;
+  gap: 1rem;
+  flex-wrap: nowrap;
+}
+
+.race-info {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.points-earned {
+  white-space: nowrap;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #155724;
+  background: #c2f0c2;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 576px) {
+  .race-entry {
+    flex-wrap: wrap;
+  }
+
+  .points-earned {
+    font-size: 1.4rem;
+    margin-top: 0.5rem;
+    margin-left: auto;
+  }
+}
 
   </style>
 </head>
@@ -314,18 +347,19 @@ select.form-select {
     const raceDiv = document.createElement("div");
     raceDiv.className = `race-result ${correct ? "correct" : "incorrect"}`;
 
-    raceDiv.innerHTML = `
-     <div class="race-flex">
-        <div>
-          <div class="race-name">${race.name}</div>
-          <div class="result-details">
-            Tipped: <strong>${tippedHorseName || "No tip"}</strong><br>
-            Winner: <strong>${winnerHorseName || "Unknown"}</strong>
-          </div>
-        </div>
-        ${correct ? `<div class="points-earned">+${points}</div>` : ""}
+   raceDiv.innerHTML = `
+  <div class="d-flex justify-content-between align-items-center flex-wrap race-entry">
+    <div class="race-info">
+      <div class="race-name">${race.name}</div>
+      <div class="result-details">
+        Tipped: <strong>${tippedHorseName || "No tip"}</strong><br>
+        Winner: <strong>${winnerHorseName || "Unknown"}</strong>
       </div>
-    `;
+    </div>
+    ${correct ? `<div class="points-earned text-end ms-auto">+${points}</div>` : ""}
+  </div>
+`;
+
 
     resultsContainer.appendChild(raceDiv);
   }
