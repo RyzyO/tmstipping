@@ -18,80 +18,90 @@
   <link href="css/bootstrap-icons.css" rel="stylesheet">
   <link href="css/templatemo-topic-listing.css" rel="stylesheet">
 
-  <style>
-    :root {
-      --gold: #FFD700;
-      --glass-bg: rgba(24,24,24,0.85);
-      --black: #181818;
-    }
+ <style>
+  :root {
+    --gold: #FFD700;
+    --glass-bg: rgba(24,24,24,0.85);
+    --black: #181818;
+  }
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #181818 0%, #232526 100%);
-      color: white;
-    }
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #181818 0%, #232526 100%);
+    color: white;
+  }
 
-    .navbar {
-      background: var(--glass-bg);
-      box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
-    }
+  .navbar {
+    background: var(--glass-bg);
+    box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
+  }
 
-    .navbar-brand, .nav-link {
-      color: var(--gold) !important;
-      font-weight: 600;
-      font-family: 'Outfit', sans-serif;
-      text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
-    }
+  .navbar-brand, .nav-link {
+    color: var(--gold) !important;
+    font-weight: 600;
+    font-family: 'Outfit', sans-serif;
+    text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
+  }
 
-    .navbar-brand img {
-      height: 36px;
-      width: 36px;
-      object-fit: contain;
-      vertical-align: middle;
-      margin-right: 0.5rem;
-      border-radius: 8px;
-      filter: drop-shadow(0 0 6px var(--gold));
-    }
+  .navbar-brand img {
+    height: 36px;
+    width: 36px;
+    object-fit: contain;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+    border-radius: 8px;
+    filter: drop-shadow(0 0 6px var(--gold));
+  }
 
+  h2 {
+    color: var(--gold);
+    font-family: 'Outfit', sans-serif;
+    text-align: center;
+    margin: 2rem 0 1rem;
+  }
+
+  .table {
+    background-color: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .table thead {
+    background-color: rgba(255, 215, 0, 0.15);
+    color: var(--gold);
+  }
+
+  /* ✅ Force gold text for all cells */
+  .table-striped tbody tr td,
+  .table-striped tbody tr th {
+    color: var(--gold) !important;
+  }
+
+  .table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(255,255,255,0.025);
+  }
+
+  .table-striped tbody tr:nth-of-type(even) {
+    background-color: rgba(255,255,255,0.05);
+  }
+
+  .table td, .table th {
+    vertical-align: middle;
+  }
+
+  @media (max-width: 576px) {
     h2 {
-      color: var(--gold);
-      font-family: 'Outfit', sans-serif;
-      text-align: center;
-      margin: 2rem 0 1rem;
+      font-size: 1.4rem;
     }
 
-    .table {
-      background-color: rgba(255,255,255,0.04);
-      border-radius: 12px;
-      overflow: hidden;
-      color: white;
+    .navbar-brand {
+      font-size: 1rem;
     }
+  }
+</style>
 
-    .table thead {
-      background-color: rgba(255, 215, 0, 0.15);
-      color: var(--gold);
-    }
-
-    .table-striped tbody tr {
-  color: var(--gold) !important;
-}
-
-    .table td, .table th {
-      vertical-align: middle;
-    }
-
-    @media (max-width: 576px) {
-      h2 {
-        font-size: 1.4rem;
-      }
-
-      .navbar-brand {
-        font-size: 1rem;
-      }
-    }
-  </style>
 </head>
 <body>
 
