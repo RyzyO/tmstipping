@@ -107,6 +107,46 @@
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
+select.form-select {
+  background-color: #222;
+  color: #FFD700;
+  border: 2px solid #FFD700;
+  border-radius: 12px;
+}
+
+@media (max-width: 576px) {
+  .centered-list {
+    padding: 1rem;
+    border-radius: 16px;
+  }
+
+  .race-result {
+    font-size: 0.95rem;
+    padding: 0.75rem;
+  }
+
+  .race-name {
+    font-size: 1rem;
+  }
+
+  .result-details {
+    font-size: 0.9rem;
+  }
+
+  .points-earned {
+    font-size: 1.4rem;
+    padding: 0.4rem 0.75rem;
+    margin-top: 0.75rem;
+    margin-left: 0;
+    align-self: flex-start;
+  }
+
+  .race-result > div {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem;
+  }
+}
 
 
   </style>
@@ -124,7 +164,8 @@
   <main class="main-content">
     <div class="centered-list">
       <h2>Select a Date</h2>
-      <div id="date-list"></div>
+<select id="date-dropdown" class="form-select mb-4" style="font-weight:bold; font-size:1rem;"></select>
+
       <div id="results-container" style="margin-top: 2rem;"></div>
     </div>
   </main>
@@ -174,23 +215,30 @@
     });
 
     async function loadDates() {
-      const raceSnap = await getDocs(collection(db, "races"));
-      const dateSet = new Set();
-      raceSnap.forEach(doc => {
-        const race = doc.data();
-        if (race.date) dateSet.add(race.date);
-      });
-      const dateList = document.getElementById("date-list");
-      [...dateSet].sort().forEach(date => {
-        const btn = document.createElement("button");
-        btn.className = "date-button";
-        btn.textContent = date;
-        btn.onclick = () => loadResultsForDate(date);
-        dateList.appendChild(btn);
-      });
-    }
+  const raceSnap = await getDocs(collection(db, "races"));
+  const dateSet = new Set();
+  raceSnap.forEach(doc => {
+    const race = doc.data();
+    if (race.date) dateSet.add(race.date);
+  });
 
-  async function loadResultsForDate(date) {
+  const dropdown = document.getElementById("date-dropdown");
+  dropdown.innerHTML = '<option value="">-- Choose a date --</option>';
+  [...dateSet].sort().forEach(date => {
+    const opt = document.createElement("option");
+    opt.value = date;
+    opt.textContent = date;
+    dropdown.appendChild(opt);
+  });
+
+  dropdown.onchange = () => {
+    if (dropdown.value) loadResultsForDate(dropdown.value);
+    else document.getElementById("results-container").innerHTML = "";
+  };
+}
+
+
+ async function loadResultsForDate(date) {
   const resultsContainer = document.getElementById("results-container");
   resultsContainer.innerHTML = "";
 
@@ -202,18 +250,22 @@
   });
 
   for (const race of races) {
+    const resultDoc = await getDoc(doc(db, "results", race.id));
+    if (!resultDoc.exists()) continue;
+
+    const resultData = resultDoc.data();
+    const winningHorseId = resultData.winningHorseId;
+    const points = resultData.points || 0;
+
+    if (!winningHorseId) continue; // skip if no winner
+
     const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${race.id}`));
     const tippedHorseId = tipDoc.exists() ? tipDoc.data().horseId : null;
 
-    const resultDoc = await getDoc(doc(db, "results", race.id));
-    const resultData = resultDoc.exists() ? resultDoc.data() : {};
-    const winningHorseId = resultData.winningHorseId || null;
-    const points = resultData.points || 0;
-
     const tippedHorseName = tippedHorseId && race.horses?.[tippedHorseId]?.name;
-    const winnerHorseName = winningHorseId && race.horses?.[winningHorseId]?.name;
+    const winnerHorseName = race.horses?.[winningHorseId]?.name;
 
-    const correct = tippedHorseId && winningHorseId && tippedHorseId === winningHorseId;
+    const correct = tippedHorseId && tippedHorseId === winningHorseId;
 
     const raceDiv = document.createElement("div");
     raceDiv.className = `race-result ${correct ? "correct" : "incorrect"}`;
@@ -224,7 +276,7 @@
           <div class="race-name">${race.name}</div>
           <div class="result-details">
             Tipped: <strong>${tippedHorseName || "No tip"}</strong><br>
-            Winner: <strong>${winnerHorseName || "Not set"}</strong>
+            Winner: <strong>${winnerHorseName || "Unknown"}</strong>
           </div>
         </div>
         ${correct ? `<div class="points-earned">+${points}</div>` : ""}
