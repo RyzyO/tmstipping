@@ -190,23 +190,24 @@
     </div>
   </nav>
 
-  <main class="main-content">
-    <div id="race-list-section" class="centered-list">
-      <h2>Select a Race</h2>
-      <ul id="race-list" class="race-list"></ul>
-    </div>
+<main class="main-content container">
+  <div id="race-list-section">
+    <h2>Select a Race</h2>
+    <ul id="race-list" class="race-list"></ul>
+  </div>
 
-    <div id="race-card-section" class="centered-list" style="display:none;">
-      <button id="exit-race-btn" class="btn btn-sm btn-outline-light mb-3 w-100">← Back</button>
-      <h2 id="selected-race-title"></h2>
-      <div id="selected-race-date" class="mb-3 text-center"></div>
-      <form id="tip-form">
-        <div id="horses-radio-list"></div>
-        <button type="submit" class="btn btn-success mt-3">Submit Tip</button>
-      </form>
-      <div id="tip-message"></div>
-    </div>
-  </main>
+  <div id="race-card-section" style="display:none;">
+    <button id="exit-race-btn" class="btn btn-sm btn-outline-light mb-3 w-100">← Back</button>
+    <h2 id="selected-race-title"></h2>
+    <div id="selected-race-date" class="mb-3 text-center"></div>
+    <form id="tip-form">
+      <div id="horses-radio-list"></div>
+      <button type="submit" class="btn btn-success mt-3">Submit Tip</button>
+    </form>
+    <div id="tip-message"></div>
+  </div>
+</main>
+
   <div class="bottom-nav">
     <a href="index.html">
       <i class="bi bi-house-fill"></i>
@@ -260,33 +261,51 @@
     await loadRaces();
   });
 
-  async function loadRaces() {
-    const raceList = document.getElementById('race-list');
-    raceList.innerHTML = '';
-    const racesSnap = await getDocs(collection(db, "races"));
+ async function loadRaces() {
+  const raceList = document.getElementById('race-list');
+  raceList.innerHTML = '';
 
-    racesSnap.forEach(docSnap => {
-      const race = docSnap.data();
+  const racesSnap = await getDocs(collection(db, "races"));
+  const nowSydney = DateTime.now().setZone('Australia/Sydney');
 
-      const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, {
-        zone: 'Australia/Sydney'
-      });
-      const nowSydney = DateTime.now().setZone('Australia/Sydney');
-      const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
+  let racesShown = 0;
 
-      const li = document.createElement('li');
-      li.innerHTML = `${race.name} (${race.date} ${race.time})`;
-
-      if (isLocked) {
-        li.classList.add('locked');
-        li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
-      } else {
-        li.onclick = () => selectRace(docSnap.id);
-      }
-
-      raceList.appendChild(li);
+  racesSnap.forEach(docSnap => {
+    const race = docSnap.data();
+    const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, {
+      zone: 'Australia/Sydney'
     });
+
+    // Skip past races
+    if (raceDateTimeSydney < nowSydney) return;
+
+    racesShown++;
+
+    const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
+    const li = document.createElement('li');
+    li.innerHTML = `${race.name} (${race.date} ${race.time})`;
+
+    if (isLocked) {
+      li.classList.add('locked');
+      li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
+    } else {
+      li.onclick = () => selectRace(docSnap.id);
+    }
+
+    raceList.appendChild(li);
+  });
+
+  // Show message if no races found
+  if (racesShown === 0) {
+    const msg = document.createElement('p');
+    msg.textContent = "Upcoming races have not yet been released, check back soon!";
+    msg.style.textAlign = "center";
+    msg.style.marginTop = "1rem";
+    msg.style.color = "var(--gold)";
+    raceList.appendChild(msg);
   }
+}
+
 
   async function selectRace(raceId) {
     selectedRaceId = raceId;
