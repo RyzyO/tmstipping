@@ -352,7 +352,20 @@
       const row = document.createElement('div');
       row.className = 'horse-row';
       row.dataset.horseId = horseId;
-      row.textContent = `#${horseData.number} - ${horseData.name}`;
+      row.innerHTML = `
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+    <div style="font-size: 1.6rem; font-weight: bold; width: 52px; text-align: center; flex-shrink: 0;">#${horseData.number}</div>
+    <div style="flex-grow: 1; font-weight: 600; padding: 0 0.5rem;">${horseData.name}</div>
+    <div style="text-align: right; font-size: 0.75rem; line-height: 1.2;">
+      <div>Trainer: ${horseData.trainer || '—'}</div>
+      <div>Jockey: ${horseData.jockey || '—'}</div>
+      <div>Barrier: ${horseData.barrier || '—'}, Weight: ${horseData.weight || '—'}</div>
+    </div>
+  </div>
+`;
+
+
+
       if (tippedHorseId && horseId === tippedHorseId) {
         row.classList.add('selected');
       }
