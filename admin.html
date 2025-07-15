@@ -19,6 +19,7 @@
 <div class="container mt-5 admin-flex">
   <div class="admin-main">
     <button class="btn btn-primary mb-3" id="new-race-btn">New Race</button>
+
     <div id="race-form-section" style="display:none;">
       <h2>New Race</h2>
       <form id="race-form">
@@ -58,6 +59,7 @@
         <input type="text" id="edit-race-distance" class="form-control d-inline-block" style="width:auto;">
         <button class="btn btn-sm btn-outline-primary" id="save-race-distance">Save</button>
       </div>
+
       <h5>Horses</h5>
       <div id="selected-horses-list"></div>
       <button class="btn btn-secondary mt-2" id="add-horse-to-race">Add Horse</button>
@@ -65,23 +67,24 @@
       <hr>
       <h5>Set Results</h5>
       <div class="mb-2">
-        <label>Winner Horse ID:</label>
-        <input type="text" id="winner-horse-id" class="form-control d-inline-block" style="width:auto;">
+        <label>Winner:</label>
+        <select id="winner-horse-id" class="form-control d-inline-block" style="width:auto;"></select>
         <label class="ms-3">Points:</label>
         <input type="number" id="winner-points" class="form-control d-inline-block" style="width:100px;">
       </div>
       <div class="mb-2">
-        <label>Place Horse ID 1:</label>
-        <input type="text" id="place1-horse-id" class="form-control d-inline-block" style="width:auto;">
+        <label>Place 1:</label>
+        <select id="place1-horse-id" class="form-control d-inline-block" style="width:auto;"></select>
         <label class="ms-3">Points:</label>
         <input type="number" id="place1-points" class="form-control d-inline-block" style="width:100px;">
       </div>
       <div class="mb-2">
-        <label>Place Horse ID 2:</label>
-        <input type="text" id="place2-horse-id" class="form-control d-inline-block" style="width:auto;">
+        <label>Place 2:</label>
+        <select id="place2-horse-id" class="form-control d-inline-block" style="width:auto;"></select>
         <label class="ms-3">Points:</label>
         <input type="number" id="place2-points" class="form-control d-inline-block" style="width:100px;">
       </div>
+
       <button class="btn btn-success mt-2" id="save-results">Save Results</button>
     </div>
   </div>

@@ -209,19 +209,55 @@ async function selectRace(raceId) {
 function renderHorsesList(race, raceId) {
   const horsesDiv = document.getElementById('selected-horses-list');
   horsesDiv.innerHTML = '';
-  const horses = race.horses || {};
+  const horses = Object.entries(race.horses || {}).sort((a, b) => {
+    return parseInt(a[1].number) - parseInt(b[1].number);
+  });
 
-  for (const [horseId, horse] of Object.entries(horses)) {
+  // Populate dropdowns for results
+  const winnerSelect = document.getElementById('winner-horse-id');
+  const place1Select = document.getElementById('place1-horse-id');
+  const place2Select = document.getElementById('place2-horse-id');
+  [winnerSelect, place1Select, place2Select].forEach(select => {
+    select.innerHTML = '<option value="">Select horse</option>';
+  });
+
+  for (const [horseId, horse] of horses) {
+    // Editable horse row
     const row = document.createElement('div');
     row.className = 'horse-row mb-2';
     row.innerHTML = `
-      <strong>${horse.number}</strong> - ${horse.name} 
-      (${horse.trainer || 'No trainer'} / ${horse.jockey || 'No jockey'})
-      - Barrier: ${horse.barrier || '-'}, Weight: ${horse.weight || '-'}
+      <input type="text" value="${horse.number}" placeholder="No" style="width:60px;">
+      <input type="text" value="${horse.name}" placeholder="Name" style="width:150px;">
+      <input type="text" value="${horse.trainer || ''}" placeholder="Trainer" style="width:150px;">
+      <input type="text" value="${horse.jockey || ''}" placeholder="Jockey" style="width:150px;">
+      <input type="text" value="${horse.barrier || ''}" placeholder="Barrier" style="width:80px;">
+      <input type="text" value="${horse.weight || ''}" placeholder="Weight" style="width:80px;">
+      <button class="btn btn-sm btn-outline-success">Save</button>
     `;
+    row.querySelector('button').onclick = async () => {
+      const inputs = row.querySelectorAll('input');
+      const updatedHorse = {
+        number: inputs[0].value,
+        name: inputs[1].value,
+        trainer: inputs[2].value,
+        jockey: inputs[3].value,
+        barrier: inputs[4].value,
+        weight: inputs[5].value,
+      };
+      race.horses[horseId] = updatedHorse;
+      await updateDoc(doc(db, 'races', raceId), { horses: race.horses });
+      await selectRace(raceId);
+    };
     horsesDiv.appendChild(row);
+
+    // Add to dropdowns
+    const option = new Option(`${horse.number} - ${horse.name}`, horseId);
+    winnerSelect.appendChild(option.cloneNode(true));
+    place1Select.appendChild(option.cloneNode(true));
+    place2Select.appendChild(option.cloneNode(true));
   }
 }
+
 document.getElementById('new-race-btn').onclick = () => {
   selectedRaceId = null;
   document.getElementById('race-form-section').style.display = '';
