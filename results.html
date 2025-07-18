@@ -262,63 +262,98 @@ h2 {
 
 
  async function loadResultsForDate(date) {
-      const resultsContainer = document.getElementById("results-container");
-      resultsContainer.innerHTML = "";
+  const resultsContainer = document.getElementById("results-container");
+  resultsContainer.innerHTML = "";
 
-      const raceSnap = await getDocs(collection(db, "races"));
-      const races = [];
-      raceSnap.forEach(doc => {
-        const race = { id: doc.id, ...doc.data() };
-        if (race.date === date) races.push(race);
-      });
+  const raceSnap = await getDocs(collection(db, "races"));
+  const races = [];
+  raceSnap.forEach(doc => {
+    const race = { id: doc.id, ...doc.data() };
+    if (race.date === date) races.push(race);
+  });
 
-      for (const race of races) {
-        const resultDoc = await getDoc(doc(db, "results", race.id));
-        if (!resultDoc.exists()) continue;
+  for (const race of races) {
+    const resultDoc = await getDoc(doc(db, "results", race.id));
+    if (!resultDoc.exists()) continue;
 
-        const resultData = resultDoc.data();
-        const winningHorseId = resultData.winningHorseId;
-        const winnerPoints = resultData.points || 0;
-        const place1HorseId = resultData.place1HorseId;
-        const place1Points = resultData.place1Points || 0;
-        const place2HorseId = resultData.place2HorseId;
-        const place2Points = resultData.place2Points || 0;
+    const resultData = resultDoc.data();
+    const winningHorseId = resultData.winningHorseId;
+    const winnerPoints = resultData.points || 0;
+    const place1HorseId = resultData.place1HorseId;
+    const place1Points = resultData.place1Points || 0;
+    const place2HorseId = resultData.place2HorseId;
+    const place2Points = resultData.place2Points || 0;
 
-        if (!winningHorseId) continue; // skip if no winner
+    if (!winningHorseId) continue; // skip if no winner
 
-        const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${race.id}`));
-        const tippedHorseId = tipDoc.exists() ? tipDoc.data().horseId : null;
+    const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${race.id}`));
+    let tippedHorseId = tipDoc.exists() ? tipDoc.data().horseId : null;
 
-        const horses = race.horses || {};
-        const tippedHorseName = tippedHorseId && horses[tippedHorseId]?.name;
-        const winnerHorseName = horses[winningHorseId]?.name;
-        const place1HorseName = place1HorseId && horses[place1HorseId]?.name;
-        const place2HorseName = place2HorseId && horses[place2HorseId]?.name;
+    const horses = race.horses || {};
+    // Find substitute horse
+    let subHorseId = null;
+    for (const [hId, h] of Object.entries(horses)) {
+      if (h.substitute) subHorseId = hId;
+    }
 
-        let correct = false;
-        let pointsEarned = 0;
-        if (tippedHorseId) {
-          if (tippedHorseId === winningHorseId) {
-            correct = true;
-            pointsEarned = winnerPoints;
-          } else if (tippedHorseId === place1HorseId) {
-            correct = true;
-            pointsEarned = place1Points;
-          } else if (tippedHorseId === place2HorseId) {
-            correct = true;
-            pointsEarned = place2Points;
-          }
-        }
+    // Check if tipped horse is scratched
+    const tippedHorseObj = tippedHorseId && horses[tippedHorseId];
+    const tippedHorseScratched = tippedHorseObj && tippedHorseObj.scratched;
+    let effectiveHorseId = tippedHorseId;
+    let usedSub = false;
+    if (tippedHorseScratched && subHorseId) {
+      effectiveHorseId = subHorseId;
+      usedSub = true;
+    }
 
-        const raceDiv = document.createElement("div");
-        raceDiv.className = `race-result${correct ? " correct" : " incorrect"}`;
+    // Names and labels
+    let tippedHorseName = tippedHorseId && horses[tippedHorseId]?.name;
+    if (tippedHorseScratched) tippedHorseName = (tippedHorseName || '') + " (scr)";
+    let subHorseName = subHorseId ? (horses[subHorseId]?.name || '') : '';
 
-        raceDiv.innerHTML = `
+    // Winner/Place labels
+    let winnerHorseName = horses[winningHorseId]?.name;
+    let place1HorseName = place1HorseId && horses[place1HorseId]?.name;
+    let place2HorseName = place2HorseId && horses[place2HorseId]?.name;
+
+    // Add (sub) if sub is in top 3
+    if (subHorseId && winningHorseId === subHorseId) winnerHorseName += " (sub)";
+    if (subHorseId && place1HorseId === subHorseId) place1HorseName += " (sub)";
+    if (subHorseId && place2HorseId === subHorseId) place2HorseName += " (sub)";
+
+    // Points logic
+    let correct = false;
+    let pointsEarned = 0;
+    if (effectiveHorseId) {
+      if (effectiveHorseId === winningHorseId) {
+        correct = true;
+        pointsEarned = winnerPoints;
+      } else if (effectiveHorseId === place1HorseId) {
+        correct = true;
+        pointsEarned = place1Points;
+      } else if (effectiveHorseId === place2HorseId) {
+        correct = true;
+        pointsEarned = place2Points;
+      }
+    }
+
+    const raceDiv = document.createElement("div");
+    raceDiv.className = `race-result${correct ? " correct" : " incorrect"}`;
+
+    // Strikethrough for tipped horse if sub is used
+    let tippedHorseHtml = "";
+    if (usedSub) {
+      tippedHorseHtml = `<s>${tippedHorseName || "No tip"}</s> <span style="color:#FFFFFF;font-weight:bold;">→ ${subHorseName} (sub)</span>`;
+    } else {
+      tippedHorseHtml = `${tippedHorseName || "No tip"}`;
+    }
+
+    raceDiv.innerHTML = `
   <div class="d-flex justify-content-between align-items-center flex-wrap race-entry">
     <div class="race-info">
       <div class="race-name">${race.name}</div>
       <div class="result-details">
-        Tipped: <strong>${tippedHorseName || "No tip"}</strong><br>
+        Tipped: <strong>${tippedHorseHtml}</strong><br>
         1st: <strong>${winnerHorseName || "Unknown"}</strong> ${winnerPoints ? `(+${winnerPoints})` : ""}<br>
         2nd: <strong>${place1HorseName || "Unknown"}</strong> ${place1Points ? `(+${place1Points})` : ""}<br>
         3rd: <strong>${place2HorseName || "Unknown"}</strong> ${place2Points ? `(+${place2Points})` : ""}
@@ -328,9 +363,9 @@ h2 {
   </div>
 `;
 
-        resultsContainer.appendChild(raceDiv);
-      }
-    }
+    resultsContainer.appendChild(raceDiv);
+  }
+}
 
   </script>
 </body>
