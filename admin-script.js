@@ -229,6 +229,12 @@ function renderHorsesList(race, raceId) {
     return parseInt(a[1].number) - parseInt(b[1].number);
   });
 
+  // Find current substitute horseId (if any)
+  let substituteHorseId = null;
+  for (const [horseId, horse] of Object.entries(race.horses || {})) {
+    if (horse.substitute) substituteHorseId = horseId;
+  }
+
   // Populate dropdowns for results
   const winnerSelect = document.getElementById('winner-horse-id');
   const place1Select = document.getElementById('place1-horse-id');
@@ -250,6 +256,8 @@ function renderHorsesList(race, raceId) {
       <input type="text" value="${horse.weight || ''}" placeholder="Weight" style="width:80px;">
       <button class="btn btn-sm btn-outline-success">Save</button>
       ${horse.scratched ? '<span style="color:red;font-weight:bold;margin-left:8px;">SCRATCHED</span>' : `<button class="btn btn-sm btn-outline-danger scratch-horse-btn" style="margin-left:8px;">Scratch</button>`}
+      <button class="btn btn-sm btn-outline-warning substitute-horse-btn" style="margin-left:8px;" ${horse.substitute ? 'disabled' : ''}>${horse.substitute ? 'Substitute (Current)' : 'Substitute'}</button>
+      ${horse.substitute ? '<span style="color:orange;font-weight:bold;margin-left:8px;">SUB</span>' : ''}
     `;
     row.querySelector('button.btn-outline-success').onclick = async () => {
       const inputs = row.querySelectorAll('input');
@@ -260,7 +268,8 @@ function renderHorsesList(race, raceId) {
         jockey: inputs[3].value,
         barrier: inputs[4].value,
         weight: inputs[5].value,
-        scratched: !!horse.scratched
+        scratched: !!horse.scratched,
+        substitute: !!horse.substitute
       };
       race.horses[horseId] = updatedHorse;
       await updateDoc(doc(db, 'races', raceId), { horses: race.horses });
@@ -274,6 +283,16 @@ function renderHorsesList(race, raceId) {
         await selectRace(raceId);
       };
     }
+    // Substitute handler
+    row.querySelector('.substitute-horse-btn').onclick = async () => {
+      // Remove substitute from all horses
+      for (const [hId, h] of Object.entries(race.horses)) {
+        if (h.substitute) delete h.substitute;
+      }
+      race.horses[horseId].substitute = true;
+      await updateDoc(doc(db, 'races', raceId), { horses: race.horses });
+      await selectRace(raceId);
+    };
     horsesDiv.appendChild(row);
 
     // Add to dropdowns only if not scratched
@@ -296,6 +315,7 @@ document.getElementById('new-race-btn').onclick = () => {
 async function calculateAndSaveLeaderboard() {
   const userPoints = {};
   const userNames = {};
+  const userWinners = {};
 
   // Load all users
   const usersSnap = await getDocs(collection(db, "users"));
@@ -303,6 +323,7 @@ async function calculateAndSaveLeaderboard() {
     const data = docSnap.data();
     userPoints[docSnap.id] = 0;
     userNames[docSnap.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || docSnap.id;
+    userWinners[docSnap.id] = 0;
   });
 
   // Load race results
@@ -319,36 +340,95 @@ async function calculateAndSaveLeaderboard() {
     }
   });
 
+  // Load all races for substitute logic
+  const racesSnap = await getDocs(collection(db, "races"));
+  const racesMap = {};
+  racesSnap.forEach(docSnap => {
+    racesMap[docSnap.id] = docSnap.data();
+  });
+
   // Load all tips
   const tipsSnap = await getDocs(collection(db, "tips"));
   tipsSnap.forEach(docSnap => {
     const tip = docSnap.data();
     const { raceId, userId, horseId } = tip;
     if (!(userId in userPoints)) return; // Skip if user not found
+
+    // Substitute logic: if horse is scratched, and a substitute exists, use the substitute
+    let effectiveHorseId = horseId;
+    const race = racesMap[raceId];
+    if (
+      race &&
+      race.horses &&
+      horseId &&
+      race.horses[horseId] &&
+      race.horses[horseId].scratched
+    ) {
+      // Find substitute
+      const subEntry = Object.entries(race.horses).find(([_, h]) => h.substitute);
+      if (subEntry) {
+        effectiveHorseId = subEntry[0];
+      }
+    }
+
     let points = 0;
     if (raceWinners[raceId]) {
       // Check for winner, place1, and place2
-      if (raceWinners[raceId].winner && horseId === raceWinners[raceId].winner.horseId) {
+      if (raceWinners[raceId].winner && effectiveHorseId === raceWinners[raceId].winner.horseId) {
         points += Number(raceWinners[raceId].winner.points) || 0;
+        userWinners[userId] += 1;
       }
-      if (raceWinners[raceId].place1 && horseId === raceWinners[raceId].place1.horseId) {
+      if (raceWinners[raceId].place1 && effectiveHorseId === raceWinners[raceId].place1.horseId) {
         points += Number(raceWinners[raceId].place1.points) || 0;
       }
-      if (raceWinners[raceId].place2 && horseId === raceWinners[raceId].place2.horseId) {
+      if (raceWinners[raceId].place2 && effectiveHorseId === raceWinners[raceId].place2.horseId) {
         points += Number(raceWinners[raceId].place2.points) || 0;
       }
     }
     userPoints[userId] += points;
   });
 
+  // Prepare leaderboard array for ranking
+  const leaderboardArr = Object.keys(userPoints).map(userId => ({
+    userId,
+    teamName: userNames[userId],
+    points: userPoints[userId],
+    winners: userWinners[userId]
+  }));
+
+  // Sort by points DESC, then winners DESC
+  leaderboardArr.sort((a, b) => {
+    if (b.points !== a.points) return b.points - a.points;
+    return b.winners - a.winners;
+  });
+
+  // Assign ranks with ties (1,1,3)
+  let lastPoints = null;
+  let lastWinners = null;
+  let lastRank = 0;
+  let actualRank = 1;
+  leaderboardArr.forEach((entry, idx) => {
+    if (entry.points === lastPoints && entry.winners === lastWinners) {
+      entry.rank = lastRank;
+    } else {
+      entry.rank = actualRank;
+      lastRank = actualRank;
+    }
+    lastPoints = entry.points;
+    lastWinners = entry.winners;
+    actualRank++;
+  });
+
   // Write leaderboard to Firestore
   const batch = writeBatch(db);
   const leaderboardRef = collection(db, "leaderboard");
-  Object.entries(userPoints).forEach(([userId, points]) => {
-    batch.set(doc(leaderboardRef, userId), {
-      userId,
-      teamName: userNames[userId],
-      points
+  leaderboardArr.forEach(entry => {
+    batch.set(doc(leaderboardRef, entry.userId), {
+      userId: entry.userId,
+      teamName: entry.teamName,
+      points: entry.points,
+      winners: entry.winners,
+      rank: entry.rank
     });
   });
 
