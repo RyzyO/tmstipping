@@ -133,6 +133,7 @@ await calculateAndSaveLeaderboard(); // ✅ safe, scoped, and correct
 
 alert("Results saved.");
 
+}
 
 document.getElementById('save-race-date').onclick = async () => {
   const newDate = document.getElementById('edit-race-date').value;
@@ -273,31 +274,46 @@ async function calculateAndSaveLeaderboard() {
 
   // Load all users
   const usersSnap = await getDocs(collection(db, "users"));
-  usersSnap.forEach(doc => {
-    const data = doc.data();
-    userPoints[doc.id] = 0;
-    userNames[doc.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || doc.id;
+  usersSnap.forEach(docSnap => {
+    const data = docSnap.data();
+    userPoints[docSnap.id] = 0;
+    userNames[docSnap.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || docSnap.id;
   });
 
   // Load race results
   const resultsSnap = await getDocs(collection(db, "results"));
   const raceWinners = {};
-  resultsSnap.forEach(doc => {
-    const data = doc.data();
+  resultsSnap.forEach(docSnap => {
+    const data = docSnap.data();
     if (data.winningHorseId && data.points) {
-      raceWinners[doc.id] = { horseId: data.winningHorseId, points: data.points };
+      raceWinners[docSnap.id] = {
+        winner: { horseId: data.winningHorseId, points: data.points },
+        place1: { horseId: data.place1HorseId, points: data.place1Points },
+        place2: { horseId: data.place2HorseId, points: data.place2Points }
+      };
     }
   });
 
   // Load all tips
   const tipsSnap = await getDocs(collection(db, "tips"));
-  tipsSnap.forEach(doc => {
-    const tip = doc.data();
+  tipsSnap.forEach(docSnap => {
+    const tip = docSnap.data();
     const { raceId, userId, horseId } = tip;
     if (!(userId in userPoints)) return; // Skip if user not found
-    if (raceWinners[raceId] && horseId === raceWinners[raceId].horseId) {
-      userPoints[userId] += raceWinners[raceId].points;
+    let points = 0;
+    if (raceWinners[raceId]) {
+      // Check for winner, place1, and place2
+      if (raceWinners[raceId].winner && horseId === raceWinners[raceId].winner.horseId) {
+        points += Number(raceWinners[raceId].winner.points) || 0;
+      }
+      if (raceWinners[raceId].place1 && horseId === raceWinners[raceId].place1.horseId) {
+        points += Number(raceWinners[raceId].place1.points) || 0;
+      }
+      if (raceWinners[raceId].place2 && horseId === raceWinners[raceId].place2.horseId) {
+        points += Number(raceWinners[raceId].place2.points) || 0;
+      }
     }
+    userPoints[userId] += points;
   });
 
   // Write leaderboard to Firestore
@@ -315,7 +331,44 @@ async function calculateAndSaveLeaderboard() {
   console.log("✅ Leaderboard updated.");
 }
 
+async function updateLeaderboardForRace(raceId, results) {
+  // results: { winner: {horseId, points}, place1: {...}, place2: {...} }
+  // 1. Get all tips for this race
+  const tipsSnap = await getDocs(query(collection(db, "tips"), where("raceId", "==", raceId)));
+  const leaderboardRef = collection(db, "leaderboard");
 
+  // 2. For each tip, check if tipped horse matches winner/place1/place2
+  for (const tipDoc of tipsSnap.docs) {
+    const tip = tipDoc.data();
+    let points = 0;
+    if (tip.horseId === results.winner.horseId) points += Number(results.winner.points) || 0;
+    if (tip.horseId === results.place1.horseId) points += Number(results.place1.points) || 0;
+    if (tip.horseId === results.place2.horseId) points += Number(results.place2.points) || 0;
+    if (points === 0) continue;
+
+    // 3. Update/add leaderboard entry
+    const userId = tip.userId;
+    const leaderboardDocRef = doc(leaderboardRef, userId);
+    const leaderboardDoc = await getDoc(leaderboardDocRef);
+
+    if (leaderboardDoc.exists()) {
+      // Update points
+      const prevPoints = leaderboardDoc.data().points || 0;
+      await updateDoc(leaderboardDocRef, {
+        points: prevPoints + points,
+        teamName: tip.teamName || leaderboardDoc.data().teamName || "",
+        userID: userId
+      });
+    } else {
+      // New user
+      await setDoc(leaderboardDocRef, {
+        points: points,
+        teamName: tip.teamName || "",
+        userID: userId
+      });
+    }
+  }
+}
 
 // Load races initially
 loadRaces();
