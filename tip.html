@@ -252,6 +252,7 @@
   const auth = getAuth(app);
   let user = null;
   let selectedRaceId = null;
+  let userTips = {};
 
   onAuthStateChanged(auth, async (_user) => {
     if (!_user) {
@@ -260,54 +261,71 @@
       return;
     }
     user = _user;
+    await loadUserTips();
     await loadRaces();
   });
 
- async function loadRaces() {
-  const raceList = document.getElementById('race-list');
-  raceList.innerHTML = '';
+  async function loadUserTips() {
+    userTips = {};
+    const tipsSnap = await getDocs(collection(db, "tips"));
+    tipsSnap.forEach(docSnap => {
+      const tip = docSnap.data();
+      if (tip.userId === user.uid) {
+        userTips[tip.raceId] = true;
+      }
+    });
+  }
 
-  const racesSnap = await getDocs(collection(db, "races"));
-  const nowSydney = DateTime.now().setZone('Australia/Sydney');
+  async function loadRaces() {
+    const raceList = document.getElementById('race-list');
+    raceList.innerHTML = '';
 
-  let racesShown = 0;
+    const racesSnap = await getDocs(collection(db, "races"));
+    const nowSydney = DateTime.now().setZone('Australia/Sydney');
 
-  racesSnap.forEach(docSnap => {
-    const race = docSnap.data();
-    const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, {
-      zone: 'Australia/Sydney'
+    let racesShown = 0;
+
+    racesSnap.forEach(docSnap => {
+      const race = docSnap.data();
+      const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, {
+        zone: 'Australia/Sydney'
+      });
+
+      // Skip past races
+      if (raceDateTimeSydney < nowSydney) return;
+
+      racesShown++;
+
+      const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
+      const li = document.createElement('li');
+      let label = `${race.name} (${race.date} ${race.time})`;
+      if (userTips[docSnap.id]) {
+        label += " (submitted)";
+        li.classList.add('tipped');
+      }
+      li.innerHTML = label;
+
+      // Allow clicking even if tipped, but not if locked
+      if (isLocked) {
+        li.classList.add('locked');
+        li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
+      } else {
+        li.onclick = () => selectRace(docSnap.id);
+      }
+
+      raceList.appendChild(li);
     });
 
-    // Skip past races
-    if (raceDateTimeSydney < nowSydney) return;
-
-    racesShown++;
-
-    const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
-    const li = document.createElement('li');
-    li.innerHTML = `${race.name} (${race.date} ${race.time})`;
-
-    if (isLocked) {
-      li.classList.add('locked');
-      li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
-    } else {
-      li.onclick = () => selectRace(docSnap.id);
+    // Show message if no races found
+    if (racesShown === 0) {
+      const msg = document.createElement('p');
+      msg.textContent = "Upcoming races have not yet been released, check back soon!";
+      msg.style.textAlign = "center";
+      msg.style.marginTop = "1rem";
+      msg.style.color = "var(--gold)";
+      raceList.appendChild(msg);
     }
-
-    raceList.appendChild(li);
-  });
-
-  // Show message if no races found
-  if (racesShown === 0) {
-    const msg = document.createElement('p');
-    msg.textContent = "Upcoming races have not yet been released, check back soon!";
-    msg.style.textAlign = "center";
-    msg.style.marginTop = "1rem";
-    msg.style.color = "var(--gold)";
-    raceList.appendChild(msg);
   }
-}
-
 
   async function selectRace(raceId) {
     selectedRaceId = raceId;
@@ -366,7 +384,6 @@
 `;
 
 
-
       if (tippedHorseId && horseId === tippedHorseId) {
         row.classList.add('selected');
       }
@@ -393,7 +410,11 @@
       horseId: horseId,
       timestamp: Date.now()
     });
-    document.getElementById('tip-message').textContent = "✅ Tip submitted!";
+    // After tip submission, reload tips and races, and go back to race list
+    await loadUserTips();
+    await loadRaces();
+    document.getElementById('race-card-section').style.display = 'none';
+    document.getElementById('race-list-section').style.display = '';
   };
 
   document.getElementById('exit-race-btn').onclick = () => {
