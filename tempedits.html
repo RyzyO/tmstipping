@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Tip Now - Mock Sports Tipping</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Icons & Styles -->
+  <link rel="apple-touch-icon" href="logo.jfif">
+  <link rel="apple-touch-startup-image" href="splash.png">
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/bootstrap-icons.css" rel="stylesheet">
+  <link href="css/templatemo-topic-listing.css" rel="stylesheet">
+   <link href="navbar.css" rel="stylesheet">
+  <style>
+    :root {
+      --gold: #FFD700;
+      --glass-bg: rgba(24,24,24,0.85);
+      --black: #181818;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #181818 0%, #232526 100%);
+      color: white;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, h4, h5, h6,
+    .btn, .navbar-brand, .nav-link,
+    .race-list li, .horse-row {
+      font-family: 'Outfit', sans-serif;
+    }
+    .navbar {
+      background: var(--glass-bg);
+      box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
+    }
+    .navbar-brand, .nav-link {
+      color: var(--gold) !important;
+      font-weight: 600;
+      text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
+    }
+    .navbar-brand img {
+      height: 36px;
+      width: 36px;
+      object-fit: contain;
+      vertical-align: middle;
+      margin-right: 0.5rem;
+      border-radius: 8px;
+      filter: drop-shadow(0 0 6px var(--gold));
+    }
+    .main-content {
+      padding-top: 90px;
+      padding-bottom: 35px;
+      min-height: 100vh;
+    }
+    .centered-list {
+      background: var(--glass-bg);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
+      padding: 2rem 1rem;
+      max-width: 600px;
+      margin: auto;
+      width: 90%;
+      backdrop-filter: blur(8px);
+    }
+    h2 {
+      color: var(--gold);
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    .race-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .race-list li {
+      cursor: pointer;
+      padding: 1rem;
+      border: 1.5px solid var(--gold);
+      border-radius: 12px;
+      margin-bottom: 1rem;
+      background: rgba(255,255,255,0.04);
+      color: var(--gold);
+      font-weight: 600;
+      font-size: 1rem;
+      transition: all 0.2s;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .race-list li:hover, .race-list li.selected {
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      color: var(--black);
+    }
+    .race-list li.tipped {
+      opacity: 0.5;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ccc;
+      font-weight: 400;
+    }
+    .race-list li.locked {
+      opacity: 0.6;
+      background: rgba(255, 255, 255, 0.1);
+      color: #aaa;
+      cursor: not-allowed;
+    }
+    .horse-row {
+      margin-bottom: 1rem;
+      background: rgba(255,255,255,0.04);
+      border-radius: 12px;
+      padding: 1rem;
+      font-weight: 600;
+      color: var(--gold);
+      cursor: pointer;
+      word-wrap: break-word;
+    }
+    .horse-row:hover, .horse-row.selected {
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      color: var(--black);
+    }
+    .btn-success {
+      background: linear-gradient(90deg, var(--gold), #fffbe6);
+      color: var(--black);
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      width: 100%;
+    }
+    #tip-message {
+      margin-top: 1rem;
+      color: var(--gold);
+      text-align: center;
+    }
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      background: var(--glass-bg);
+      border-top: 2px solid var(--gold);
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+      z-index: 1000;
+    }
+    .bottom-nav a {
+      color: var(--gold);
+      text-align: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .bottom-nav i {
+      font-size: 1.3rem;
+      margin-bottom: 0.25rem;
+    }
+
+.lock-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.2rem;
+  margin-left: 0.5rem;
+}
+
+
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg fixed-top">
+    <div class="container">
+      <a class="navbar-brand" href="index.html">
+  <img src="logo.jfif" alt="Logo">
+  Mock Sports Tipping
+</a>
+    </div>
+  </nav>
+
+<main class="main-content container">
+  <div id="race-list-section">
+    <h2>Select a Race</h2>
+    <ul id="race-list" class="race-list"></ul>
+  </div>
+
+  <div id="race-card-section" style="display:none;">
+    <button id="exit-race-btn" class="btn btn-sm btn-outline-light mb-3 w-100">← Back</button>
+    <h2 id="selected-race-title"></h2>
+    <div id="selected-race-date" class="mb-3 text-center"></div>
+    <form id="tip-form">
+      <div id="horses-radio-list"></div>
+      <button type="submit" class="btn btn-success mt-3">Submit Tip</button>
+      <br><br><br><br><br>
+    </form>
+    <div id="tip-message"></div>
+  </div>
+</main>
+
+  <div class="bottom-nav">
+    <a href="index.html">
+      <i class="bi bi-house-fill"></i>
+      Home
+    </a>
+    <a href="tip.html">
+      <i class="bi bi-check2-square"></i>
+      Tip
+    </a>
+    <a href="results.html">
+      <i class="bi bi-broadcast-pin"></i>
+      Results
+    </a>
+    <a href="leaderboard.html">
+      <i class="bi bi-graph-up-arrow"></i>
+      Ladder
+    </a>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+  const { DateTime } = luxon;
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+    authDomain: "tmstipping.firebaseapp.com",
+    projectId: "tmstipping",
+    storageBucket: "tmstipping.appspot.com",
+    messagingSenderId: "401677933527",
+    appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+    measurementId: "G-GXLRCHV687"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
+  let user = null;
+  let selectedRaceId = null;
+  let userTips = {};
+
+  onAuthStateChanged(auth, async (_user) => {
+    if (!_user) {
+      alert("You must be logged in.");
+      window.location.href = "index.html";
+      return;
+    }
+    user = _user;
+    await loadUserTips();
+    await loadRaces();
+  });
+
+  async function loadUserTips() {
+    userTips = {};
+    const tipsSnap = await getDocs(collection(db, "tips"));
+    tipsSnap.forEach(docSnap => {
+      const tip = docSnap.data();
+      if (tip.userId === user.uid) {
+        userTips[tip.raceId] = true;
+      }
+    });
+  }
+
+  async function loadRaces() {
+    const raceList = document.getElementById('race-list');
+    raceList.innerHTML = '';
+
+    const racesSnap = await getDocs(collection(db, "races"));
+    const nowSydney = DateTime.now().setZone('Australia/Sydney');
+
+    let racesShown = 0;
+
+    // Collect races into an array with their Firestore doc id
+    const racesArr = [];
+    racesSnap.forEach(docSnap => {
+      const race = docSnap.data();
+      racesArr.push({ id: docSnap.id, ...race });
+    });
+
+    // Sort by date and time (soonest first)
+    racesArr.sort((a, b) => {
+      const aDateTime = DateTime.fromISO(`${a.date}T${a.time}`, { zone: 'Australia/Sydney' });
+      const bDateTime = DateTime.fromISO(`${b.date}T${b.time}`, { zone: 'Australia/Sydney' });
+      return aDateTime - bDateTime;
+    });
+
+    for (const race of racesArr) {
+      const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, {
+        zone: 'Australia/Sydney'
+      });
+
+      // Skip past races
+      if (raceDateTimeSydney < nowSydney) continue;
+
+      racesShown++;
+
+      const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
+      const li = document.createElement('li');
+      let label = `${race.name} (${race.date} ${race.time})`;
+      if (userTips[race.id]) {
+        label += " (submitted)";
+        li.classList.add('tipped');
+      }
+      li.innerHTML = label;
+
+      // Allow clicking even if tipped, but not if locked
+      if (isLocked) {
+        li.classList.add('locked');
+        li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
+      } else {
+        li.onclick = () => selectRace(race.id);
+      }
+
+      raceList.appendChild(li);
+    }
+
+    // Show message if no races found
+    if (racesShown === 0) {
+      const msg = document.createElement('p');
+      msg.textContent = "Upcoming races have not yet been released, check back soon!";
+      msg.style.textAlign = "center";
+      msg.style.marginTop = "1rem";
+      msg.style.color = "var(--gold)";
+      raceList.appendChild(msg);
+    }
+  }
+
+  async function selectRace(raceId) {
+    selectedRaceId = raceId;
+    document.getElementById('race-list-section').style.display = 'none';
+    document.getElementById('race-card-section').style.display = '';
+
+    const raceDoc = await getDoc(doc(db, "races", raceId));
+    const race = raceDoc.data();
+
+    const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, {
+      zone: 'Australia/Sydney'
+    });
+    const nowSydney = DateTime.now().setZone('Australia/Sydney');
+    const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
+
+    document.getElementById('selected-race-title').textContent = race.name;
+    document.getElementById('selected-race-date').textContent = `Date: ${race.date} — ${race.time}`;
+
+    if (isLocked) {
+      document.getElementById('tip-form').style.display = 'none';
+      document.getElementById('horses-radio-list').innerHTML = '';
+      document.getElementById('tip-message').textContent = '⛔ Tipping for this race has closed.';
+      return;
+    }
+
+    let tippedHorseId = null;
+    const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
+    if (tipDoc.exists()) {
+      tippedHorseId = tipDoc.data().horseId;
+    }
+
+    renderHorsesRadioList(race, raceId, tippedHorseId);
+    document.getElementById('tip-message').textContent = '';
+    document.getElementById('tip-form').style.display = '';
+  }
+
+  function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
+    const horsesDiv = document.getElementById('horses-radio-list');
+    horsesDiv.innerHTML = '';
+    const horses = race.horses || {};
+    // Only include horses that are not scratched
+    const sortedHorses = Object.entries(horses)
+      .filter(([_, h]) => !h.scratched)
+      .sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
+    for (const [horseId, horseData] of sortedHorses) {
+      // Try to get silks image if horseData.silksId exists
+      let silksImgHtml = '';
+      if (horseData.silksId) {
+        silksImgHtml = `<img src="https://www.racingaustralia.horse/JockeySilks/${horseData.silksId}.png" width="46" height="60" alt="Silks" style="margin-right:0.5rem;vertical-align:middle;border-radius:4px;background:#fff;">`;
+      } else {
+        silksImgHtml = `<div style="width:46px;height:60px;display:inline-block;margin-right:0.5rem;vertical-align:middle;background:#eee;border-radius:4px;"></div>`;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'horse-row';
+      row.dataset.horseId = horseId;
+      row.innerHTML = `
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      ${silksImgHtml}
+      <div style="font-size: 1.6rem; font-weight: bold; width: 52px; text-align: center; flex-shrink: 0;">#${horseData.number}</div>
+    </div>
+    <div style="flex-grow: 1; font-weight: 600; padding: 0 0.5rem;">${horseData.name}</div>
+    <div style="text-align: right; font-size: 0.75rem; line-height: 1.2;">
+      <div>Trainer: ${horseData.trainer || '—'}</div>
+      <div>Jockey: ${horseData.jockey || '—'}</div>
+      <div>Barrier: ${horseData.barrier || '—'}, Weight: ${horseData.weight || '—'}</div>
+    </div>
+  </div>
+`;
+
+      if (tippedHorseId && horseId === tippedHorseId) {
+        row.classList.add('selected');
+      }
+      row.onclick = () => {
+        document.querySelectorAll('.horse-row').forEach(el => el.classList.remove('selected'));
+        row.classList.add('selected');
+      };
+      horsesDiv.appendChild(row);
+    }
+  }
+
+  document.getElementById('tip-form').onsubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedRaceId || !user) return;
+    const selectedRow = document.querySelector('.horse-row.selected');
+    if (!selectedRow) {
+      alert("Please select a horse to tip.");
+      return;
+    }
+    const horseId = selectedRow.dataset.horseId;
+    await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
+      userId: user.uid,
+      raceId: selectedRaceId,
+      horseId: horseId,
+      timestamp: Date.now()
+    });
+    // After tip submission, reload tips and races, and go back to race list
+    await loadUserTips();
+    await loadRaces();
+    document.getElementById('race-card-section').style.display = 'none';
+    document.getElementById('race-list-section').style.display = '';
+  };
+
+  document.getElementById('exit-race-btn').onclick = () => {
+    document.getElementById('race-card-section').style.display = 'none';
+    document.getElementById('race-list-section').style.display = '';
+  };
+</script>
+
+</body>
+</html>
