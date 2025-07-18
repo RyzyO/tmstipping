@@ -253,6 +253,15 @@
           email
         });
 
+        // Add user to leaderboard with 0 points
+        await setDoc(doc(db, "leaderboard", user.uid), {
+          userId: user.uid,
+          teamName,
+          points: 0,
+          winners: 0,
+          rank: 0
+        });
+
         window.location.href = 'index.html';
       } catch (error) {
         errorMessage.textContent = error.message.replace('Firebase: ', '').replace(/auth\/|-/g, ' ');
