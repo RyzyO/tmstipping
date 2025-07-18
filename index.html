@@ -271,7 +271,7 @@
             <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
             <li class="nav-item"><a class="nav-link" href="tip.html">Tip Now</a></li>
             <li class="nav-item"><a class="nav-link" href="leaderboard.html">Leaderboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="admin.html">Admin</a></li>
+            <!-- Admin link will be injected by JS if user is admin -->
           </ul>
           <div class="d-none d-lg-block" id="desktop-auth-btns"></div>
         </div>
@@ -333,6 +333,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
@@ -398,15 +399,35 @@
       document.getElementById("team-rank").textContent = rank || "-";
     }
 
+    function insertAdminNavLink() {
+  const navUl = document.querySelector('.navbar-nav.ms-lg-5.me-lg-auto');
+  if (!navUl) return;
+  if (!navUl.querySelector('.admin-nav-item')) {
+    const li = document.createElement('li');
+    li.className = 'nav-item admin-nav-item';
+    li.innerHTML = `<a class="nav-link" href="admin.html">Admin</a>`;
+    navUl.appendChild(li);
+  }
+}
+
     onAuthStateChanged(auth, async (user) => {
       renderAuthButtons(user);
       welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to Mock Sports Tipping";
 
-    const tipNowBtn = document.getElementById('tip-now-btn');
-    if (tipNowBtn) {
-      tipNowBtn.href = user ? "tip.html" : "login.html";
-    }
+      const tipNowBtn = document.getElementById('tip-now-btn');
+      if (tipNowBtn) {
+        tipNowBtn.href = user ? "tip.html" : "login.html";
+      }
 
+      // Admin nav link logic
+      if (user) {
+        const rtdb = getDatabase(app);
+        const adminRef = ref(rtdb, `users/${user.uid}/admin`);
+        const snapshot = await get(adminRef);
+        if (snapshot.exists() && snapshot.val() === true) {
+          insertAdminNavLink();
+        }
+      }
 
       if (user) loadTeamRank(user);
 
