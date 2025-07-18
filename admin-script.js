@@ -120,17 +120,19 @@ document.getElementById('save-results').onclick = async () => {
     return;
   }
 
-  await setDoc(doc(db, 'results', selectedRaceId), {
-    winningHorseId: winnerId,
-    points: winnerPoints,
-    place1HorseId: place1Id,
-    place1Points: place1Points,
-    place2HorseId: place2Id,
-    place2Points: place2Points
-  });
+await setDoc(doc(db, 'results', selectedRaceId), {
+  winningHorseId: winnerId,
+  points: winnerPoints,
+  place1HorseId: place1Id,
+  place1Points: place1Points,
+  place2HorseId: place2Id,
+  place2Points: place2Points
+});
 
-  alert("Results saved.");
-};
+await calculateAndSaveLeaderboard(); // ✅ safe, scoped, and correct
+
+alert("Results saved.");
+
 
 document.getElementById('save-race-date').onclick = async () => {
   const newDate = document.getElementById('edit-race-date').value;
@@ -265,6 +267,55 @@ document.getElementById('new-race-btn').onclick = () => {
   document.getElementById('race-form').reset();
   document.getElementById('horses-list').innerHTML = '';
 };
+async function calculateAndSaveLeaderboard() {
+  const userPoints = {};
+  const userNames = {};
+
+  // Load all users
+  const usersSnap = await getDocs(collection(db, "users"));
+  usersSnap.forEach(doc => {
+    const data = doc.data();
+    userPoints[doc.id] = 0;
+    userNames[doc.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || doc.id;
+  });
+
+  // Load race results
+  const resultsSnap = await getDocs(collection(db, "results"));
+  const raceWinners = {};
+  resultsSnap.forEach(doc => {
+    const data = doc.data();
+    if (data.winningHorseId && data.points) {
+      raceWinners[doc.id] = { horseId: data.winningHorseId, points: data.points };
+    }
+  });
+
+  // Load all tips
+  const tipsSnap = await getDocs(collection(db, "tips"));
+  tipsSnap.forEach(doc => {
+    const tip = doc.data();
+    const { raceId, userId, horseId } = tip;
+    if (!(userId in userPoints)) return; // Skip if user not found
+    if (raceWinners[raceId] && horseId === raceWinners[raceId].horseId) {
+      userPoints[userId] += raceWinners[raceId].points;
+    }
+  });
+
+  // Write leaderboard to Firestore
+  const batch = writeBatch(db);
+  const leaderboardRef = collection(db, "leaderboard");
+  Object.entries(userPoints).forEach(([userId, points]) => {
+    batch.set(doc(leaderboardRef, userId), {
+      userId,
+      teamName: userNames[userId],
+      points
+    });
+  });
+
+  await batch.commit();
+  console.log("✅ Leaderboard updated.");
+}
+
+
 
 // Load races initially
 loadRaces();
