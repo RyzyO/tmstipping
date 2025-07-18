@@ -285,21 +285,34 @@
 
     let racesShown = 0;
 
+    // Collect races into an array with their Firestore doc id
+    const racesArr = [];
     racesSnap.forEach(docSnap => {
       const race = docSnap.data();
+      racesArr.push({ id: docSnap.id, ...race });
+    });
+
+    // Sort by date and time (soonest first)
+    racesArr.sort((a, b) => {
+      const aDateTime = DateTime.fromISO(`${a.date}T${a.time}`, { zone: 'Australia/Sydney' });
+      const bDateTime = DateTime.fromISO(`${b.date}T${b.time}`, { zone: 'Australia/Sydney' });
+      return aDateTime - bDateTime;
+    });
+
+    for (const race of racesArr) {
       const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, {
         zone: 'Australia/Sydney'
       });
 
       // Skip past races
-      if (raceDateTimeSydney < nowSydney) return;
+      if (raceDateTimeSydney < nowSydney) continue;
 
       racesShown++;
 
       const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
       const li = document.createElement('li');
       let label = `${race.name} (${race.date} ${race.time})`;
-      if (userTips[docSnap.id]) {
+      if (userTips[race.id]) {
         label += " (submitted)";
         li.classList.add('tipped');
       }
@@ -310,11 +323,11 @@
         li.classList.add('locked');
         li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
       } else {
-        li.onclick = () => selectRace(docSnap.id);
+        li.onclick = () => selectRace(race.id);
       }
 
       raceList.appendChild(li);
-    });
+    }
 
     // Show message if no races found
     if (racesShown === 0) {
