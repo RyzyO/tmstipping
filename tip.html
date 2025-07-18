@@ -379,7 +379,10 @@
     const horsesDiv = document.getElementById('horses-radio-list');
     horsesDiv.innerHTML = '';
     const horses = race.horses || {};
-    const sortedHorses = Object.entries(horses).sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
+    // Only include horses that are not scratched
+    const sortedHorses = Object.entries(horses)
+      .filter(([_, h]) => !h.scratched)
+      .sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
     for (const [horseId, horseData] of sortedHorses) {
       const row = document.createElement('div');
       row.className = 'horse-row';

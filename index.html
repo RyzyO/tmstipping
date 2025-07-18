@@ -205,8 +205,30 @@
 
     .navbar-brand span {
   font-family: 'Outfit', sans-serif;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  /* Responsive font size for heading */
+  display: inline-block;
+  vertical-align: middle;
 }
 
+@media (max-width: 480px) {
+  .navbar-brand span {
+    font-size: 1.1rem;
+    white-space: normal;
+    line-height: 1.2;
+    max-width: 120px;
+    display: inline-block;
+    word-break: break-word;
+  }
+  .navbar-brand img {
+    height: 28px !important;
+    width: 28px !important;
+    margin-right: 0.3rem !important;
+  }
+}
 @media (max-width: 768px) {
   .hero-section {
     flex-direction: column;

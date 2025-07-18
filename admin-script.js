@@ -179,16 +179,29 @@ async function loadRaces() {
   const racesSnap = await getDocs(collection(db, 'races'));
   racesCache = {};
 
+  // Collect races into array with id for sorting
+  const racesArr = [];
   racesSnap.forEach(docSnap => {
     const race = docSnap.data();
+    racesArr.push({ id: docSnap.id, ...race });
     racesCache[docSnap.id] = race;
+  });
+
+  // Sort by date and time (soonest first)
+  racesArr.sort((a, b) => {
+    const aDateTime = new Date(`${a.date}T${a.time}`);
+    const bDateTime = new Date(`${b.date}T${b.time}`);
+    return aDateTime - bDateTime;
+  });
+
+  for (const race of racesArr) {
     const li = document.createElement('li');
     li.textContent = `${race.name} (${race.date})`;
-    li.dataset.raceId = docSnap.id;
-    li.onclick = () => selectRace(docSnap.id);
-    if (selectedRaceId === docSnap.id) li.classList.add('selected');
+    li.dataset.raceId = race.id;
+    li.onclick = () => selectRace(race.id);
+    if (selectedRaceId === race.id) li.classList.add('selected');
     raceList.appendChild(li);
-  });
+  }
 }
 
 async function selectRace(raceId) {
@@ -236,8 +249,9 @@ function renderHorsesList(race, raceId) {
       <input type="text" value="${horse.barrier || ''}" placeholder="Barrier" style="width:80px;">
       <input type="text" value="${horse.weight || ''}" placeholder="Weight" style="width:80px;">
       <button class="btn btn-sm btn-outline-success">Save</button>
+      ${horse.scratched ? '<span style="color:red;font-weight:bold;margin-left:8px;">SCRATCHED</span>' : `<button class="btn btn-sm btn-outline-danger scratch-horse-btn" style="margin-left:8px;">Scratch</button>`}
     `;
-    row.querySelector('button').onclick = async () => {
+    row.querySelector('button.btn-outline-success').onclick = async () => {
       const inputs = row.querySelectorAll('input');
       const updatedHorse = {
         number: inputs[0].value,
@@ -246,18 +260,29 @@ function renderHorsesList(race, raceId) {
         jockey: inputs[3].value,
         barrier: inputs[4].value,
         weight: inputs[5].value,
+        scratched: !!horse.scratched
       };
       race.horses[horseId] = updatedHorse;
       await updateDoc(doc(db, 'races', raceId), { horses: race.horses });
       await selectRace(raceId);
     };
+    // Add scratch handler if not already scratched
+    if (!horse.scratched) {
+      row.querySelector('.scratch-horse-btn').onclick = async () => {
+        race.horses[horseId].scratched = true;
+        await updateDoc(doc(db, 'races', raceId), { horses: race.horses });
+        await selectRace(raceId);
+      };
+    }
     horsesDiv.appendChild(row);
 
-    // Add to dropdowns
-    const option = new Option(`${horse.number} - ${horse.name}`, horseId);
-    winnerSelect.appendChild(option.cloneNode(true));
-    place1Select.appendChild(option.cloneNode(true));
-    place2Select.appendChild(option.cloneNode(true));
+    // Add to dropdowns only if not scratched
+    if (!horse.scratched) {
+      const option = new Option(`${horse.number} - ${horse.name}`, horseId);
+      winnerSelect.appendChild(option.cloneNode(true));
+      place1Select.appendChild(option.cloneNode(true));
+      place2Select.appendChild(option.cloneNode(true));
+    }
   }
 }
 
