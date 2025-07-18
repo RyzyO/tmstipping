@@ -99,5 +99,30 @@
 </div>
 
 <script type="module" src="admin-script.js"></script>
+<script>
+  // Manual row entry fix: add event listener for #add-horse-row
+  document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('add-horse-row');
+    if (btn) {
+      btn.onclick = function() {
+        // This must match the addHorseRow() logic in admin-script.js
+        const horsesList = document.getElementById('horses-list');
+        const div = document.createElement('div');
+        div.className = 'horse-row mb-2';
+        div.innerHTML = `
+          <input type="text" placeholder="No" class="form-control d-inline-block" style="width:60px;" required>
+          <input type="text" placeholder="Horse Name" class="form-control d-inline-block" style="width:150px;" required>
+          <input type="text" placeholder="Trainer" class="form-control d-inline-block" style="width:150px;">
+          <input type="text" placeholder="Jockey" class="form-control d-inline-block" style="width:150px;">
+          <input type="text" placeholder="Barrier" class="form-control d-inline-block" style="width:80px;">
+          <input type="text" placeholder="Weight" class="form-control d-inline-block" style="width:80px;">
+          <button type="button" class="btn btn-danger btn-sm remove-horse-row">Remove</button>
+        `;
+        div.querySelector('.remove-horse-row').onclick = () => div.remove();
+        horsesList.appendChild(div);
+      };
+    }
+  });
+</script>
 </body>
 </html>

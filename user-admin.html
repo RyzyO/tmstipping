@@ -19,9 +19,10 @@
 <div class="container user-admin-container">
   <a href="admin.html" class="btn btn-link mb-3">&larr; Back to Admin</a>
   <h2>User Admin</h2>
-  <div class="mb-3">
+  <div class="mb-3 d-flex" style="gap:0.5rem;">
     <input type="text" id="user-search" class="form-control search-bar" placeholder="Search users by name, email, or team name...">
     <button class="btn btn-outline-secondary export-btn" id="export-csv">Export CSV</button>
+    <button class="btn btn-outline-secondary export-btn" id="export-ladder-csv">Export Ladder</button>
   </div>
   <div class="row">
     <div class="col-md-4">
@@ -162,12 +163,27 @@ async function selectUser(userId) {
 document.getElementById('user-edit-form').onsubmit = async function(e) {
   e.preventDefault();
   if (!selectedUserId) return;
+  const email = document.getElementById('edit-email').value;
+  const firstName = document.getElementById('edit-firstName').value;
+  const lastName = document.getElementById('edit-lastName').value;
+  const teamName = document.getElementById('edit-teamName').value;
+
   await updateDoc(doc(db, "users", selectedUserId), {
-    email: document.getElementById('edit-email').value,
-    firstName: document.getElementById('edit-firstName').value,
-    lastName: document.getElementById('edit-lastName').value,
-    teamName: document.getElementById('edit-teamName').value
+    email,
+    firstName,
+    lastName,
+    teamName
   });
+
+  // Also update leaderboard entry if exists
+  const leaderboardDocRef = doc(db, "leaderboard", selectedUserId);
+  const leaderboardDoc = await getDoc(leaderboardDocRef);
+  if (leaderboardDoc.exists()) {
+    await updateDoc(leaderboardDocRef, {
+      teamName
+    });
+  }
+
   await loadUsers();
   alert("User updated.");
 };
@@ -262,6 +278,33 @@ document.getElementById('export-csv').onclick = function() {
   const a = document.createElement('a');
   a.href = url;
   a.download = 'users.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+// Export Ladder CSV (leaderboard)
+document.getElementById('export-ladder-csv').onclick = async function() {
+  const db = getFirestore();
+  const snapshot = await getDocs(collection(db, "leaderboard"));
+  const leaderboard = [];
+  snapshot.forEach(doc => {
+    leaderboard.push({ id: doc.id, ...doc.data() });
+  });
+  leaderboard.sort((a, b) => b.points - a.points);
+  const header = ['Rank', 'Team Name', 'Points'];
+  const rows = leaderboard.map((entry, idx) => [
+    idx + 1,
+    `"${entry.teamName || entry.userId}"`,
+    entry.points
+  ]);
+  let csv = header.join(',') + '\n' + rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ladder.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
