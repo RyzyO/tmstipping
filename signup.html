@@ -158,6 +158,19 @@
       text-decoration: underline;
     }
 
+    #stripe-container {
+      display: none;
+      text-align: center;
+      margin-top: 2rem;
+      animation: fadeInUp 0.6s ease-out both;
+    }
+
+    #stripe-container p {
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+      color: #fff;
+    }
+
     @media (max-width: 480px) {
       .signup-container {
         padding: 1.5rem 1rem;
@@ -203,6 +216,16 @@
       Already have an account? <a href="login.html">Log in</a>
     </div>
   </div>
+
+  <div id="stripe-container">
+    <p>Almost done! Complete your payment to activate your account:</p>
+    <stripe-buy-button
+      buy-button-id="buy_btn_1Rog4AR1XnBRD6k4LNKKHkr0"
+      publishable-key="pk_live_51RnynwR1XnBRD6k4mpPkcSavAQwuuXQACYmsZG3nsWSnks0DyAscYVOHv36gWPdscvU7RiAaSWtos9NypUBDHyWO0074AxsFdp">
+    </stripe-buy-button>
+  </div>
+
+  <script async src="https://js.stripe.com/v3/buy-button.js"></script>
 
   <!-- Firebase Sign Up Logic -->
   <script type="module">
@@ -253,7 +276,6 @@
           email
         });
 
-        // Add user to leaderboard with 0 points
         await setDoc(doc(db, "leaderboard", user.uid), {
           userId: user.uid,
           teamName,
@@ -262,7 +284,10 @@
           rank: 0
         });
 
-        window.location.href = 'payment.html';
+        // Show Stripe buy button, hide form
+        document.querySelector('.signup-container form').style.display = 'none';
+        document.getElementById('stripe-container').style.display = 'block';
+
       } catch (error) {
         errorMessage.textContent = error.message.replace('Firebase: ', '').replace(/auth\/|-/g, ' ');
       }
