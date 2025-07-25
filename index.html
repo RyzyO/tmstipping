@@ -354,28 +354,38 @@
     const mobileAuthBtns = document.getElementById('mobile-auth-btns');
 
     function renderAuthButtons(user) {
-      let html = '';
-      if (user) {
-        html = `
-          <span class="me-3">Hi, ${user.displayName || user.email}</span>
-          <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
-        `;
-      } else {
-        html = `
-          <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
-          <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
-        `;
-      }
-      desktopAuthBtns.innerHTML = html;
-      mobileAuthBtns.innerHTML = html;
+  let html = '';
+  if (user) {
+    html = `
+      <span class="me-3">Hi, ${user.displayName || user.email}</span>
+      <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
+    `;
+  } else {
+    html = `
+      <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+      <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
+    `;
+  }
 
-      if (user) {
-        document.getElementById('logout-btn').onclick = async () => {
+  desktopAuthBtns.innerHTML = html;
+  mobileAuthBtns.innerHTML = html;
+
+  setTimeout(() => {
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        try {
           await signOut(auth);
           window.location.href = "login.html";
-        };
-      }
+        } catch (err) {
+          console.error("Sign out error:", err);
+        }
+      });
     }
+  }, 0);
+}
+
+
 
     async function loadTeamRank(user) {
       const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
