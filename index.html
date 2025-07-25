@@ -329,128 +329,121 @@
   </div>
 
    <script src="js/bootstrap.bundle.min.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+    authDomain: "tmstipping.firebaseapp.com",
+    projectId: "tmstipping",
+    storageBucket: "tmstipping.appspot.com",
+    messagingSenderId: "401677933527",
+    appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+    measurementId: "G-GXLRCHV687"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const auth = getAuth(app);
 
-    const welcomeMessage = document.getElementById('welcome-message');
-    const desktopAuthBtns = document.getElementById('desktop-auth-btns');
-    const mobileAuthBtns = document.getElementById('mobile-auth-btns');
+  const welcomeMessage = document.getElementById('welcome-message');
+  const desktopAuthBtns = document.getElementById('desktop-auth-btns');
+  const mobileAuthBtns = document.getElementById('mobile-auth-btns');
 
-    function renderAuthButtons(user) {
-  let html = '';
-  if (user) {
-    html = `
-      <span class="me-3">Hi, ${user.displayName || user.email}</span>
-      <button class="btn btn-outline-light btn-sm" id="logout-btn">Logout</button>
-    `;
-  } else {
-    html = `
-      <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
-      <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
-    `;
-  }
-
-  desktopAuthBtns.innerHTML = html;
-  mobileAuthBtns.innerHTML = html;
-
-  setTimeout(() => {
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', async () => {
-        try {
-          await signOut(auth);
-          window.location.href = "login.html";
-        } catch (err) {
-          console.error("Sign out error:", err);
-        }
-      });
-    }
-  }, 0);
-}
-
-
-
-    async function loadTeamRank(user) {
-      const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
-      const userSnap = await getDocs(collection(db, "users"));
-      let userTeamName = null;
-      userSnap.forEach(doc => {
-        if (doc.id === user.uid) {
-          userTeamName = doc.data().teamName;
-        }
-      });
-
-      const leaderboard = [];
-      leaderboardSnap.forEach(doc => {
-        leaderboard.push({ id: doc.id, ...doc.data() });
-      });
-
-      leaderboard.sort((a, b) => b.points - a.points);
-      const rank = leaderboard.findIndex(entry => entry.id === user.uid) + 1;
-
-      document.getElementById("team-name").textContent = userTeamName || "Your Team";
-      document.getElementById("team-rank").textContent = rank || "-";
+  function renderAuthButtons(user) {
+    let html = '';
+    if (user) {
+      html = `
+        <span class="me-3">Hi, ${user.displayName || user.email}</span>
+        <button class="btn btn-outline-light btn-sm logout-btn">Logout</button>
+      `;
+    } else {
+      html = `
+        <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
+        <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
+      `;
     }
 
-    function insertAdminNavLink() {
-  const navUl = document.querySelector('.navbar-nav.ms-lg-5.me-lg-auto');
-  if (!navUl) return;
-  if (!navUl.querySelector('.admin-nav-item')) {
-    const li = document.createElement('li');
-    li.className = 'nav-item admin-nav-item';
-    li.innerHTML = `<a class="nav-link" href="admin.html">Admin</a>`;
-    navUl.appendChild(li);
+    desktopAuthBtns.innerHTML = html;
+    mobileAuthBtns.innerHTML = html;
+
+    setTimeout(() => {
+      document.querySelectorAll('.logout-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          try {
+            await signOut(auth);
+            window.location.href = "login.html";
+          } catch (err) {
+            console.error("Sign out error:", err);
+          }
+        });
+      });
+    }, 0);
   }
-}
 
-    onAuthStateChanged(auth, async (user) => {
-      renderAuthButtons(user);
-      welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to Mock Sports Tipping";
-
-      const tipNowBtn = document.getElementById('tip-now-btn');
-      if (tipNowBtn) {
-        tipNowBtn.href = user ? "tip.html" : "login.html";
+  async function loadTeamRank(user) {
+    const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+    const userSnap = await getDocs(collection(db, "users"));
+    let userTeamName = null;
+    userSnap.forEach(doc => {
+      if (doc.id === user.uid) {
+        userTeamName = doc.data().teamName;
       }
-
-      // Admin nav link logic
-      if (user) {
-        const rtdb = getDatabase(app);
-        const adminRef = ref(rtdb, `users/${user.uid}/admin`);
-        const snapshot = await get(adminRef);
-        if (snapshot.exists() && snapshot.val() === true) {
-          insertAdminNavLink();
-        }
-      }
-
-      if (user) loadTeamRank(user);
-
-      const teamBox = document.getElementById('team-box');
-      if (user) {
-        teamBox.style.display = "block";
-        loadTeamRank(user);
-      } else {
-        teamBox.style.display = "none";
-      }
-
-
     });
-  </script>
+
+    const leaderboard = [];
+    leaderboardSnap.forEach(doc => {
+      leaderboard.push({ id: doc.id, ...doc.data() });
+    });
+
+    leaderboard.sort((a, b) => b.points - a.points);
+    const rank = leaderboard.findIndex(entry => entry.id === user.uid) + 1;
+
+    document.getElementById("team-name").textContent = userTeamName || "Your Team";
+    document.getElementById("team-rank").textContent = rank || "-";
+  }
+
+  function insertAdminNavLink() {
+    const navUl = document.querySelector('.navbar-nav.ms-lg-5.me-lg-auto');
+    if (!navUl) return;
+    if (!navUl.querySelector('.admin-nav-item')) {
+      const li = document.createElement('li');
+      li.className = 'nav-item admin-nav-item';
+      li.innerHTML = `<a class="nav-link" href="admin.html">Admin</a>`;
+      navUl.appendChild(li);
+    }
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    renderAuthButtons(user);
+    welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to Mock Sports Tipping";
+
+    const tipNowBtn = document.getElementById('tip-now-btn');
+    if (tipNowBtn) {
+      tipNowBtn.href = user ? "tip.html" : "login.html";
+    }
+
+    if (user) {
+      const rtdb = getDatabase(app);
+      const adminRef = ref(rtdb, `users/${user.uid}/admin`);
+      const snapshot = await get(adminRef);
+      if (snapshot.exists() && snapshot.val() === true) {
+        insertAdminNavLink();
+      }
+    }
+
+    const teamBox = document.getElementById('team-box');
+    if (user) {
+      teamBox.style.display = "block";
+      loadTeamRank(user);
+    } else {
+      teamBox.style.display = "none";
+    }
+  });
+</script>
+
 </body>
 </html>
