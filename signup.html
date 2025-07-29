@@ -236,30 +236,44 @@
   <script async src="https://js.stripe.com/v3/buy-button.js"></script>
 
   <!-- Firebase Sign Up Logic -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getFirestore, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+ <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+  import { getFirestore, setDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.firebasestorage.app",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
+  const firebaseConfig = {
+    apiKey: "…",
+    authDomain: "tmstipping.firebaseapp.com",
+    projectId: "tmstipping",
+    storageBucket: "tmstipping.appspot.com",       // match your actual bucket
+    messagingSenderId: "…",
+    appId: "…",
+    measurementId: "…"
+  };
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const dob = document.getElementById('dob').value;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getFirestore(app);
+
+  const signupForm  = document.getElementById('signup-form');
+  const errorMessage = document.getElementById('error-message');
+
+  signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // 1. Get the DOB *now* that the user has submitted it
+    const dobValue = document.getElementById('dob').value;
+    if (!dobValue) {
+      errorMessage.textContent = "Please enter your date of birth.";
+      return;
+    }
+
+    // 2. Calculate age
+    const birthDate = new Date(dobValue);
+    const today     = new Date();
+    let   age       = today.getFullYear() - birthDate.getFullYear();
+    const mDiff     = today.getMonth() - birthDate.getMonth();
+    if (mDiff < 0 || (mDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
 
@@ -268,57 +282,49 @@
       return;
     }
 
+    // 3. Now pull the rest of the form values
+    const firstName = document.getElementById('firstName').value.trim();
+    const lastName  = document.getElementById('lastName').value.trim();
+    const teamName  = document.getElementById('teamName').value.trim();
+    const email     = document.getElementById('email').value.trim();
+    const password  = document.getElementById('password').value;
 
-    const signupForm = document.getElementById('signup-form');
-    const errorMessage = document.getElementById('error-message');
+    errorMessage.textContent = '';
 
-    signupForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      await updateProfile(user, { displayName: `${firstName} ${lastName}` });
 
-      const firstName = document.getElementById('firstName').value.trim();
-      const lastName = document.getElementById('lastName').value.trim();
-      const teamName = document.getElementById('teamName').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+      // Save to Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        firstName,
+        lastName,
+        teamName,
+        email,
+        dob: dobValue,
+        joker: 3
+      });
+      await setDoc(doc(db, "leaderboard", user.uid), {
+        userId: user.uid,
+        teamName,
+        points: 0,
+        winners: 0,
+        rank: 0
+      });
 
-      errorMessage.textContent = '';
+      // Show Stripe button
+      signupForm.style.display            = 'none';
+      document.getElementById('stripe-container').style.display = 'block';
 
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+    } catch (err) {
+      errorMessage.textContent = err.message
+        .replace('Firebase: ', '')
+        .replace(/auth\/|-/g, ' ');
+    }
+  });
+</script>
 
-        await updateProfile(user, {
-          displayName: `${firstName} ${lastName}`
-        });
-
-       await setDoc(doc(db, "users", user.uid), {
-  firstName,
-  lastName,
-  teamName,
-  email,
-  dob,
-  joker: 3
-});
-
-
-
-        await setDoc(doc(db, "leaderboard", user.uid), {
-          userId: user.uid,
-          teamName,
-          points: 0,
-          winners: 0,
-          rank: 0
-        });
-
-        // Show Stripe buy button, hide form
-        document.querySelector('.signup-container form').style.display = 'none';
-        document.getElementById('stripe-container').style.display = 'block';
-
-      } catch (error) {
-        errorMessage.textContent = error.message.replace('Firebase: ', '').replace(/auth\/|-/g, ' ');
-      }
-    });
-  </script>
 
   <script>
     function togglePassword() {
