@@ -196,8 +196,16 @@
         <label for="lastName">Last Name</label>
         <input type="text" id="lastName" required />
       </div>
+
+
+   <div class="form-group">
+  <label for="dob">Date of Birth</label>
+  <input type="date" id="dob" required />
+</div>
+
+
       <div class="form-group">
-        <label for="teamName">Team Name</label>
+        <label for="teamName">Tipper Name (Displayed on the Ladder)</label>
         <input type="text" id="teamName" required />
       </div>
       <div class="form-group">
@@ -246,6 +254,20 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
+    const dob = document.getElementById('dob').value;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    if (age < 18) {
+      errorMessage.textContent = "You must be at least 18 years old to sign up.";
+      return;
+    }
+
 
     const signupForm = document.getElementById('signup-form');
     const errorMessage = document.getElementById('error-message');
@@ -269,12 +291,16 @@
           displayName: `${firstName} ${lastName}`
         });
 
-        await setDoc(doc(db, "users", user.uid), {
-          firstName,
-          lastName,
-          teamName,
-          email
-        });
+       await setDoc(doc(db, "users", user.uid), {
+  firstName,
+  lastName,
+  teamName,
+  email,
+  dob,
+  joker: 3
+});
+
+
 
         await setDoc(doc(db, "leaderboard", user.uid), {
           userId: user.uid,

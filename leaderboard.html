@@ -172,12 +172,14 @@
     <div id="leaderboard-table-section">
       <table class="table table-striped text-white">
         <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Team</th>
-            <th>Points</th>
-          </tr>
-        </thead>
+  <tr>
+    <th>Rank</th>
+    <th>Team</th>
+    <th>Points</th>
+    <th>Jokers Remaining</th>
+  </tr>
+</thead>
+
         <tbody id="leaderboard-table-body"></tbody>
       </table>
     </div>
@@ -272,35 +274,47 @@
     loadLeaderboard();
   });
 
-  async function loadLeaderboard() {
-    const snapshot = await getDocs(collection(db, "leaderboard"));
-    const leaderboard = [];
+ async function loadLeaderboard() {
+  const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+  const usersSnap = await getDocs(collection(db, "users"));
 
-    snapshot.forEach(doc => {
-      leaderboard.push({ id: doc.id, ...doc.data() });
-    });
+  // Map userId to joker count
+  const userJokers = {};
+  usersSnap.forEach(doc => {
+    const data = doc.data();
+    userJokers[doc.id] = data.joker ?? 0;
+  });
 
-    leaderboard.sort((a, b) => b.points - a.points);
+  const leaderboard = [];
 
-    const tbody = document.getElementById('leaderboard-table-body');
-    tbody.innerHTML = '';
-    let rank = 1;
+  leaderboardSnap.forEach(doc => {
+    leaderboard.push({ id: doc.id, ...doc.data() });
+  });
 
-    for (const entry of leaderboard) {
-      const tr = document.createElement('tr');
-      if (entry.teamName === currentUserTeamName) {
-        tr.style.fontWeight = 'bold';
-        tr.style.backgroundColor = 'rgba(255, 215, 0, 0.15)';
-      }
-      tr.innerHTML = `
-        <td>${rank}</td>
-        <td>${entry.teamName || entry.userId}</td>
-        <td>${entry.points}</td>
-      `;
-      tbody.appendChild(tr);
-      rank++;
+  leaderboard.sort((a, b) => b.points - a.points);
+
+  const tbody = document.getElementById('leaderboard-table-body');
+  tbody.innerHTML = '';
+  let rank = 1;
+
+  for (const entry of leaderboard) {
+    const jokerCount = userJokers[entry.userId] ?? 0;
+    const tr = document.createElement('tr');
+    if (entry.teamName === currentUserTeamName) {
+      tr.style.fontWeight = 'bold';
+      tr.style.backgroundColor = 'rgba(255, 215, 0, 0.15)';
     }
+    tr.innerHTML = `
+      <td>${rank}</td>
+      <td>${entry.teamName || entry.userId}</td>
+      <td>${entry.points}</td>
+      <td>${jokerCount}</td>
+    `;
+    tbody.appendChild(tr);
+    rank++;
   }
+}
+
 </script>
 
 </body>
