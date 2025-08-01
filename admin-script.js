@@ -109,11 +109,11 @@ document.getElementById('race-form').onsubmit = async (e) => {
 
 document.getElementById('save-results').onclick = async () => {
   const winnerId = document.getElementById('winner-horse-id').value.trim();
-  const winnerPoints = parseInt(document.getElementById('winner-points').value);
+  const winnerPoints = parseFloat(document.getElementById('winner-points').value);
   const place1Id = document.getElementById('place1-horse-id').value.trim();
-  const place1Points = parseInt(document.getElementById('place1-points').value);
+  const place1Points = parseFloat(document.getElementById('place1-points').value);
   const place2Id = document.getElementById('place2-horse-id').value.trim();
-  const place2Points = parseInt(document.getElementById('place2-points').value);
+  const place2Points = parseFloat(document.getElementById('place2-points').value);
 
   if (!winnerId || isNaN(winnerPoints) || !place1Id || isNaN(place1Points) || !place2Id || isNaN(place2Points)) {
     alert("All result fields must be completed.");
@@ -226,7 +226,7 @@ function renderHorsesList(race, raceId) {
   const horsesDiv = document.getElementById('selected-horses-list');
   horsesDiv.innerHTML = '';
   const horses = Object.entries(race.horses || {}).sort((a, b) => {
-    return parseInt(a[1].number) - parseInt(b[1].number);
+    return parseFloat(a[1].number) - parseFloat(b[1].number);
   });
 
   // Find current substitute horseId (if any)

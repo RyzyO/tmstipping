@@ -274,7 +274,7 @@
     loadLeaderboard();
   });
 
- async function loadLeaderboard() {
+async function loadLeaderboard() {
   const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
   const usersSnap = await getDocs(collection(db, "users"));
 
@@ -285,35 +285,49 @@
     userJokers[doc.id] = data.joker ?? 0;
   });
 
+  // Build and normalize leaderboard entries
   const leaderboard = [];
-
-  leaderboardSnap.forEach(doc => {
-    leaderboard.push({ id: doc.id, ...doc.data() });
+  leaderboardSnap.forEach(docSnap => {
+    const data = docSnap.data();
+    // Coerce points to a Number (handles string or numeric storage)
+    const raw = data.points;
+    const pts = typeof raw === "string" ? parseFloat(raw) : raw;
+    leaderboard.push({
+      userId: docSnap.id,
+      teamName: data.teamName,
+      points: isNaN(pts) ? 0 : pts
+    });
   });
 
+  // Sort by points descending
   leaderboard.sort((a, b) => b.points - a.points);
 
-  const tbody = document.getElementById('leaderboard-table-body');
-  tbody.innerHTML = '';
+  // Render into table
+  const tbody = document.getElementById("leaderboard-table-body");
+  tbody.innerHTML = "";
   let rank = 1;
 
   for (const entry of leaderboard) {
     const jokerCount = userJokers[entry.userId] ?? 0;
-    const tr = document.createElement('tr');
+    const tr = document.createElement("tr");
+
+    // Highlight current user's team
     if (entry.teamName === currentUserTeamName) {
-      tr.style.fontWeight = 'bold';
-      tr.style.backgroundColor = 'rgba(255, 215, 0, 0.15)';
+      tr.style.fontWeight = "bold";
+      tr.style.backgroundColor = "rgba(255, 215, 0, 0.15)";
     }
+
     tr.innerHTML = `
       <td>${rank}</td>
       <td>${entry.teamName || entry.userId}</td>
-      <td>${entry.points}</td>
+      <td>${entry.points.toFixed(2)}</td>
       <td>${jokerCount}</td>
     `;
     tbody.appendChild(tr);
     rank++;
   }
 }
+
 
 </script>
 
