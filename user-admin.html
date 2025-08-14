@@ -19,6 +19,10 @@
 <div class="container user-admin-container">
   <a href="admin.html" class="btn btn-link mb-3">&larr; Back to Admin</a>
   <h2>User Admin</h2>
+  <div class="mb-4 text-center">
+    <h1 id="fees-collected-counter" style="font-size:3rem;">$0</h1>
+    <div style="font-size:1.2rem;color:#555;">Fees Collected</div>
+  </div>
   <div class="mb-3 d-flex" style="gap:0.5rem;">
     <input type="text" id="user-search" class="form-control search-bar" placeholder="Search users by name, email, or team name...">
     <button class="btn btn-outline-secondary export-btn" id="export-csv">Export CSV</button>
@@ -118,9 +122,14 @@ async function loadUsers() {
   userListDiv.innerHTML = '<div class="text-muted p-2">Loading users...</div>';
   const usersSnap = await getDocs(collection(db, "users"));
   users = [];
+  let paidCount = 0;
   usersSnap.forEach(docSnap => {
-    users.push({ id: docSnap.id, ...docSnap.data() });
+    const userData = docSnap.data();
+    users.push({ id: docSnap.id, ...userData });
+    if (userData.paid === true) paidCount++;
   });
+  // Update fees collected counter
+  document.getElementById('fees-collected-counter').textContent = `$${paidCount * 30}`;
   renderUserList(users);
 }
 
@@ -271,13 +280,14 @@ async function loadUserTips(userId) {
 // CSV Export
 document.getElementById('export-csv').onclick = function() {
   if (!users.length) return;
-  const header = ['UserID', 'Email', 'First Name', 'Last Name', 'Team Name'];
+  const header = ['UserID', 'Email', 'First Name', 'Last Name', 'Team Name', 'Paid'];
   const rows = users.map(u => [
     `"${u.id}"`,
     `"${u.email || ''}"`,
     `"${u.firstName || ''}"`,
     `"${u.lastName || ''}"`,
-    `"${u.teamName || ''}"`
+    `"${u.teamName || ''}"`,
+    u.paid === true ? 'true' : 'false'
   ]);
   let csv = header.join(',') + '\n' + rows.map(r => r.join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
