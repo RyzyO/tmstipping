@@ -48,6 +48,10 @@
             <label>Team Name:</label>
             <input type="text" class="form-control" id="edit-teamName">
           </div>
+          <div class="mb-2 form-check">
+            <input type="checkbox" class="form-check-input" id="edit-paid">
+            <label class="form-check-label" for="edit-paid">Paid</label>
+          </div>
           <button type="submit" class="btn btn-success">Save User</button>
         </form>
         <hr>
@@ -157,6 +161,7 @@ async function selectUser(userId) {
   document.getElementById('edit-firstName').value = user.firstName || '';
   document.getElementById('edit-lastName').value = user.lastName || '';
   document.getElementById('edit-teamName').value = user.teamName || '';
+  document.getElementById('edit-paid').checked = !!user.paid;
   loadUserTips(userId);
 }
 
@@ -167,12 +172,14 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
   const firstName = document.getElementById('edit-firstName').value;
   const lastName = document.getElementById('edit-lastName').value;
   const teamName = document.getElementById('edit-teamName').value;
+  const paid = document.getElementById('edit-paid').checked;
 
   await updateDoc(doc(db, "users", selectedUserId), {
     email,
     firstName,
     lastName,
-    teamName
+    teamName,
+    paid
   });
 
   // Also update leaderboard entry if exists
