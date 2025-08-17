@@ -94,11 +94,31 @@
 
     @media (max-width: 576px) {
       h2 {
-        font-size: 1.4rem;
+        font-size: 1.2rem;
+        margin: 1rem 0 0.5rem;
       }
-
       .navbar-brand {
-        font-size: 1rem;
+        font-size: 0.95rem;
+      }
+      main {
+        padding-top: 70px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+      .table {
+        font-size: 0.85rem;
+        min-width: 400px;
+      }
+      .table th, .table td {
+        padding: 0.4rem 0.3rem;
+      }
+      #leaderboard-table-section {
+        overflow-x: auto;
+        width: 100%;
+      }
+      .container {
+        padding-left: 2px !important;
+        padding-right: 2px !important;
       }
     }
 
@@ -170,18 +190,19 @@
   <main class="container">
     <h2>Leaderboard</h2>
     <div id="leaderboard-table-section">
-      <table class="table table-striped text-white">
+      <div style="width:100%;overflow-x:auto;">
+      <table class="table table-striped text-white" style="min-width:400px;">
         <thead>
-  <tr>
-    <th>Rank</th>
-    <th>Team</th>
-    <th>Points</th>
-    <th>Jokers Remaining</th>
-  </tr>
-</thead>
-
+          <tr>
+            <th>Rank</th>
+            <th>Team</th>
+            <th>Points</th>
+            <th>Jokers Remaining</th>
+          </tr>
+        </thead>
         <tbody id="leaderboard-table-body"></tbody>
       </table>
+    </div>
     </div>
   </main>
 <br>
@@ -291,11 +312,12 @@ async function loadLeaderboard() {
     const data = docSnap.data();
     // Coerce points to a Number (handles string or numeric storage)
     const raw = data.points;
-    const pts = typeof raw === "string" ? parseFloat(raw) : raw;
+    let pts = typeof raw === "string" ? parseFloat(raw) : raw;
+    pts = isNaN(pts) ? 0 : Math.round(pts * 100) / 100; // round to 2dp
     leaderboard.push({
       userId: docSnap.id,
       teamName: data.teamName,
-      points: isNaN(pts) ? 0 : pts
+      points: pts
     });
   });
 
