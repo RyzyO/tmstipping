@@ -351,7 +351,7 @@ async function calculateAndSaveLeaderboard() {
   const tipsSnap = await getDocs(collection(db, "tips"));
   tipsSnap.forEach(docSnap => {
     const tip = docSnap.data();
-    const { raceId, userId, horseId } = tip;
+    const { raceId, userId, horseId, joker } = tip;
     if (!(userId in userPoints)) return; // Skip if user not found
 
     // Substitute logic: if horse is scratched, and a substitute exists, use the substitute
@@ -372,18 +372,26 @@ async function calculateAndSaveLeaderboard() {
     }
 
     let points = 0;
+    let doubled = false;
     if (raceWinners[raceId]) {
       // Check for winner, place1, and place2
       if (raceWinners[raceId].winner && effectiveHorseId === raceWinners[raceId].winner.horseId) {
         points += Number(raceWinners[raceId].winner.points) || 0;
         userWinners[userId] += 1;
+        doubled = true;
       }
       if (raceWinners[raceId].place1 && effectiveHorseId === raceWinners[raceId].place1.horseId) {
         points += Number(raceWinners[raceId].place1.points) || 0;
+        doubled = true;
       }
       if (raceWinners[raceId].place2 && effectiveHorseId === raceWinners[raceId].place2.horseId) {
         points += Number(raceWinners[raceId].place2.points) || 0;
+        doubled = true;
       }
+    }
+    // Double points if joker was used and tip was correct (win or place)
+    if (joker === true && doubled && points > 0) {
+      points = points * 2;
     }
     userPoints[userId] += points;
   });

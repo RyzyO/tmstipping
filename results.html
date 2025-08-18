@@ -262,61 +262,98 @@ h2 {
 
 
 async function loadResultsForDate(date) {
-  const resultsContainer = document.getElementById("results-container");
-  resultsContainer.innerHTML = "";
+    const resultsContainer = document.getElementById("results-container");
+    resultsContainer.innerHTML = "";
 
-  // 1. Fetch all races for this date
-  const raceSnap = await getDocs(collection(db, "races"));
-  const races = [];
-  raceSnap.forEach(doc => {
-    const race = { id: doc.id, ...doc.data() };
-    if (race.date === date) races.push(race);
-  });
+    // 1. Fetch all races for this date
+    const raceSnap = await getDocs(collection(db, "races"));
+    const races = [];
+    raceSnap.forEach(doc => {
+      const race = { id: doc.id, ...doc.data() };
+      if (race.date === date) races.push(race);
+    });
 
-  for (const race of races) {
-    // 2. Get the stored results
-    const resultDoc = await getDoc(doc(db, "results", race.id));
-    if (!resultDoc.exists()) continue;
-    const rd = resultDoc.data();
+    // Load all tips for this user
+    const tipsSnap = await getDocs(collection(db, "tips"));
+    const userTips = {};
+    tipsSnap.forEach(doc => {
+      const tip = doc.data();
+      if (tip.userId === user.uid) userTips[tip.raceId] = tip;
+    });
 
-    // 3. Always coerce to float, fallback to 0
-    const winnerPoints = parseFloat(rd.points) || 0;
-    const place1Points = parseFloat(rd.place1Points) || 0;
-    const place2Points = parseFloat(rd.place2Points) || 0;
+    for (const race of races) {
+      // 2. Get the stored results
+      const resultDoc = await getDoc(doc(db, "results", race.id));
+      if (!resultDoc.exists()) continue;
+      const rd = resultDoc.data();
 
-    // … your existing tip-loading/substitution logic …
+      // 3. Always coerce to float, fallback to 0
+      const winnerPoints = parseFloat(rd.points) || 0;
+      const place1Points = parseFloat(rd.place1Points) || 0;
+      const place2Points = parseFloat(rd.place2Points) || 0;
 
-    // 4. Compute earned points
-    let correct = false, pointsEarned = 0;
-    if (effectiveHorseId === rd.winningHorseId) {
-      correct = true; pointsEarned = winnerPoints;
-    } else if (effectiveHorseId === rd.place1HorseId) {
-      correct = true; pointsEarned = place1Points;
-    } else if (effectiveHorseId === rd.place2HorseId) {
-      correct = true; pointsEarned = place2Points;
-    }
+      // Get tip for this race
+      const tip = userTips[race.id];
+      let effectiveHorseId = tip ? tip.horseId : null;
+      let jokerUsed = tip ? tip.joker === true : false;
 
-    // 5. Render. toFixed(2) ensures 2 decimal places
-    const raceDiv = document.createElement("div");
-    raceDiv.className = `race-result${correct?" correct":" incorrect"}`;
-    raceDiv.innerHTML = `
-      <div class="d-flex justify-content-between align-items-center flex-wrap race-entry">
-        <div class="race-info">
-          <div class="race-name">${race.name}</div>
-          <div class="result-details">
-            1st: <strong>${winnerHorseName||"Unknown"}</strong> ${winnerPoints?`(+${winnerPoints.toFixed(2)})`: ""}
-            <br>
-            2nd: <strong>${place1HorseName||"Unknown"}</strong> ${place1Points?`(+${place1Points.toFixed(2)})`: ""}
-            <br>
-            3rd: <strong>${place2HorseName||"Unknown"}</strong> ${place2Points?`(+${place2Points.toFixed(2)})`: ""}
+      // Substitute logic (if needed)
+      if (
+        tip &&
+        race.horses &&
+        effectiveHorseId &&
+        race.horses[effectiveHorseId] &&
+        race.horses[effectiveHorseId].scratched
+      ) {
+        const subEntry = Object.entries(race.horses).find(([_, h]) => h.substitute);
+        if (subEntry) {
+          effectiveHorseId = subEntry[0];
+        }
+      }
+
+      // Find horse names
+      const winnerHorseName = rd.winningHorseId && race.horses && race.horses[rd.winningHorseId] ? race.horses[rd.winningHorseId].name : "";
+      const place1HorseName = rd.place1HorseId && race.horses && race.horses[rd.place1HorseId] ? race.horses[rd.place1HorseId].name : "";
+      const place2HorseName = rd.place2HorseId && race.horses && race.horses[rd.place2HorseId] ? race.horses[rd.place2HorseId].name : "";
+
+      // 4. Compute earned points
+      let correct = false, pointsEarned = 0;
+      if (effectiveHorseId === rd.winningHorseId) {
+        correct = true; pointsEarned = winnerPoints;
+      } else if (effectiveHorseId === rd.place1HorseId) {
+        correct = true; pointsEarned = place1Points;
+      } else if (effectiveHorseId === rd.place2HorseId) {
+        correct = true; pointsEarned = place2Points;
+      }
+
+      // Double points if joker used and correct
+      let jokerBadge = "";
+      if (correct && jokerUsed && pointsEarned > 0) {
+        pointsEarned = pointsEarned * 2;
+        jokerBadge = `<span style="background:#a259ff;color:#fff;font-weight:700;border-radius:8px;padding:2px 10px;margin-left:10px;display:inline-block;">JOKER USED</span>`;
+      }
+
+      // 5. Render. toFixed(2) ensures 2 decimal places
+      const raceDiv = document.createElement("div");
+      raceDiv.className = `race-result${correct?" correct":" incorrect"}`;
+      raceDiv.innerHTML = `
+        <div class="d-flex justify-content-between align-items-center flex-wrap race-entry">
+          <div class="race-info">
+            <div class="race-name">${race.name} ${jokerBadge}</div>
+            <div class="result-details">
+              1st: <strong>${winnerHorseName||"Unknown"}</strong> ${winnerPoints?`(+${winnerPoints.toFixed(2)})`: ""}
+              <br>
+              2nd: <strong>${place1HorseName||"Unknown"}</strong> ${place1Points?`(+${place1Points.toFixed(2)})`: ""}
+              <br>
+              3rd: <strong>${place2HorseName||"Unknown"}</strong> ${place2Points?`(+${place2Points.toFixed(2)})`: ""}
+            </div>
           </div>
+          ${correct?`<div class="points-earned text-end ms-auto">+${pointsEarned.toFixed(2)}</div>`:""}
         </div>
-        ${correct?`<div class="points-earned text-end ms-auto">+${pointsEarned.toFixed(2)}</div>`:""}
-      </div>
-    `;
-    resultsContainer.appendChild(raceDiv);
+      `;
+      resultsContainer.appendChild(raceDiv);
+    }
   }
-}
 
 
   </script>
