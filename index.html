@@ -256,6 +256,12 @@
   </style>
 </head>
 <body id="top">
+  <div id="loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(24,24,24,0.92);display:flex;align-items:center;justify-content:center;">
+    <div style="text-align:center;">
+      <div class="spinner-border" style="width:3rem;height:3rem;color:#FFD700;" role="status"></div>
+      <div style="margin-top:1rem;font-size:1.3rem;font-family:'Outfit',sans-serif;color:#FFD700;font-weight:600;">Loading...</div>
+    </div>
+  </div>
   <main>
     <nav class="navbar navbar-expand-lg">
       <div class="container">
@@ -419,7 +425,15 @@
     }
   }
 
+  function showLoading() {
+    document.getElementById('loading-overlay').style.display = 'flex';
+  }
+  function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+  }
+
   onAuthStateChanged(auth, async (user) => {
+    showLoading();
     renderAuthButtons(user);
     welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to the Great Spring Tip Off";
 
@@ -440,10 +454,11 @@
     const teamBox = document.getElementById('team-box');
     if (user) {
       teamBox.style.display = "block";
-      loadTeamRank(user);
+      await loadTeamRank(user);
     } else {
       teamBox.style.display = "none";
     }
+    hideLoading();
   });
 </script>
 

@@ -160,6 +160,34 @@
       font-size: 1.3rem;
       margin-bottom: 0.25rem;
     }
+
+    /* Loading Overlay */
+    #loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 2000;
+      background: rgba(24,24,24,0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #loading-overlay .spinner-border {
+      width: 3rem;
+      height: 3rem;
+      color: #FFD700;
+    }
+
+    #loading-overlay .loading-text {
+      margin-top: 1rem;
+      font-size: 1.3rem;
+      font-family: 'Outfit', sans-serif;
+      color: #FFD700;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -232,8 +260,16 @@
     </a>
   </div>
 
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" style="display:none;">
+    <div style="text-align:center;">
+      <div class="spinner-border" role="status"></div>
+      <div class="loading-text">Loading Leaderboard...</div>
+    </div>
+  </div>
+
   <script src="js/bootstrap.bundle.min.js"></script>
- <script type="module">
+  <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
   import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
@@ -281,7 +317,16 @@
     }
   }
 
+  function showLoading() {
+    document.getElementById('loading-overlay').style.display = 'flex';
+  }
+
+  function hideLoading() {
+    document.getElementById('loading-overlay').style.display = 'none';
+  }
+
   onAuthStateChanged(auth, async (user) => {
+    showLoading();
     renderAuthButtons(user);
     if (user) {
       const userSnap = await getDocs(collection(db, "users"));
@@ -292,63 +337,66 @@
         }
       });
     }
-    loadLeaderboard();
+    await loadLeaderboard();
+    hideLoading();
   });
 
-async function loadLeaderboard() {
-  const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
-  const usersSnap = await getDocs(collection(db, "users"));
+  async function loadLeaderboard() {
+    showLoading();
+    const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+    const usersSnap = await getDocs(collection(db, "users"));
 
-  // Map userId to joker count
-  const userJokers = {};
-  usersSnap.forEach(doc => {
-    const data = doc.data();
-    userJokers[doc.id] = data.joker ?? 0;
-  });
-
-  // Build and normalize leaderboard entries
-  const leaderboard = [];
-  leaderboardSnap.forEach(docSnap => {
-    const data = docSnap.data();
-    // Coerce points to a Number (handles string or numeric storage)
-    const raw = data.points;
-    let pts = typeof raw === "string" ? parseFloat(raw) : raw;
-    pts = isNaN(pts) ? 0 : Math.round(pts * 100) / 100; // round to 2dp
-    leaderboard.push({
-      userId: docSnap.id,
-      teamName: data.teamName,
-      points: pts
+    // Map userId to joker count
+    const userJokers = {};
+    usersSnap.forEach(doc => {
+      const data = doc.data();
+      userJokers[doc.id] = data.joker ?? 0;
     });
-  });
 
-  // Sort by points descending
-  leaderboard.sort((a, b) => b.points - a.points);
+    // Build and normalize leaderboard entries
+    const leaderboard = [];
+    leaderboardSnap.forEach(docSnap => {
+      const data = docSnap.data();
+      // Coerce points to a Number (handles string or numeric storage)
+      const raw = data.points;
+      let pts = typeof raw === "string" ? parseFloat(raw) : raw;
+      pts = isNaN(pts) ? 0 : Math.round(pts * 100) / 100; // round to 2dp
+      leaderboard.push({
+        userId: docSnap.id,
+        teamName: data.teamName,
+        points: pts
+      });
+    });
 
-  // Render into table
-  const tbody = document.getElementById("leaderboard-table-body");
-  tbody.innerHTML = "";
-  let rank = 1;
+    // Sort by points descending
+    leaderboard.sort((a, b) => b.points - a.points);
 
-  for (const entry of leaderboard) {
-    const jokerCount = userJokers[entry.userId] ?? 0;
-    const tr = document.createElement("tr");
+    // Render into table
+    const tbody = document.getElementById("leaderboard-table-body");
+    tbody.innerHTML = "";
+    let rank = 1;
 
-    // Highlight current user's team
-    if (entry.teamName === currentUserTeamName) {
-      tr.style.fontWeight = "bold";
-      tr.style.backgroundColor = "rgba(255, 215, 0, 0.15)";
+    for (const entry of leaderboard) {
+      const jokerCount = userJokers[entry.userId] ?? 0;
+      const tr = document.createElement("tr");
+
+      // Highlight current user's team
+      if (entry.teamName === currentUserTeamName) {
+        tr.style.fontWeight = "bold";
+        tr.style.backgroundColor = "rgba(255, 215, 0, 0.15)";
+      }
+
+      tr.innerHTML = `
+        <td>${rank}</td>
+        <td>${entry.teamName || entry.userId}</td>
+        <td>${entry.points.toFixed(2)}</td>
+        <td>${jokerCount}</td>
+      `;
+      tbody.appendChild(tr);
+      rank++;
     }
-
-    tr.innerHTML = `
-      <td>${rank}</td>
-      <td>${entry.teamName || entry.userId}</td>
-      <td>${entry.points.toFixed(2)}</td>
-      <td>${jokerCount}</td>
-    `;
-    tbody.appendChild(tr);
-    rank++;
+    hideLoading();
   }
-}
 
 
 </script>
