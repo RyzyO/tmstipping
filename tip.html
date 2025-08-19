@@ -224,252 +224,277 @@
     <a href="leaderboard.html"><i class="bi bi-graph-up-arrow"></i> Ladder</a>
   </div>
 
+  <div id="loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(24,24,24,0.92);display:none;align-items:center;justify-content:center;">
+    <div style="text-align:center;">
+      <div class="spinner-border" style="width:3rem;height:3rem;color:#FFD700;" role="status"></div>
+      <div style="margin-top:1rem;font-size:1.3rem;font-family:'Outfit',sans-serif;color:#FFD700;font-weight:600;">Loading Races...</div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-  import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
-  const { DateTime } = luxon;
+    const { DateTime } = luxon;
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-    authDomain: "tmstipping.firebaseapp.com",
-    projectId: "tmstipping",
-    storageBucket: "tmstipping.appspot.com",
-    messagingSenderId: "401677933527",
-    appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-    measurementId: "G-GXLRCHV687"
-  };
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-  let user = null;
-  let selectedRaceId = null;
-  let userTips = {};
-  let jokerCount = 0;
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let user = null;
+    let selectedRaceId = null;
+    let userTips = {};
+    let jokerCount = 0;
 
-  onAuthStateChanged(auth, async (_user) => {
-    if (!_user) {
-      alert("You must be logged in.");
-      window.location.href = "index.html";
-      return;
+    function showLoading() {
+      document.getElementById('loading-overlay').style.display = 'flex';
     }
-    user = _user;
-    await loadUserTips();
-    await loadRaces();
-  });
+    function hideLoading() {
+      document.getElementById('loading-overlay').style.display = 'none';
+    }
 
-  async function loadUserTips() {
-    userTips = {};
-    const tipsSnap = await getDocs(collection(db, "tips"));
-    tipsSnap.forEach(docSnap => {
-      const tip = docSnap.data();
-      if (tip.userId === user.uid) {
-        userTips[tip.raceId] = true;
+    onAuthStateChanged(auth, async (_user) => {
+      showLoading();
+      if (!_user) {
+        alert("You must be logged in.");
+        window.location.href = "index.html";
+        return;
       }
-    });
-  }
-
-  async function loadRaces() {
-    const raceList = document.getElementById('race-list');
-    raceList.innerHTML = '';
-    const racesSnap = await getDocs(collection(db, "races"));
-    const nowSydney = DateTime.now().setZone('Australia/Sydney');
-    const racesArr = [];
-
-    racesSnap.forEach(docSnap => {
-      const race = docSnap.data();
-      racesArr.push({ id: docSnap.id, ...race });
+      user = _user;
+      await loadUserTips();
+      await loadRaces();
+      hideLoading();
     });
 
-    racesArr.sort((a, b) => {
-      return DateTime.fromISO(`${a.date}T${a.time}`, { zone: 'Australia/Sydney' }) -
-             DateTime.fromISO(`${b.date}T${b.time}`, { zone: 'Australia/Sydney' });
-    });
+    async function loadUserTips() {
+      showLoading();
+      userTips = {};
+      const tipsSnap = await getDocs(collection(db, "tips"));
+      tipsSnap.forEach(docSnap => {
+        const tip = docSnap.data();
+        if (tip.userId === user.uid) {
+          userTips[tip.raceId] = true;
+        }
+      });
+      hideLoading();
+    }
 
-    let racesShown = 0;
+    async function loadRaces() {
+      showLoading();
+      const raceList = document.getElementById('race-list');
+      raceList.innerHTML = '';
+      const racesSnap = await getDocs(collection(db, "races"));
+      const nowSydney = DateTime.now().setZone('Australia/Sydney');
+      const racesArr = [];
 
-    for (const race of racesArr) {
+      racesSnap.forEach(docSnap => {
+        const race = docSnap.data();
+        racesArr.push({ id: docSnap.id, ...race });
+      });
+
+      racesArr.sort((a, b) => {
+        return DateTime.fromISO(`${a.date}T${a.time}`, { zone: 'Australia/Sydney' }) -
+               DateTime.fromISO(`${b.date}T${b.time}`, { zone: 'Australia/Sydney' });
+      });
+
+      let racesShown = 0;
+
+      for (const race of racesArr) {
+        const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, { zone: 'Australia/Sydney' });
+        if (raceDateTimeSydney < nowSydney) continue;
+        racesShown++;
+
+        const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
+        const timeStr = raceDateTimeSydney.toLocaleString(DateTime.TIME_SIMPLE);
+        const li = document.createElement('li');
+        let label = `${race.name} (${race.date} ${timeStr})`;
+        if (userTips[race.id]) {
+          label += " (submitted)";
+          li.classList.add('tipped');
+        }
+        li.innerHTML = label;
+        if (isLocked) {
+          li.classList.add('locked');
+          li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
+        } else {
+          li.onclick = () => selectRace(race.id);
+        }
+        raceList.appendChild(li);
+      }
+
+      if (racesShown === 0) {
+        const msg = document.createElement('p');
+        msg.textContent = "Upcoming races have not yet been released, check back soon!";
+        msg.style.textAlign = "center";
+        msg.style.marginTop = "1rem";
+        msg.style.color = "var(--gold)";
+        raceList.appendChild(msg);
+      }
+      hideLoading();
+    }
+
+    async function fetchJokerCount() {
+      showLoading();
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      let count = 0;
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        // Convert string → number if needed
+        if (!isNaN(data.joker)) {
+          count = Number(data.joker);
+        }
+      }
+      jokerCount = count;
+      document.getElementById('joker-count').textContent = jokerCount;
+      document.getElementById('use-joker-btn').style.display = jokerCount > 0 ? '' : 'none';
+      hideLoading();
+    }
+
+    async function selectRace(raceId) {
+      showLoading();
+      selectedRaceId = raceId;
+      document.getElementById('race-list-section').style.display = 'none';
+      document.getElementById('race-card-section').style.display = '';
+
+      const raceDoc = await getDoc(doc(db, "races", raceId));
+      const race = raceDoc.data();
+
       const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, { zone: 'Australia/Sydney' });
-      if (raceDateTimeSydney < nowSydney) continue;
-      racesShown++;
-
+      const nowSydney = DateTime.now().setZone('Australia/Sydney');
       const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
-      const timeStr = raceDateTimeSydney.toLocaleString(DateTime.TIME_SIMPLE);
-      const li = document.createElement('li');
-      let label = `${race.name} (${race.date} ${timeStr})`;
-      if (userTips[race.id]) {
-        label += " (submitted)";
-        li.classList.add('tipped');
-      }
-      li.innerHTML = label;
+
+      document.getElementById('selected-race-title').textContent = race.name;
+      document.getElementById('selected-race-date').textContent = `Date: ${race.date} — ${raceDateTimeSydney.toLocaleString(DateTime.TIME_SIMPLE)}`;
+      document.getElementById('race-distance').textContent = `Distance: ${race.distance || 'N/A'}`;
+
       if (isLocked) {
-        li.classList.add('locked');
-        li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
-      } else {
-        li.onclick = () => selectRace(race.id);
+        document.getElementById('tip-form').style.display = 'none';
+        document.getElementById('horses-radio-list').innerHTML = '';
+        document.getElementById('tip-message').textContent = '⛔ Tipping for this race has closed.';
+        hideLoading();
+        return;
       }
-      raceList.appendChild(li);
+
+      let tippedHorseId = null;
+      const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
+      if (tipDoc.exists()) {
+        tippedHorseId = tipDoc.data().horseId;
+      }
+
+      renderHorsesRadioList(race, raceId, tippedHorseId);
+      document.getElementById('tip-message').textContent = '';
+      document.getElementById('tip-form').style.display = '';
+      await fetchJokerCount();
+      hideLoading();
     }
 
-    if (racesShown === 0) {
-      const msg = document.createElement('p');
-      msg.textContent = "Upcoming races have not yet been released, check back soon!";
-      msg.style.textAlign = "center";
-      msg.style.marginTop = "1rem";
-      msg.style.color = "var(--gold)";
-      raceList.appendChild(msg);
-    }
-  }
+    function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
+      const horsesDiv = document.getElementById('horses-radio-list');
+      horsesDiv.innerHTML = '';
+      const sortedHorses = Object.entries(race.horses || {})
+        .filter(([_, h]) => !h.scratched)
+        .sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
 
-  async function fetchJokerCount() {
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    let count = 0;
-    if (userDoc.exists()) {
-      const data = userDoc.data();
-      // Convert string → number if needed
-      if (!isNaN(data.joker)) {
-        count = Number(data.joker);
+      for (const [horseId, horseData] of sortedHorses) {
+        const row = document.createElement('div');
+        row.className = 'horse-row';
+        row.dataset.horseId = horseId;
+        row.innerHTML = `
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
+            <div style="font-size: 1.6rem; font-weight: bold; width: 52px; text-align: center; flex-shrink: 0;">#${horseData.number}</div>
+            <div style="flex-grow: 1; font-weight: 600; padding: 0 0.5rem;">${horseData.name}</div>
+            <div style="text-align: right; font-size: 0.75rem; line-height: 1.2;">
+              <div>Trainer: ${horseData.trainer || '—'}</div>
+              <div>Jockey: ${horseData.jockey || '—'}</div>
+              <div>Barrier: ${horseData.barrier || '—'}, Weight: ${horseData.weight || '—'}</div>
+            </div>
+          </div>`;
+        if (tippedHorseId && horseId === tippedHorseId) {
+          row.classList.add('selected');
+        }
+        row.onclick = () => {
+          document.querySelectorAll('.horse-row').forEach(el => el.classList.remove('selected'));
+          row.classList.add('selected');
+        };
+        horsesDiv.appendChild(row);
       }
     }
-    jokerCount = count;
-    document.getElementById('joker-count').textContent = jokerCount;
-    document.getElementById('use-joker-btn').style.display = jokerCount > 0 ? '' : 'none';
-  }
 
-  async function selectRace(raceId) {
-    selectedRaceId = raceId;
-    document.getElementById('race-list-section').style.display = 'none';
-    document.getElementById('race-card-section').style.display = '';
-
-    const raceDoc = await getDoc(doc(db, "races", raceId));
-    const race = raceDoc.data();
-
-    const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, { zone: 'Australia/Sydney' });
-    const nowSydney = DateTime.now().setZone('Australia/Sydney');
-    const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
-
-    document.getElementById('selected-race-title').textContent = race.name;
-    document.getElementById('selected-race-date').textContent = `Date: ${race.date} — ${raceDateTimeSydney.toLocaleString(DateTime.TIME_SIMPLE)}`;
-    document.getElementById('race-distance').textContent = `Distance: ${race.distance || 'N/A'}`;
-
-    if (isLocked) {
-      document.getElementById('tip-form').style.display = 'none';
-      document.getElementById('horses-radio-list').innerHTML = '';
-      document.getElementById('tip-message').textContent = '⛔ Tipping for this race has closed.';
-      return;
-    }
-
-    let tippedHorseId = null;
-    const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
-    if (tipDoc.exists()) {
-      tippedHorseId = tipDoc.data().horseId;
-    }
-
-    renderHorsesRadioList(race, raceId, tippedHorseId);
-    document.getElementById('tip-message').textContent = '';
-    document.getElementById('tip-form').style.display = '';
-    await fetchJokerCount();
-  }
-
-  function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
-    const horsesDiv = document.getElementById('horses-radio-list');
-    horsesDiv.innerHTML = '';
-    const sortedHorses = Object.entries(race.horses || {})
-      .filter(([_, h]) => !h.scratched)
-      .sort((a, b) => (a[1].number || 0) - (b[1].number || 0));
-
-    for (const [horseId, horseData] of sortedHorses) {
-      const row = document.createElement('div');
-      row.className = 'horse-row';
-      row.dataset.horseId = horseId;
-      row.innerHTML = `
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-          <div style="font-size: 1.6rem; font-weight: bold; width: 52px; text-align: center; flex-shrink: 0;">#${horseData.number}</div>
-          <div style="flex-grow: 1; font-weight: 600; padding: 0 0.5rem;">${horseData.name}</div>
-          <div style="text-align: right; font-size: 0.75rem; line-height: 1.2;">
-            <div>Trainer: ${horseData.trainer || '—'}</div>
-            <div>Jockey: ${horseData.jockey || '—'}</div>
-            <div>Barrier: ${horseData.barrier || '—'}, Weight: ${horseData.weight || '—'}</div>
-          </div>
-        </div>`;
-      if (tippedHorseId && horseId === tippedHorseId) {
-        row.classList.add('selected');
+    document.getElementById('tip-form').onsubmit = async (e) => {
+      e.preventDefault();
+      if (!selectedRaceId || !user) return;
+      const selectedRow = document.querySelector('.horse-row.selected');
+      if (!selectedRow) {
+        alert("Please select a horse to tip.");
+        return;
       }
-      row.onclick = () => {
-        document.querySelectorAll('.horse-row').forEach(el => el.classList.remove('selected'));
-        row.classList.add('selected');
-      };
-      horsesDiv.appendChild(row);
-    }
-  }
+      const horseId = selectedRow.dataset.horseId;
+      await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
+        userId: user.uid,
+        raceId: selectedRaceId,
+        horseId,
+        timestamp: Date.now(),
+        joker: false
+      });
+      await loadUserTips();
+      await loadRaces();
+      document.getElementById('race-card-section').style.display = 'none';
+      document.getElementById('race-list-section').style.display = '';
+    };
 
-  document.getElementById('tip-form').onsubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedRaceId || !user) return;
-    const selectedRow = document.querySelector('.horse-row.selected');
-    if (!selectedRow) {
-      alert("Please select a horse to tip.");
-      return;
-    }
-    const horseId = selectedRow.dataset.horseId;
-    await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
-      userId: user.uid,
-      raceId: selectedRaceId,
-      horseId,
-      timestamp: Date.now(),
-      joker: false
-    });
-    await loadUserTips();
-    await loadRaces();
-    document.getElementById('race-card-section').style.display = 'none';
-    document.getElementById('race-list-section').style.display = '';
-  };
+    document.getElementById('use-joker-btn').onclick = async () => {
+      if (!selectedRaceId || !user) return;
+      if (jokerCount <= 0) {
+        alert("No jokers remaining.");
+        return;
+      }
+      const selectedRow = document.querySelector('.horse-row.selected');
+      if (!selectedRow) {
+        alert("Please select a horse to tip.");
+        return;
+      }
 
-  document.getElementById('use-joker-btn').onclick = async () => {
-    if (!selectedRaceId || !user) return;
-    if (jokerCount <= 0) {
-      alert("No jokers remaining.");
-      return;
-    }
-    const selectedRow = document.querySelector('.horse-row.selected');
-    if (!selectedRow) {
-      alert("Please select a horse to tip.");
-      return;
-    }
+      const horseId = selectedRow.dataset.horseId;
 
-    const horseId = selectedRow.dataset.horseId;
+      // Save tip with joker = true
+      await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
+        userId: user.uid,
+        raceId: selectedRaceId,
+        horseId,
+        timestamp: Date.now(),
+        joker: true
+      });
 
-    // Save tip with joker = true
-    await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
-      userId: user.uid,
-      raceId: selectedRaceId,
-      horseId,
-      timestamp: Date.now(),
-      joker: true
-    });
+      // Decrease joker count in user doc
+      await setDoc(doc(db, "users", user.uid), {
+        joker: jokerCount - 1
+      }, { merge: true });
 
-    // Decrease joker count in user doc
-    await setDoc(doc(db, "users", user.uid), {
-      joker: jokerCount - 1
-    }, { merge: true });
+      // Reload local state/UI
+      await loadUserTips();
+      await loadRaces();
+      await fetchJokerCount();
 
-    // Reload local state/UI
-    await loadUserTips();
-    await loadRaces();
-    await fetchJokerCount();
+      document.getElementById('race-card-section').style.display = 'none';
+      document.getElementById('race-list-section').style.display = '';
+    };
 
-    document.getElementById('race-card-section').style.display = 'none';
-    document.getElementById('race-list-section').style.display = '';
-  };
-
-  document.getElementById('exit-race-btn').onclick = () => {
-    document.getElementById('race-card-section').style.display = 'none';
-    document.getElementById('race-list-section').style.display = '';
-  };
-</script>
+    document.getElementById('exit-race-btn').onclick = () => {
+      document.getElementById('race-card-section').style.display = 'none';
+      document.getElementById('race-list-section').style.display = '';
+    };
+  </script>
 
 </body>
 </html>
