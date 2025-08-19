@@ -252,7 +252,32 @@
   }
 }
 
-
+.main-button {
+      text-align: center;
+      margin: 2rem 0 1rem 0;
+    }
+    #enableNotifications.btn-success {
+      background: linear-gradient(90deg, var(--gold), #fffbe6) !important;
+      color: #181818 !important;
+      font-weight: 700;
+      border: none;
+      border-radius: 2rem;
+      font-size: 1.2rem;
+      padding: 0.7rem 2.2rem;
+      box-shadow: 0 2px 12px rgba(255,215,0,0.12);
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    #enableNotifications.btn-success:hover {
+      background: linear-gradient(90deg, #fffbe6, var(--gold)) !important;
+      color: #000 !important;
+      box-shadow: 0 4px 24px rgba(255,215,0,0.25);
+    }
+    #notif-btn-spinner {
+      vertical-align: middle;
+    }
   </style>
 </head>
 <body id="top">
@@ -295,6 +320,12 @@
               <h1 id="welcome-message">Welcome to the Great Spring Tip Off</h1>
               <h6>Compete, predict, and have fun with friends!</h6>
               <a id="tip-now-btn" href="tip.html" class="btn btn-success btn-lg">Tip Now</a>
+              <div class="main-button">
+      <button id="enableNotifications" type="button" class="btn btn-success btn-lg" style="display:none;">
+        <span id="notif-btn-text">Enable Notifications</span>
+        <span id="notif-btn-spinner" class="spinner-border spinner-border-sm" style="display:none;margin-left:8px;" role="status" aria-hidden="true"></span>
+      </button>
+    </div>
             </div>
           </div>
         </div>
@@ -308,12 +339,14 @@
         <h6><strong>Name:</strong> <span id="team-name">Loading...</span></h6>
         <h6><strong>Current Rank:</strong> <span id="team-rank">...</span></h6>
         <a href="leaderboard.html" class="btn btn-success btn-lg">View Full Leaderboard</a>
+        
       </div>
     </div>
   </div>
 </div>
 
     </section>
+    
   </main>
     
 
@@ -342,6 +375,7 @@
   import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
   import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
   import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
+  import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
@@ -356,6 +390,91 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
   const auth = getAuth(app);
+  const messaging = getMessaging(app);
+
+   async function initNotifications() {
+    const btnText = document.getElementById('notif-btn-text');
+    const btnSpinner = document.getElementById('notif-btn-spinner');
+    btnText.textContent = "Enabling...";
+    btnSpinner.style.display = "inline-block";
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        const token = await getToken(messaging, {
+          vapidKey: "BO4uGOEfVg5qRKLRTapkgdZJj22xf3_CBV1TlZg_jjCkvDg0qEVB46mgewqtK9MrUy1atMjlJS4DefmX7fI-IYg"
+        });
+        console.log("✅ FCM Token:", token);
+        btnText.textContent = "Enabled!";
+        setTimeout(() => {
+          btnText.textContent = "Notifications Enabled";
+        }, 1200);
+      } else {
+        btnText.textContent = "Permission Denied";
+        setTimeout(() => {
+          btnText.textContent = "Enable Notifications";
+        }, 1200);
+      }
+    } catch (error) {
+      console.error("Error during initNotifications:", error);
+      btnText.textContent = "Error";
+      setTimeout(() => {
+        btnText.textContent = "Enable Notifications";
+      }, 1200);
+    }
+    btnSpinner.style.display = "none";
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const button = document.getElementById('enableNotifications');
+    const btnText = document.getElementById('notif-btn-text');
+    const btnSpinner = document.getElementById('notif-btn-spinner');
+
+    if (!button) {
+      console.warn("Enable Notifications button not found.");
+      return;
+    }
+
+    function updateNotifBtnVisibility() {
+      if ('Notification' in window) {
+        if (Notification.permission === 'default' || Notification.permission === 'denied') {
+          button.style.display = 'inline-flex';
+          btnText.textContent = "Enable Notifications";
+        } else {
+          button.style.display = 'none';
+        }
+      } else {
+        button.style.display = 'none';
+      }
+    }
+
+    updateNotifBtnVisibility();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then((registration) => {
+          console.log("✅ Service Worker registered");
+          updateNotifBtnVisibility();
+
+          button.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await initNotifications();
+            updateNotifBtnVisibility();
+          });
+        })
+        .catch(err => {
+          console.error('Service Worker registration failed:', err);
+        });
+    } else {
+      console.warn("Service Worker not supported in this browser.");
+      button.style.display = 'none';
+    }
+
+    onMessage(messaging, (payload) => {
+      console.log("🔔 Foreground message received:", payload);
+      alert(`${payload.notification.title}\n${payload.notification.body}`);
+    });
+  });
+
 
   const welcomeMessage = document.getElementById('welcome-message');
   const desktopAuthBtns = document.getElementById('desktop-auth-btns');
