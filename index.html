@@ -210,11 +210,9 @@
   font-weight: 700;
   letter-spacing: 0.5px;
   white-space: nowrap;
+  /* Responsive font size for heading */
   display: inline-block;
   vertical-align: middle;
-  max-width: 100%;
-  overflow-wrap: break-word;
-  word-break: break-word;
 }
 
 @media (max-width: 480px) {
@@ -225,7 +223,6 @@
     max-width: 120px;
     display: inline-block;
     word-break: break-word;
-    overflow-wrap: break-word;
   }
   .navbar-brand img {
     height: 28px !important;
@@ -254,6 +251,7 @@
     padding-top: 4rem; /* adjust based on your navbar height */
   }
 }
+
 
 .main-button {
       text-align: center;
@@ -284,10 +282,9 @@
   </style>
 </head>
 <body id="top">
-  <div id="loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(24,24,24,0.92);display:flex;align-items:center;justify-content:center;">
+  <div id="loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(24,24,24,0);display:flex;align-items:center;justify-content:center;">
     <div style="text-align:center;">
-      <div class="spinner-border" style="width:3rem;height:3rem;color:#FFD700;" role="status"></div>
-      <div style="margin-top:1rem;font-size:1.3rem;font-family:'Outfit',sans-serif;color:#FFD700;font-weight:600;">Loading...</div>
+     
     </div>
   </div>
   <main>
@@ -351,7 +348,7 @@
     </section>
     
   </main>
-    
+
 
   <div class="bottom-nav">
     <a href="index.html">
