@@ -235,7 +235,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const { DateTime } = luxon;
 
@@ -267,11 +267,18 @@
     onAuthStateChanged(auth, async (_user) => {
       showLoading();
       if (!_user) {
-        alert("You must be logged in.");
-        window.location.href = "index.html";
+        hideLoading();
         return;
       }
       user = _user;
+      // Check paid status
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists() || userDoc.data().paid !== true) {
+        alert("Your account is locked. Please contact support.");
+        await signOut(auth);
+        window.location.href = "login.html";
+        return;
+      }
       await loadUserTips();
       await loadRaces();
       hideLoading();
