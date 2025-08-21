@@ -261,6 +261,8 @@
 
   signupForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    alert("Sign up is closed for this year. Please check back next season!");
+    return;
 
     // 1. Get the DOB *now* that the user has submitted it
     const dobValue = document.getElementById('dob').value;
