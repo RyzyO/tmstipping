@@ -316,14 +316,18 @@ async function calculateAndSaveLeaderboard() {
   const userPoints = {};
   const userNames = {};
   const userWinners = {};
+  const paidUsers = new Set();
 
-  // Load all users
+  // Load all users, only include paid
   const usersSnap = await getDocs(collection(db, "users"));
   usersSnap.forEach(docSnap => {
     const data = docSnap.data();
-    userPoints[docSnap.id] = 0;
-    userNames[docSnap.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || docSnap.id;
-    userWinners[docSnap.id] = 0;
+    if (data.paid === true) {
+      userPoints[docSnap.id] = 0;
+      userNames[docSnap.id] = data.teamName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || data.email || docSnap.id;
+      userWinners[docSnap.id] = 0;
+      paidUsers.add(docSnap.id);
+    }
   });
 
   // Load race results
@@ -352,7 +356,7 @@ async function calculateAndSaveLeaderboard() {
   tipsSnap.forEach(docSnap => {
     const tip = docSnap.data();
     const { raceId, userId, horseId, joker } = tip;
-    if (!(userId in userPoints)) return; // Skip if user not found
+    if (!paidUsers.has(userId)) return; // Only count paid users
 
     // Substitute logic: if horse is scratched, and a substitute exists, use the substitute
     let effectiveHorseId = horseId;

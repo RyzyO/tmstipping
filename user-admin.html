@@ -36,6 +36,10 @@
   <div class="row">
     <div class="col-md-4">
       <div class="user-list" id="user-list"></div>
+      <div style="margin-top:2rem;">
+        <h5>Unpaid Players</h5>
+        <div class="user-list" id="unpaid-user-list"></div>
+      </div>
     </div>
     <div class="col-md-8">
       <div id="user-edit-section" class="user-edit-section" style="display:none;">
@@ -124,25 +128,35 @@ async function loadRaces() {
 
 async function loadUsers() {
   const userListDiv = document.getElementById('user-list');
+  const unpaidUserListDiv = document.getElementById('unpaid-user-list');
   userListDiv.innerHTML = '<div class="text-muted p-2">Loading users...</div>';
+  unpaidUserListDiv.innerHTML = '<div class="text-muted p-2">Loading users...</div>';
   const usersSnap = await getDocs(collection(db, "users"));
   users = [];
   let paidCount = 0;
+  let paidUsers = [];
+  let unpaidUsers = [];
   usersSnap.forEach(docSnap => {
     const userData = docSnap.data();
     users.push({ id: docSnap.id, ...userData });
-    if (userData.paid === true) paidCount++;
+    if (userData.paid === true) {
+      paidUsers.push({ id: docSnap.id, ...userData });
+      paidCount++;
+    } else {
+      unpaidUsers.push({ id: docSnap.id, ...userData });
+    }
   });
   // Update fees collected counter
   document.getElementById('fees-collected-counter').textContent = `$${paidCount * 30}`;
-  renderUserList(users);
+  renderUserList(paidUsers);
+  renderUnpaidUserList(unpaidUsers);
 }
 
 function renderUserList(userArr) {
   const userListDiv = document.getElementById('user-list');
   userListDiv.innerHTML = '';
   if (userArr.length === 0) {
-    userListDiv.innerHTML = '<div class="text-muted p-2">No users found.</div>';
+    userListDiv.innerHTML = '<div class="text-muted p-2">No paid users found.</div>';
     return;
   }
   userArr.forEach(user => {
@@ -154,15 +168,41 @@ function renderUserList(userArr) {
   });
 }
 
+function renderUnpaidUserList(userArr) {
+  const unpaidUserListDiv = document.getElementById('unpaid-user-list');
+  unpaidUserListDiv.innerHTML = '';
+  if (userArr.length === 0) {
+    unpaidUserListDiv.innerHTML = '<div class="text-muted p-2">No unpaid users found.</div>';
+    return;
+  }
+  userArr.forEach(user => {
+    const div = document.createElement('div');
+    div.className = 'user-list-item' + (user.id === selectedUserId ? ' selected' : '');
+    div.textContent = `${user.teamName || ''} (${user.firstName || ''} ${user.lastName || ''}) - ${user.email}`;
+    div.onclick = () => selectUser(user.id);
+    unpaidUserListDiv.appendChild(div);
+  });
+}
+
 document.getElementById('user-search').oninput = function() {
   const q = this.value.trim().toLowerCase();
-  const filtered = users.filter(u =>
-    (u.email && u.email.toLowerCase().includes(q)) ||
+  // Filter paid and unpaid separately
+  const paidFiltered = users.filter(u =>
+    u.paid === true &&
+    ((u.email && u.email.toLowerCase().includes(q)) ||
     (u.firstName && u.firstName.toLowerCase().includes(q)) ||
     (u.lastName && u.lastName.toLowerCase().includes(q)) ||
-    (u.teamName && u.teamName.toLowerCase().includes(q))
+    (u.teamName && u.teamName.toLowerCase().includes(q)))
   );
-  renderUserList(filtered);
+  const unpaidFiltered = users.filter(u =>
+    u.paid !== true &&
+    ((u.email && u.email.toLowerCase().includes(q)) ||
+    (u.firstName && u.firstName.toLowerCase().includes(q)) ||
+    (u.lastName && u.lastName.toLowerCase().includes(q)) ||
+    (u.teamName && u.teamName.toLowerCase().includes(q)))
+  );
+  renderUserList(paidFiltered);
+  renderUnpaidUserList(unpaidFiltered);
 };
 
 async function selectUser(userId) {

@@ -21,6 +21,7 @@
     <div class="d-flex mb-3" style="gap: 0.5rem;">
       <button class="btn btn-primary" id="new-race-btn">New Race</button>
       <a href="user-admin.html" class="btn btn-secondary">Users</a>
+      <button class="btn btn-danger" id="remove-unpaid-leaderboard-btn">Remove Unpaid from Leaderboard</button>
     </div>
 
     <div id="race-form-section" style="display:none;">
@@ -99,6 +100,30 @@
 </div>
 
 <script type="module" src="admin-script.js"></script>
+<script type="module">
+import { getFirestore, collection, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+const db = getFirestore();
+
+document.getElementById('remove-unpaid-leaderboard-btn').onclick = async () => {
+  if (!confirm("Remove all unpaid players from the leaderboard?")) return;
+  const usersSnap = await getDocs(collection(db, "users"));
+  const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+  const unpaidIds = new Set();
+  usersSnap.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.paid !== true) unpaidIds.add(docSnap.id);
+  });
+  let removed = 0;
+  for (const docSnap of leaderboardSnap.docs) {
+    if (unpaidIds.has(docSnap.id)) {
+      await deleteDoc(doc(db, "leaderboard", docSnap.id));
+      removed++;
+    }
+  }
+  alert(`Removed ${removed} unpaid players from the leaderboard.`);
+  window.location.reload();
+};
+</script>
 <script>
   // Manual row entry fix: add event listener for #add-horse-row
   document.addEventListener('DOMContentLoaded', function() {
