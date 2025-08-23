@@ -61,6 +61,10 @@
             <label>Team Name:</label>
             <input type="text" class="form-control" id="edit-teamName">
           </div>
+          <div class="mb-2">
+            <label>Jokers:</label>
+            <input type="number" class="form-control" id="edit-joker" min="0">
+          </div>
           <div class="mb-2 form-check">
             <input type="checkbox" class="form-check-input" id="edit-paid">
             <label class="form-check-label" for="edit-paid">Paid</label>
@@ -215,6 +219,7 @@ async function selectUser(userId) {
   document.getElementById('edit-firstName').value = user.firstName || '';
   document.getElementById('edit-lastName').value = user.lastName || '';
   document.getElementById('edit-teamName').value = user.teamName || '';
+  document.getElementById('edit-joker').value = typeof user.joker === "number" ? user.joker : (user.joker ? Number(user.joker) : 0);
   document.getElementById('edit-paid').checked = !!user.paid;
   loadUserTips(userId);
 }
@@ -227,13 +232,15 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
   const lastName = document.getElementById('edit-lastName').value;
   const teamName = document.getElementById('edit-teamName').value;
   const paid = document.getElementById('edit-paid').checked;
+  const joker = Number(document.getElementById('edit-joker').value) || 0;
 
   await updateDoc(doc(db, "users", selectedUserId), {
     email,
     firstName,
     lastName,
     teamName,
-    paid
+    paid,
+    joker
   });
 
   // Also update leaderboard entry if exists
@@ -272,6 +279,7 @@ async function loadUserTips(userId) {
     const tip = tips.find(t => t.raceId === raceId);
     const horseId = tip ? tip.horseId : '';
     const horseName = horseId && race.horses && race.horses[horseId] ? race.horses[horseId].name : '';
+    const jokerUsed = tip ? tip.joker === true : false;
     const row = document.createElement('div');
     row.className = 'tip-row';
     row.innerHTML = `
@@ -287,6 +295,10 @@ async function loadUserTips(userId) {
             ).join('')}
         </select>
         <button class="btn btn-sm btn-outline-primary save-tip-btn" data-race-id="${raceId}">Save</button>
+        <label class="ms-2">
+          <input type="checkbox" class="form-check-input joker-checkbox" data-race-id="${raceId}" ${jokerUsed ? 'checked' : ''}>
+          Joker
+        </label>
       </div>
     `;
     tipsDiv.appendChild(row);
@@ -298,6 +310,8 @@ async function loadUserTips(userId) {
       const raceId = btn.dataset.raceId;
       const select = tipsDiv.querySelector(`select[data-race-id="${raceId}"]`);
       const horseId = select.value;
+      const jokerCheckbox = tipsDiv.querySelector(`.joker-checkbox[data-race-id="${raceId}"]`);
+      const joker = jokerCheckbox && jokerCheckbox.checked ? true : false;
       if (!raceId || !selectedUserId) return;
       if (!horseId) {
         // Remove tip if exists
@@ -306,18 +320,36 @@ async function loadUserTips(userId) {
           userId: selectedUserId,
           raceId: raceId,
           horseId: "",
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          joker: false
         });
       } else {
         await setDoc(doc(db, "tips", `${selectedUserId}_${raceId}`), {
           userId: selectedUserId,
           raceId: raceId,
           horseId: horseId,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          joker
         });
       }
       alert("Tip updated.");
       loadUserTips(selectedUserId);
+    };
+  });
+
+  // Joker checkbox handler (instant update)
+  tipsDiv.querySelectorAll('.joker-checkbox').forEach(box => {
+    box.onchange = async function() {
+      const raceId = box.dataset.raceId;
+      const tipDocId = `${selectedUserId}_${raceId}`;
+      const tipDoc = await getDoc(doc(db, "tips", tipDocId));
+      if (!tipDoc.exists()) return;
+      const tipData = tipDoc.data();
+      await setDoc(doc(db, "tips", tipDocId), {
+        ...tipData,
+        joker: box.checked
+      });
+      // Optionally update joker count for user here if you want strict accounting
     };
   });
 }
