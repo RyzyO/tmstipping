@@ -235,7 +235,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const { DateTime } = luxon;
 
@@ -438,6 +438,33 @@
       }
     }
 
+    // Helper to update joker count if tip changes
+    async function handleJokerChangeOnTip(raceId, newJokerValue) {
+      const tipDocRef = doc(db, "tips", `${user.uid}_${raceId}`);
+      const tipDoc = await getDoc(tipDocRef);
+      const userDocRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      let jokerCount = 0;
+      if (userDoc.exists()) {
+        jokerCount = Number(userDoc.data().joker) || 0;
+      }
+
+      let prevJoker = false;
+      if (tipDoc.exists()) {
+        prevJoker = tipDoc.data().joker === true;
+      }
+
+      // If changing from joker:true to joker:false, add back a joker
+      if (prevJoker && !newJokerValue) {
+        await setDoc(userDocRef, { joker: jokerCount + 1 }, { merge: true });
+      }
+      // If changing from joker:false to joker:true, subtract a joker
+      if (!prevJoker && newJokerValue) {
+        await setDoc(userDocRef, { joker: jokerCount - 1 }, { merge: true });
+      }
+    }
+
     document.getElementById('tip-form').onsubmit = async (e) => {
       e.preventDefault();
       if (!selectedRaceId || !user) return;
@@ -447,6 +474,11 @@
         return;
       }
       const horseId = selectedRow.dataset.horseId;
+
+      // Handle joker change: if previous tip used joker, add it back
+      await handleJokerChangeOnTip(selectedRaceId, false);
+
+      // Save tip with joker: false
       await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
         userId: user.uid,
         raceId: selectedRaceId,
@@ -454,6 +486,7 @@
         timestamp: Date.now(),
         joker: false
       });
+
       await loadUserTips();
       await loadRaces();
       document.getElementById('race-card-section').style.display = 'none';
@@ -462,20 +495,38 @@
 
     document.getElementById('use-joker-btn').onclick = async () => {
       if (!selectedRaceId || !user) return;
-      if (jokerCount <= 0) {
-        alert("No jokers remaining.");
-        return;
-      }
       const selectedRow = document.querySelector('.horse-row.selected');
       if (!selectedRow) {
         alert("Please select a horse to tip.");
         return;
       }
-
       const horseId = selectedRow.dataset.horseId;
 
-      // Save tip with joker = true
-      await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
+      // Check previous joker value
+      const tipDocRef = doc(db, "tips", `${user.uid}_${selectedRaceId}`);
+      const tipDoc = await getDoc(tipDocRef);
+      let prevJoker = false;
+      if (tipDoc.exists()) {
+        prevJoker = tipDoc.data().joker === true;
+      }
+
+      // Only subtract joker if not already used for this race
+      if (!prevJoker) {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        let jokerCount = 0;
+        if (userDoc.exists()) {
+          jokerCount = Number(userDoc.data().joker) || 0;
+        }
+        if (jokerCount <= 0) {
+          alert("No jokers remaining.");
+          return;
+        }
+        await setDoc(userDocRef, { joker: jokerCount - 1 }, { merge: true });
+      }
+
+      // Save tip with joker: true
+      await setDoc(tipDocRef, {
         userId: user.uid,
         raceId: selectedRaceId,
         horseId,
@@ -483,12 +534,6 @@
         joker: true
       });
 
-      // Decrease joker count in user doc
-      await setDoc(doc(db, "users", user.uid), {
-        joker: jokerCount - 1
-      }, { merge: true });
-
-      // Reload local state/UI
       await loadUserTips();
       await loadRaces();
       await fetchJokerCount();
