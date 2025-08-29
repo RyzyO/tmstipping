@@ -15,13 +15,17 @@
     .paste-area { width: 100%; height: 150px; margin-bottom: 1rem; }
   </style>
 </head>
-<body>
+<body>       
 <div class="container mt-5 admin-flex">
   <div class="admin-main">
     <div class="d-flex mb-3" style="gap: 0.5rem;">
       <button class="btn btn-primary" id="new-race-btn">New Race</button>
       <a href="user-admin.html" class="btn btn-secondary">Users</a>
       <button class="btn btn-danger" id="remove-unpaid-leaderboard-btn">Remove Unpaid from Leaderboard</button>
+      <div class="mb-3">
+  <h5>Fully Tipped: <span id="fully-tipped-count">0</span></h5>
+</div>
+
     </div>
 
     <div id="race-form-section" style="display:none;">
@@ -63,6 +67,9 @@
         <input type="text" id="edit-race-distance" class="form-control d-inline-block" style="width:auto;">
         <button class="btn btn-sm btn-outline-primary" id="save-race-distance">Save</button>
       </div>
+<div class="mb-2">
+  <h5>Tips Submitted: <span id="race-tips-count">0</span></h5>
+</div>
 
       <h5>Horses</h5>
       <div id="selected-horses-list"></div>

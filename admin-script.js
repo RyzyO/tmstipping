@@ -220,7 +220,11 @@ async function selectRace(raceId) {
   document.getElementById('edit-race-distance').value = race.distance || '';
 
   renderHorsesList(race, raceId);
+
+  // 👇 NEW: show how many people tipped this race
+  await calculateRaceTipsCount(raceId);
 }
+
 
 function renderHorsesList(race, raceId) {
   const horsesDiv = document.getElementById('selected-horses-list');
@@ -488,4 +492,82 @@ async function updateLeaderboardForRace(raceId, results) {
 }
 
 // Load races initially
-loadRaces();
+// Load races initially
+loadRaces().then(() => calculateFullyTipped());
+async function calculateRaceTipsCount(raceId) {
+  // Get paid users
+  const usersSnap = await getDocs(collection(db, "users"));
+  const paidUsers = [];
+  usersSnap.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.paid === true) paidUsers.push(docSnap.id);
+  });
+
+  // Get tips for this race
+  const tipsSnap = await getDocs(collection(db, "tips"));
+  const tippedUsers = new Set();
+  tipsSnap.forEach(docSnap => {
+    const tip = docSnap.data();
+    if (tip.raceId === raceId && paidUsers.includes(tip.userId)) {
+      tippedUsers.add(tip.userId);
+    }
+  });
+
+  // Update UI
+  document.getElementById("race-tips-count").textContent =
+    `${tippedUsers.size} / ${paidUsers.length}`;
+}
+
+async function calculateFullyTipped() {
+  const now = new Date();
+  const sevenDaysLater = new Date();
+  sevenDaysLater.setDate(now.getDate() + 7);
+
+  // Get races in next 7 days
+  const racesSnap = await getDocs(collection(db, "races"));
+  const upcomingRaces = [];
+  racesSnap.forEach(docSnap => {
+    const race = docSnap.data();
+    const raceDateTime = new Date(`${race.date}T${race.time}`);
+    if (raceDateTime >= now && raceDateTime <= sevenDaysLater) {
+      upcomingRaces.push({ id: docSnap.id, ...race });
+    }
+  });
+
+  if (upcomingRaces.length === 0) {
+    document.getElementById("fully-tipped-count").textContent = "0";
+    return;
+  }
+
+  // Get all paid users
+  const usersSnap = await getDocs(collection(db, "users"));
+  const paidUsers = [];
+  usersSnap.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.paid === true) paidUsers.push(docSnap.id);
+  });
+
+  // Get all tips
+  const tipsSnap = await getDocs(collection(db, "tips"));
+  const tipsByUser = {};
+  tipsSnap.forEach(docSnap => {
+    const tip = docSnap.data();
+    if (!tipsByUser[tip.userId]) tipsByUser[tip.userId] = new Set();
+    tipsByUser[tip.userId].add(tip.raceId);
+  });
+
+  // Count how many users tipped for all races
+  let fullyTippedCount = 0;
+  for (const userId of paidUsers) {
+    let allSubmitted = true;
+    for (const race of upcomingRaces) {
+      if (!tipsByUser[userId] || !tipsByUser[userId].has(race.id)) {
+        allSubmitted = false;
+        break;
+      }
+    }
+    if (allSubmitted) fullyTippedCount++;
+  }
+
+  document.getElementById("fully-tipped-count").textContent = fullyTippedCount;
+}
