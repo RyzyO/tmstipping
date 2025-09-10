@@ -76,6 +76,15 @@
       background:transparent; color:var(--gold); border:2px solid var(--gold); border-radius:8px; width:100%; padding:.6rem 1.2rem; font-weight:700;
     }
     .btn[disabled] { opacity:.6; pointer-events:none; }
+
+.joker-icon {
+  color: #a259ff;
+  margin-left: 0.4rem;
+  font-size: 1.2rem;
+  vertical-align: middle;
+}
+
+
   </style>
 </head>
 <body>
@@ -258,10 +267,17 @@
 
         const li = document.createElement('li');
         let label = `${race.name} (${race.date} ${timeStr})`;
-        if (state.tipsMap[race.id]) {
-          label += " (submitted)";
-          li.classList.add('tipped');
-        }
+       if (state.tipsMap[race.id]) {
+  label += " (submitted)";
+  li.classList.add('tipped');
+
+  // Fetch tip doc to check joker
+  const tipSnap = await getDoc(doc(db, "tips", `${state.user.uid}_${race.id}`));
+  if (tipSnap.exists() && tipSnap.data().joker === true) {
+    label += ` <i class="bi bi-check-circle-fill joker-icon" title="Joker used"></i>`;
+  }
+}
+
         li.innerHTML = label;
 
         if (isLocked) {
