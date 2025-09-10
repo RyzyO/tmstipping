@@ -18,170 +18,64 @@
   <link href="css/bootstrap-icons.css" rel="stylesheet">
   <link href="css/templatemo-topic-listing.css" rel="stylesheet">
   <link href="navbar.css" rel="stylesheet">
+
   <style>
-    :root {
-      --gold: #FFD700;
-      --glass-bg: rgba(24,24,24,0.85);
-      --black: #181818;
-    }
+    :root { --gold:#FFD700; --glass-bg:rgba(24,24,24,0.85); --black:#181818; }
     * { box-sizing: border-box; }
     html, body {
-      margin: 0; padding: 0;
-      font-family: 'Inter', sans-serif;
+      margin:0; padding:0; font-family:'Inter',sans-serif;
       background: linear-gradient(135deg, #181818 0%, #232526 100%);
-      color: white;
-      overflow-x: hidden;
+      color:white; overflow-x:hidden;
     }
-    h1, h2, h3, h4, h5, h6,
-    .btn, .navbar-brand, .nav-link,
-    .race-list li, .horse-row {
-      font-family: 'Outfit', sans-serif;
+    h1,h2,h3,h4,h5,h6,.btn,.navbar-brand,.nav-link,.race-list li,.horse-row {
+      font-family:'Outfit',sans-serif;
     }
-    .navbar {
-      background: var(--glass-bg);
-      box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
-    }
-    .navbar-brand, .nav-link {
-      color: var(--gold) !important;
-      font-weight: 600;
-      font-family: 'Outfit', sans-serif; /* match results.html */
-      text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
-    }
-    .navbar-brand img {
-      height: 36px; width: 36px; object-fit: contain;
-      vertical-align: middle; margin-right: 0.5rem;
-      border-radius: 8px;
-      filter: drop-shadow(0 0 6px var(--gold));
-    }
-    .main-content {
-      padding-top: 90px;
-      padding-bottom: 35px;
-      min-height: 100vh;
-    }
+    .navbar { background:var(--glass-bg); box-shadow:0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold); }
+    .navbar-brand,.nav-link { color:var(--gold)!important; font-weight:600; text-shadow:0 1px 4px #000,0 0 2px var(--gold); }
+    .navbar-brand img { height:36px;width:36px;object-fit:contain;vertical-align:middle;margin-right:.5rem;border-radius:8px;filter:drop-shadow(0 0 6px var(--gold)); }
+    .main-content { padding-top:90px; padding-bottom:35px; min-height:100vh; }
     .centered-list {
-      background: var(--glass-bg);
-      border-radius: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
-      padding: 2rem 1rem;
-      max-width: 600px;
-      margin: auto;
-      width: 90%;
-      backdrop-filter: blur(8px);
+      background:var(--glass-bg); border-radius:24px; box-shadow:0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
+      padding:2rem 1rem; max-width:600px; margin:auto; width:90%; backdrop-filter:blur(8px);
     }
-    h2 {
-      color: var(--gold);
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
-    .race-list {
-      list-style: none;
-      padding: 0; margin: 0;
-    }
+    h2 { color:var(--gold); text-align:center; margin-bottom:1.5rem; }
+    .race-list { list-style:none; padding:0; margin:0; }
     .race-list li {
-      cursor: pointer;
-      padding: 1rem;
-      border: 1.5px solid var(--gold);
-      border-radius: 12px;
-      margin-bottom: 1rem;
-      background: rgba(255,255,255,0.04);
-      color: var(--gold);
-      font-weight: 600;
-      font-size: 1rem;
-      transition: all 0.2s;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      cursor:pointer; padding:1rem; border:1.5px solid var(--gold); border-radius:12px; margin-bottom:1rem;
+      background:rgba(255,255,255,0.04); color:var(--gold); font-weight:600; font-size:1rem; transition:all .2s;
+      word-wrap:break-word; overflow-wrap:break-word; display:flex; justify-content:space-between; align-items:center;
     }
-    .race-list li:hover, .race-list li.selected {
-      background: linear-gradient(90deg, var(--gold), #fffbe6);
-      color: var(--black);
-    }
-    .race-list li.tipped {
-      opacity: 0.5;
-      background: rgba(255, 255, 255, 0.08);
-      color: #ccc;
-      font-weight: 400;
-    }
-    .race-list li.locked {
-      opacity: 0.6;
-      background: rgba(255, 255, 255, 0.1);
-      color: #aaa;
-      cursor: not-allowed;
-    }
+    .race-list li:hover, .race-list li.selected { background:linear-gradient(90deg,var(--gold),#fffbe6); color:var(--black); }
+    .race-list li.tipped { opacity:.5; background:rgba(255,255,255,0.08); color:#ccc; font-weight:400; }
+    .race-list li.locked { opacity:.6; background:rgba(255,255,255,0.1); color:#aaa; cursor:not-allowed; }
     .horse-row {
-      margin-bottom: 1rem;
-      background: rgba(255,255,255,0.04);
-      border-radius: 12px;
-      padding: 1rem;
-      font-weight: 600;
-      color: var(--gold);
-      cursor: pointer;
-      word-wrap: break-word;
+      margin-bottom:1rem; background:rgba(255,255,255,0.04); border-radius:12px; padding:1rem;
+      font-weight:600; color:var(--gold); cursor:pointer; word-wrap:break-word;
     }
-    .horse-row:hover, .horse-row.selected {
-      background: linear-gradient(90deg, var(--gold), #fffbe6);
-      color: var(--black);
-    }
+    .horse-row:hover, .horse-row.selected { background:linear-gradient(90deg,var(--gold),#fffbe6); color:var(--black); }
     .btn-success {
-      background: linear-gradient(90deg, var(--gold), #fffbe6);
-      color: var(--black);
-      font-weight: bold;
-      border: none;
-      border-radius: 8px;
-      padding: 0.6rem 1.2rem;
-      width: 100%;
+      background:linear-gradient(90deg,var(--gold),#fffbe6); color:var(--black); font-weight:bold; border:none; border-radius:8px;
+      padding:.6rem 1.2rem; width:100%;
     }
-    #tip-message {
-      margin-top: 1rem;
-      color: var(--gold);
-      text-align: center;
-    }
+    #tip-message { margin-top:1rem; color:var(--gold); text-align:center; }
     .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      background: var(--glass-bg);
-      border-top: 2px solid var(--gold);
-      display: flex;
-      justify-content: space-around;
-      padding: 0.5rem 0;
-      z-index: 1000;
+      position:fixed; bottom:0; width:100%; background:var(--glass-bg); border-top:2px solid var(--gold);
+      display:flex; justify-content:space-around; padding:.5rem 0; z-index:1000;
     }
-    .bottom-nav a {
-      color: var(--gold);
-      text-align: center;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-decoration: none;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    .bottom-nav a { color:var(--gold); text-align:center; font-size:.85rem; font-weight:600; text-decoration:none; display:flex; flex-direction:column; align-items:center; }
+    .bottom-nav i { font-size:1.3rem; margin-bottom:.25rem; }
+    .lock-icon { display:inline-flex; align-items:center; font-size:1.2rem; margin-left:.5rem; }
+    h6 { color:white; text-align:center; font-size:.8em; }
+    #race-distance { text-align:center; margin-top:-1rem; margin-bottom:1rem; color:#ccc; font-style:italic; font-size:.9rem; }
+    .btn-duo { display:flex; gap:.75rem; margin-top:.75rem; }
+    .btn-purple {
+      background:linear-gradient(90deg,#a259ff,#6a0572); color:#fff; font-weight:bold; border:none; border-radius:8px; width:100%;
+      padding:.6rem 1.2rem;
     }
-    .bottom-nav i {
-      font-size: 1.3rem;
-      margin-bottom: 0.25rem;
+    .btn-outline-gold {
+      background:transparent; color:var(--gold); border:2px solid var(--gold); border-radius:8px; width:100%; padding:.6rem 1.2rem; font-weight:700;
     }
-    .lock-icon {
-      display: inline-flex;
-      align-items: center;
-      font-size: 1.2rem;
-      margin-left: 0.5rem;
-    }
-    h6 {
-      color: white;
-      text-align: center;
-      font-size: 0.8em;
-    }
-    #race-distance {
-      text-align: center;
-      margin-top: -1rem;
-      margin-bottom: 1rem;
-      color: #ccc;
-      font-style: italic;
-      font-size: 0.9rem;
-    }
+    .btn[disabled] { opacity:.6; pointer-events:none; }
   </style>
 </head>
 <body>
@@ -205,12 +99,20 @@
       <h2 id="selected-race-title"></h2>
       <div id="race-distance"></div>
       <div id="selected-race-date" class="mb-3 text-center"></div>
+
       <form id="tip-form">
         <div id="horses-radio-list"></div>
-        <button type="submit" class="btn btn-success mt-3">Submit Tip</button>
-        <button type="button" id="use-joker-btn" class="btn mt-3" style="background: linear-gradient(90deg, #a259ff, #6a0572); color: #fff; font-weight: bold; border: none; border-radius: 8px; width: 100%; display:none;">
-          Use Joker (<span id="joker-count">0</span> remaining)
-        </button>
+        <div class="btn-duo">
+          <button type="submit" id="submit-tip-btn" class="btn btn-success">Submit Tip</button>
+        </div>
+        <div class="btn-duo">
+          <button type="button" id="use-joker-btn" class="btn btn-purple" style="display:none;">
+            Use Joker (<span id="joker-count">0</span> remaining)
+          </button>
+          <button type="button" id="remove-joker-btn" class="btn btn-outline-gold" style="display:none;">
+            Remove Joker
+          </button>
+        </div>
         <br><br><br><br><br>
       </form>
       <div id="tip-message"></div>
@@ -227,18 +129,22 @@
   <div id="loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(24,24,24,0.92);display:none;align-items:center;justify-content:center;">
     <div style="text-align:center;">
       <div class="spinner-border" style="width:3rem;height:3rem;color:#FFD700;" role="status"></div>
-      <div style="margin-top:1rem;font-size:1.3rem;font-family:'Outfit',sans-serif;color:#FFD700;font-weight:600;">Loading Races...</div>
+      <div style="margin-top:1rem;font-size:1.3rem;font-family:'Outfit',sans-serif;color:#FFD700;font-weight:600;">Loading…</div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, doc, setDoc, getDocs, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import {
+      getFirestore, collection, doc, setDoc, getDocs, getDoc,
+      query, where, runTransaction, serverTimestamp, increment
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const { DateTime } = luxon;
 
+    // ---- Firebase ----
     const firebaseConfig = {
       apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
       authDomain: "tmstipping.firebaseapp.com",
@@ -248,59 +154,85 @@
       appId: "1:401677933527:web:2312ad4ef69aef6551c992",
       measurementId: "G-GXLRCHV687"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    let user = null;
-    let selectedRaceId = null;
-    let userTips = {};
-    let jokerCount = 0;
 
-    function showLoading() {
-      document.getElementById('loading-overlay').style.display = 'flex';
-    }
-    function hideLoading() {
-      document.getElementById('loading-overlay').style.display = 'none';
+    // ---- Global State ----
+    const state = {
+      user: null,
+      tipsMap: {},      // { [raceId]: true }
+      jokerCount: 0,    // live from user doc
+      selectedRaceId: null,
+      inFlight: false
+    };
+
+    // ---- UI helpers ----
+    function showLoading() { document.getElementById('loading-overlay').style.display = 'flex'; }
+    function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+    function setBusy(busy) {
+      state.inFlight = busy;
+      const ids = ['submit-tip-btn','use-joker-btn','remove-joker-btn','exit-race-btn'];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = busy;
+      });
+      if (busy) showLoading(); else hideLoading();
     }
 
+    // ---- Auth flow ----
     onAuthStateChanged(auth, async (_user) => {
-      showLoading();
-      if (!_user) {
-        hideLoading();
-        return;
+      setBusy(true);
+      try {
+        if (!_user) {
+          setBusy(false);
+          return;
+        }
+        state.user = _user;
+
+        // Paid gate
+        const userRef = doc(db, "users", state.user.uid);
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists() || userSnap.data().paid !== true) {
+          alert("Your account is locked. Please contact support.");
+          await signOut(auth);
+          window.location.href = "login.html";
+          return;
+        }
+
+        await refreshJokerCount();       // read live joker count
+        await loadUserTips();            // only this user's tips
+        await loadRaces();               // list + lock states
+      } finally {
+        setBusy(false);
       }
-      user = _user;
-      // Check paid status
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (!userDoc.exists() || userDoc.data().paid !== true) {
-        alert("Your account is locked. Please contact support.");
-        await signOut(auth);
-        window.location.href = "login.html";
-        return;
-      }
-      await loadUserTips();
-      await loadRaces();
-      hideLoading();
     });
 
+    async function refreshJokerCount() {
+      const userSnap = await getDoc(doc(db, "users", state.user.uid));
+      let count = 0;
+      if (userSnap.exists() && !isNaN(userSnap.data().joker)) {
+        count = Number(userSnap.data().joker);
+      }
+      state.jokerCount = Math.max(0, count);
+      const badge = document.getElementById('joker-count');
+      if (badge) badge.textContent = state.jokerCount;
+    }
+
     async function loadUserTips() {
-      showLoading();
-      userTips = {};
-      const tipsSnap = await getDocs(collection(db, "tips"));
-      tipsSnap.forEach(docSnap => {
-        const tip = docSnap.data();
-        if (tip.userId === user.uid) {
-          userTips[tip.raceId] = true;
-        }
+      state.tipsMap = {};
+      const tipsQ = query(collection(db, "tips"), where("userId", "==", state.user.uid));
+      const tipsSnap = await getDocs(tipsQ);
+      tipsSnap.forEach(d => {
+        const tip = d.data();
+        if (tip && tip.raceId) state.tipsMap[tip.raceId] = true;
       });
-      hideLoading();
     }
 
     async function loadRaces() {
-      showLoading();
       const raceList = document.getElementById('race-list');
       raceList.innerHTML = '';
+
       const racesSnap = await getDocs(collection(db, "races"));
       const nowSydney = DateTime.now().setZone('Australia/Sydney');
       const racesArr = [];
@@ -316,7 +248,6 @@
       });
 
       let racesShown = 0;
-
       for (const race of racesArr) {
         const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, { zone: 'Australia/Sydney' });
         if (raceDateTimeSydney < nowSydney) continue;
@@ -324,13 +255,15 @@
 
         const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
         const timeStr = raceDateTimeSydney.toLocaleString(DateTime.TIME_SIMPLE);
+
         const li = document.createElement('li');
         let label = `${race.name} (${race.date} ${timeStr})`;
-        if (userTips[race.id]) {
+        if (state.tipsMap[race.id]) {
           label += " (submitted)";
           li.classList.add('tipped');
         }
         li.innerHTML = label;
+
         if (isLocked) {
           li.classList.add('locked');
           li.innerHTML += ` <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>`;
@@ -348,62 +281,67 @@
         msg.style.color = "var(--gold)";
         raceList.appendChild(msg);
       }
-      hideLoading();
     }
 
-    async function fetchJokerCount() {
-      showLoading();
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      let count = 0;
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        // Convert string → number if needed
-        if (!isNaN(data.joker)) {
-          count = Number(data.joker);
-        }
-      }
-      jokerCount = count;
-      document.getElementById('joker-count').textContent = jokerCount;
-      document.getElementById('use-joker-btn').style.display = jokerCount > 0 ? '' : 'none';
-      hideLoading();
-    }
-
+    // ---- Race selection & card ----
     async function selectRace(raceId) {
-      showLoading();
-      selectedRaceId = raceId;
-      document.getElementById('race-list-section').style.display = 'none';
-      document.getElementById('race-card-section').style.display = '';
+      setBusy(true);
+      try {
+        state.selectedRaceId = raceId;
+        document.getElementById('race-list-section').style.display = 'none';
+        document.getElementById('race-card-section').style.display = '';
 
-      const raceDoc = await getDoc(doc(db, "races", raceId));
-      const race = raceDoc.data();
+        const raceDoc = await getDoc(doc(db, "races", raceId));
+        const race = raceDoc.data();
 
-      const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, { zone: 'Australia/Sydney' });
-      const nowSydney = DateTime.now().setZone('Australia/Sydney');
-      const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
+        const raceDateTimeSydney = DateTime.fromISO(`${race.date}T${race.time}`, { zone: 'Australia/Sydney' });
+        const nowSydney = DateTime.now().setZone('Australia/Sydney');
+        const isLocked = nowSydney >= raceDateTimeSydney.minus({ minutes: 5 });
 
-      document.getElementById('selected-race-title').textContent = race.name;
-      document.getElementById('selected-race-date').textContent = `Date: ${race.date} — ${raceDateTimeSydney.toLocaleString(DateTime.TIME_SIMPLE)}`;
-      document.getElementById('race-distance').textContent = `Distance: ${race.distance || 'N/A'}`;
+        document.getElementById('selected-race-title').textContent = race.name;
+        document.getElementById('selected-race-date').textContent =
+          `Date: ${race.date} — ${raceDateTimeSydney.toLocaleString(DateTime.TIME_SIMPLE)}`;
+        document.getElementById('race-distance').textContent = `Distance: ${race.distance || 'N/A'}`;
 
-      if (isLocked) {
-        document.getElementById('tip-form').style.display = 'none';
-        document.getElementById('horses-radio-list').innerHTML = '';
-        document.getElementById('tip-message').textContent = '⛔ Tipping for this race has closed.';
-        hideLoading();
-        return;
+        const tipRef = doc(db, "tips", `${state.user.uid}_${raceId}`);
+        const tipSnap = await getDoc(tipRef);
+        let tippedHorseId = null;
+        let prevJoker = false;
+        if (tipSnap.exists()) {
+          const t = tipSnap.data();
+          tippedHorseId = t.horseId || null;
+          prevJoker = t.joker === true;
+        }
+
+        renderHorsesRadioList(race, raceId, tippedHorseId);
+
+        const tipForm = document.getElementById('tip-form');
+        const useBtn = document.getElementById('use-joker-btn');
+        const removeBtn = document.getElementById('remove-joker-btn');
+
+        document.getElementById('tip-message').textContent = '';
+        tipForm.style.display = isLocked ? 'none' : '';
+
+        if (isLocked) {
+          document.getElementById('horses-radio-list').innerHTML = '';
+          document.getElementById('tip-message').textContent = '⛔ Tipping for this race has closed.';
+        }
+
+        // Button visibility logic
+        await refreshJokerCount(); // ensure fresh count displayed
+        document.getElementById('joker-count').textContent = state.jokerCount;
+
+        if (!isLocked) {
+          removeBtn.style.display = prevJoker ? '' : 'none';
+          // "Use Joker" visible if user has jokers OR if not already jokered (button adds one)
+          useBtn.style.display = prevJoker ? 'none' : ''; // avoid confusion: if already jokered, show only Remove
+        } else {
+          useBtn.style.display = 'none';
+          removeBtn.style.display = 'none';
+        }
+      } finally {
+        setBusy(false);
       }
-
-      let tippedHorseId = null;
-      const tipDoc = await getDoc(doc(db, "tips", `${user.uid}_${raceId}`));
-      if (tipDoc.exists()) {
-        tippedHorseId = tipDoc.data().horseId;
-      }
-
-      renderHorsesRadioList(race, raceId, tippedHorseId);
-      document.getElementById('tip-message').textContent = '';
-      document.getElementById('tip-form').style.display = '';
-      await fetchJokerCount();
-      hideLoading();
     }
 
     function renderHorsesRadioList(race, raceId, tippedHorseId = null) {
@@ -418,18 +356,16 @@
         row.className = 'horse-row';
         row.dataset.horseId = horseId;
         row.innerHTML = `
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;">
-            <div style="font-size: 1.6rem; font-weight: bold; width: 52px; text-align: center; flex-shrink: 0;">#${horseData.number}</div>
-            <div style="flex-grow: 1; font-weight: 600; padding: 0 0.5rem;">${horseData.name}</div>
-            <div style="text-align: right; font-size: 0.75rem; line-height: 1.2;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
+            <div style="font-size:1.6rem;font-weight:bold;width:52px;text-align:center;flex-shrink:0;">#${horseData.number}</div>
+            <div style="flex-grow:1;font-weight:600;padding:0 .5rem;">${horseData.name}</div>
+            <div style="text-align:right;font-size:.75rem;line-height:1.2;">
               <div>Trainer: ${horseData.trainer || '—'}</div>
               <div>Jockey: ${horseData.jockey || '—'}</div>
               <div>Barrier: ${horseData.barrier || '—'}, Weight: ${horseData.weight || '—'}</div>
             </div>
           </div>`;
-        if (tippedHorseId && horseId === tippedHorseId) {
-          row.classList.add('selected');
-        }
+        if (tippedHorseId && horseId === tippedHorseId) row.classList.add('selected');
         row.onclick = () => {
           document.querySelectorAll('.horse-row').forEach(el => el.classList.remove('selected'));
           row.classList.add('selected');
@@ -438,115 +374,174 @@
       }
     }
 
-    // Helper to update joker count if tip changes
-    async function handleJokerChangeOnTip(raceId, newJokerValue) {
-      const tipDocRef = doc(db, "tips", `${user.uid}_${raceId}`);
-      const tipDoc = await getDoc(tipDocRef);
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      let jokerCount = 0;
-      if (userDoc.exists()) {
-        jokerCount = Number(userDoc.data().joker) || 0;
-      }
-
-      let prevJoker = false;
-      if (tipDoc.exists()) {
-        prevJoker = tipDoc.data().joker === true;
-      }
-
-      // If changing from joker:true to joker:false, add back a joker
-      if (prevJoker && !newJokerValue) {
-        await setDoc(userDocRef, { joker: jokerCount + 1 }, { merge: true });
-      }
-      // If changing from joker:false to joker:true, subtract a joker
-      if (!prevJoker && newJokerValue) {
-        await setDoc(userDocRef, { joker: jokerCount - 1 }, { merge: true });
-      }
+    function getSelectedHorseId() {
+      const sel = document.querySelector('.horse-row.selected');
+      return sel ? sel.dataset.horseId : null;
     }
 
+    // ---- Transactions ----
+
+    // Submit a NON-joker tip (and give back a joker if previously jokered)
     document.getElementById('tip-form').onsubmit = async (e) => {
       e.preventDefault();
-      if (!selectedRaceId || !user) return;
-      const selectedRow = document.querySelector('.horse-row.selected');
-      if (!selectedRow) {
-        alert("Please select a horse to tip.");
-        return;
+      if (!state.selectedRaceId || !state.user || state.inFlight) return;
+
+      const horseId = getSelectedHorseId();
+      if (!horseId) { alert("Please select a horse to tip."); return; }
+
+      setBusy(true);
+      try {
+        const tipId = `${state.user.uid}_${state.selectedRaceId}`;
+        const tipRef = doc(db, "tips", tipId);
+        const userRef = doc(db, "users", state.user.uid);
+
+        await runTransaction(db, async (tx) => {
+          const tipSnap = await tx.get(tipRef);
+          const userSnap = await tx.get(userRef);
+
+          let currentJokers = (userSnap.exists() && !isNaN(userSnap.data().joker)) ? Number(userSnap.data().joker) : 0;
+          const prevJoker = tipSnap.exists() ? (tipSnap.data().joker === true) : false;
+
+          // If was jokered before and we're submitting a normal tip → give one back atomically
+          if (prevJoker) {
+            tx.set(userRef, { joker: increment(1) }, { merge: true });
+            currentJokers += 1;
+          }
+
+          tx.set(tipRef, {
+            userId: state.user.uid,
+            raceId: state.selectedRaceId,
+            horseId,
+            joker: false,
+            timestamp: serverTimestamp()
+          }, { merge: true });
+        });
+
+        await refreshJokerCount();
+        await loadUserTips();
+        await loadRaces();
+
+        // Back to list
+        document.getElementById('race-card-section').style.display = 'none';
+        document.getElementById('race-list-section').style.display = '';
+      } catch (err) {
+        console.error(err);
+        alert(err?.message || "Could not submit tip.");
+      } finally {
+        setBusy(false);
       }
-      const horseId = selectedRow.dataset.horseId;
-
-      // Handle joker change: if previous tip used joker, add it back
-      await handleJokerChangeOnTip(selectedRaceId, false);
-
-      // Save tip with joker: false
-      await setDoc(doc(db, "tips", `${user.uid}_${selectedRaceId}`), {
-        userId: user.uid,
-        raceId: selectedRaceId,
-        horseId,
-        timestamp: Date.now(),
-        joker: false
-      });
-
-      await loadUserTips();
-      await loadRaces();
-      document.getElementById('race-card-section').style.display = 'none';
-      document.getElementById('race-list-section').style.display = '';
     };
 
+    // Use Joker (confirm first)
     document.getElementById('use-joker-btn').onclick = async () => {
-      if (!selectedRaceId || !user) return;
-      const selectedRow = document.querySelector('.horse-row.selected');
-      if (!selectedRow) {
-        alert("Please select a horse to tip.");
-        return;
+      if (!state.selectedRaceId || !state.user || state.inFlight) return;
+
+      const horseId = getSelectedHorseId();
+      if (!horseId) { alert("Please select a horse to tip."); return; }
+
+      const ok = confirm("Use a Joker on this race? This will consume 1 Joker.");
+      if (!ok) return;
+
+      setBusy(true);
+      try {
+        const tipId = `${state.user.uid}_${state.selectedRaceId}`;
+        const tipRef = doc(db, "tips", tipId);
+        const userRef = doc(db, "users", state.user.uid);
+
+        await runTransaction(db, async (tx) => {
+          const tipSnap = await tx.get(tipRef);
+          const userSnap = await tx.get(userRef);
+
+          let currentJokers = (userSnap.exists() && !isNaN(userSnap.data().joker)) ? Number(userSnap.data().joker) : 0;
+          const prevJoker = tipSnap.exists() ? (tipSnap.data().joker === true) : false;
+
+          if (!prevJoker) {
+            // Need to consume a joker
+            if (currentJokers <= 0) {
+              throw new Error("No jokers remaining.");
+            }
+            tx.set(userRef, { joker: increment(-1) }, { merge: true });
+            currentJokers -= 1;
+          }
+          // Write tip with joker:true (or keep true) and selected horse
+          tx.set(tipRef, {
+            userId: state.user.uid,
+            raceId: state.selectedRaceId,
+            horseId,
+            joker: true,
+            timestamp: serverTimestamp()
+          }, { merge: true });
+        });
+
+        await refreshJokerCount();
+        await loadUserTips();
+        await loadRaces();
+
+        // Back to list
+        document.getElementById('race-card-section').style.display = 'none';
+        document.getElementById('race-list-section').style.display = '';
+      } catch (err) {
+        console.error(err);
+        alert(err?.message || "Could not apply Joker.");
+      } finally {
+        setBusy(false);
       }
-      const horseId = selectedRow.dataset.horseId;
-
-      // Check previous joker value
-      const tipDocRef = doc(db, "tips", `${user.uid}_${selectedRaceId}`);
-      const tipDoc = await getDoc(tipDocRef);
-      let prevJoker = false;
-      if (tipDoc.exists()) {
-        prevJoker = tipDoc.data().joker === true;
-      }
-
-      // Only subtract joker if not already used for this race
-      if (!prevJoker) {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        let jokerCount = 0;
-        if (userDoc.exists()) {
-          jokerCount = Number(userDoc.data().joker) || 0;
-        }
-        if (jokerCount <= 0) {
-          alert("No jokers remaining.");
-          return;
-        }
-        await setDoc(userDocRef, { joker: jokerCount - 1 }, { merge: true });
-      }
-
-      // Save tip with joker: true
-      await setDoc(tipDocRef, {
-        userId: user.uid,
-        raceId: selectedRaceId,
-        horseId,
-        timestamp: Date.now(),
-        joker: true
-      });
-
-      await loadUserTips();
-      await loadRaces();
-      await fetchJokerCount();
-
-      document.getElementById('race-card-section').style.display = 'none';
-      document.getElementById('race-list-section').style.display = '';
     };
 
+    // Remove Joker (no confirm; it’s reversible and credited back)
+    document.getElementById('remove-joker-btn').onclick = async () => {
+      if (!state.selectedRaceId || !state.user || state.inFlight) return;
+
+      const horseId = getSelectedHorseId();
+      if (!horseId) { alert("Please select a horse to keep as your tip."); return; }
+
+      setBusy(true);
+      try {
+        const tipId = `${state.user.uid}_${state.selectedRaceId}`;
+        const tipRef = doc(db, "tips", tipId);
+        const userRef = doc(db, "users", state.user.uid);
+
+        await runTransaction(db, async (tx) => {
+          const tipSnap = await tx.get(tipRef);
+          const userSnap = await tx.get(userRef);
+
+          let currentJokers = (userSnap.exists() && !isNaN(userSnap.data().joker)) ? Number(userSnap.data().joker) : 0;
+          const prevJoker = tipSnap.exists() ? (tipSnap.data().joker === true) : false;
+
+          if (prevJoker) {
+            tx.set(userRef, { joker: increment(1) }, { merge: true });
+            currentJokers += 1;
+          }
+          tx.set(tipRef, {
+            userId: state.user.uid,
+            raceId: state.selectedRaceId,
+            horseId,
+            joker: false,
+            timestamp: serverTimestamp()
+          }, { merge: true });
+        });
+
+        await refreshJokerCount();
+        await loadUserTips();
+        await loadRaces();
+
+        // Back to list
+        document.getElementById('race-card-section').style.display = 'none';
+        document.getElementById('race-list-section').style.display = '';
+      } catch (err) {
+        console.error(err);
+        alert(err?.message || "Could not remove Joker.");
+      } finally {
+        setBusy(false);
+      }
+    };
+
+    // Exit card
     document.getElementById('exit-race-btn').onclick = () => {
+      if (state.inFlight) return;
       document.getElementById('race-card-section').style.display = 'none';
       document.getElementById('race-list-section').style.display = '';
     };
   </script>
-
 </body>
 </html>
