@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Great Spring Tip Off - By The Mock Sports</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <style>
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-20px); }
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(30, 30, 30, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .race-card { transition: all 0.3s ease; }
+    .race-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+  <!-- Navigation -->
+ <!-- Navigation -->
+<nav class="relative z-10 glass-effect sticky top-0">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between items-center py-4">
+      <div class="flex items-center">
+        <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit: contain;" />
+        <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <!-- Mobile menu button -->
+        <button class="md:hidden" onclick="toggleMenu()">
+          <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
+        </button>
+        <!-- Desktop menu -->
+        <div class="hidden md:flex space-x-6">
+          <a href="index.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+          <a href="tip.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+          <a href="leaderboard.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+          <a href="faq.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+          <a href="prizes.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Mobile Menu -->
+  <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
+    <a href="index.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
+    <a href="tip.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+    <a href="leaderboard.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+    <a href="faq.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+    <a href="prizes.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+  </div>
+</nav>
+
+
+  <!-- Main Content -->
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+    <!-- Welcome Section -->
+ <!-- Welcome Section -->
+<section class="mb-12" data-aos="fade-up">
+  <div class="bg-gray-800 rounded-2xl shadow-xl p-8 md:p-12 relative overflow-hidden flex items-center justify-between">
+    <div class="absolute top-0 right-0 -mr-20 -mt-20 w-40 h-40 bg-yellow-600 rounded-full opacity-10"></div>
+    <!-- Left content -->
+    <div class="relative z-10">
+      <h2 class="text-3xl md:text-5xl font-bold mb-4 gradient-text float-animation">
+        Welcome back, <span id="userName" class="text-yellow-400">Guest</span>!
+      </h2>
+      <p class="text-lg text-gray-400 mb-6">Ready for more racing action?</p>
+    </div>
+    <!-- Right logo -->
+    <div class="relative z-10">
+      <img src="images/logo.png" alt="Logo" class="h-20 md:h-28 object-contain" />
+    </div>
+  </div>
+</section>
+
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div class="bg-gray-800 rounded-xl shadow-lg p-6 race-card" data-aos="fade-up">
+        <div class="flex items-center justify-between mb-4">
+          <div class="bg-yellow-900 p-3 rounded-lg">
+            <i data-feather="award" class="h-8 w-8 text-yellow-400"></i>
+          </div>
+          <span id="leaderboard-rank" class="text-3xl font-bold">-</span>
+        </div>
+        <h3 class="text-lg font-semibold">Leaderboard Position</h3>
+        <p class="text-sm text-gray-400">Rank among all teams</p>
+      </div>
+
+      <div class="bg-gray-800 rounded-xl shadow-lg p-6 race-card" data-aos="fade-up" data-aos-delay="100">
+        <div class="flex items-center justify-between mb-4">
+          <div class="bg-yellow-900 p-3 rounded-lg">
+            <i data-feather="flag" class="h-8 w-8 text-yellow-400"></i>
+          </div>
+          <span id="wins-count" class="text-3xl font-bold">0</span>
+        </div>
+        <h3 class="text-lg font-semibold">Wins This Season</h3>
+        <p class="text-sm text-gray-400">Great job!</p>
+      </div>
+
+      <div class="bg-gray-800 rounded-xl shadow-lg p-6 race-card" data-aos="fade-up" data-aos-delay="200">
+        <div class="flex items-center justify-between mb-4">
+          <div class="bg-yellow-900 p-3 rounded-lg">
+            <i data-feather="zap" class="h-8 w-8 text-yellow-400"></i>
+          </div>
+          <span id="points" class="text-3xl font-bold">0</span>
+        </div>
+        <h3 class="text-lg font-semibold">Total Points</h3>
+        <p class="text-sm text-gray-400">Keep climbing!</p>
+      </div>
+    </div>
+
+    <!-- Upcoming Races -->
+    <section data-aos="fade-up">
+      <h2 class="text-2xl md:text-3xl font-bold mb-6 gradient-text">Upcoming Races</h2>
+      <div id="raceGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-950 text-gray-400 py-8 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <div class="mb-4 md:mb-0">
+          <p class="text-sm">&copy; 2025 The Mock Sports. All rights reserved.</p>
+        </div>
+        <div class="flex space-x-6">
+          <a href="#" class="hover:text-yellow-400 transition"><i data-feather="twitter" class="h-5 w-5"></i></a>
+          <a href="#" class="hover:text-yellow-400 transition"><i data-feather="facebook" class="h-5 w-5"></i></a>
+          <a href="#" class="hover:text-yellow-400 transition"><i data-feather="instagram" class="h-5 w-5"></i></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+ <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, getDocs, collection } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const { DateTime } = luxon;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // --- Leaderboard data ---
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const snap = await getDoc(doc(db, "leaderboard", user.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          document.getElementById("userName").textContent = data.teamName || user.displayName || user.email;
+          document.getElementById("leaderboard-rank").textContent = data.rank || "-";
+          document.getElementById("wins-count").textContent = data.winners || 0;
+          document.getElementById("points").textContent = data.points?.toFixed(2) || 0;
+        }
+      } else {
+        document.getElementById("userName").textContent = "Guest";
+      }
+    });
+
+    // --- Races data ---
+    async function loadRaces() {
+      const raceGrid = document.getElementById("raceGrid");
+      raceGrid.innerHTML = "";
+      const racesSnap = await getDocs(collection(db, "races"));
+
+      const nowSydney = DateTime.now().setZone("Australia/Sydney");
+      const races = [];
+
+      racesSnap.forEach(docSnap => {
+        races.push({ id: docSnap.id, ...docSnap.data() });
+      });
+
+      races.sort((a, b) => {
+        return DateTime.fromISO(`${a.date}T${a.time}`, { zone: "Australia/Sydney" }) -
+               DateTime.fromISO(`${b.date}T${b.time}`, { zone: "Australia/Sydney" });
+      });
+
+      let shown = 0;
+      for (const race of races) {
+        const dt = DateTime.fromISO(`${race.date}T${race.time}`, { zone: "Australia/Sydney" });
+        if (dt < nowSydney) continue; // skip past races
+        shown++;
+
+        // --- Determine photo ---
+        let photo = "default.jpg";
+        const raceName = race.name?.toLowerCase() || "";
+        if (raceName.includes("valley")) photo = "valley.jpg";
+        else if (raceName.includes("randwick")) photo = "randwick.jpg";
+        else if (raceName.includes("rosehill")) photo = "rosehill.jpg";
+        else if (raceName.includes("caulfield")) photo = "caulfield.jpg";
+        else if (raceName.includes("flemington")) photo = "flemington.jpg";
+
+        // --- Countdown target (5 mins before start) ---
+        const targetTime = dt.minus({ minutes: 5 }).toMillis();
+        const timerId = `timer-${race.id}`;
+
+        const card = document.createElement("div");
+        card.className = "bg-gray-800 rounded-xl shadow-lg overflow-hidden race-card";
+
+        card.innerHTML = `
+          <div class="h-32 relative">
+            <img src="images/${photo}" alt="Race track" class="w-full h-full object-cover opacity-70">
+          </div>
+          <div class="p-6">
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h3 class="text-xl font-bold text-gray-200">${race.name}</h3>
+                <p class="text-gray-400">${dt.toFormat("cccc, h:mm a")}</p>
+              </div>
+              <span class="bg-yellow-900 text-yellow-300 px-3 py-1 rounded-full text-sm font-medium">${race.type || "Open"}</span>
+            </div>
+            <div class="mb-4">
+              <div id="${timerId}" class="text-center text-lg font-semibold text-yellow-400"></div>
+            </div>
+            <a href="tip.html?raceId=${race.id}" 
+               class="block w-full text-center bg-yellow-500 text-gray-900 font-semibold py-2 rounded-lg hover:bg-yellow-400 transition">
+              Tip Now
+            </a>
+          </div>
+        `;
+        raceGrid.appendChild(card);
+
+        // Start countdown for this race
+        startCountdown(timerId, targetTime);
+      }
+
+      if (shown === 0) {
+        raceGrid.innerHTML = `<p class="col-span-full text-center text-gray-400">No upcoming races yet — check back soon!</p>`;
+      }
+    }
+
+    // --- Countdown helper ---
+    function startCountdown(elId, targetTime) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+
+      function update() {
+        const now = DateTime.now().toMillis();
+        const diff = targetTime - now;
+        if (diff <= 0) {
+          el.textContent = "⛔ Closed";
+          el.classList.remove("text-yellow-400");
+          el.classList.add("text-red-500");
+          clearInterval(timer);
+          return;
+        }
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        el.textContent = 
+          (d > 0 ? `${d}d ` : "") +
+          (h > 0 ? `${h}h ` : "") +
+          `${m}m ${s}s`;
+      }
+
+      update(); // initial
+      const timer = setInterval(update, 1000);
+    }
+
+    loadRaces();
+
+    // --- UI setup ---
+    AOS.init({ duration: 1000, once: true });
+    function toggleMenu() {
+      document.getElementById('mobileMenu').classList.toggle('hidden');
+    }
+    window.toggleMenu = toggleMenu;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes blob {
+        0% { transform: translate(0px, 0px) scale(1); }
+        33% { transform: translate(30px, -50px) scale(1.1); }
+        66% { transform: translate(-20px, 20px) scale(0.9); }
+        100% { transform: translate(0px, 0px) scale(1); }
+      }
+      .animate-blob { animation: blob 7s infinite; }
+      .animation-delay-2000 { animation-delay: 2s; }
+      .animation-delay-4000 { animation-delay: 4s; }
+    `;
+    document.head.appendChild(style);
+    feather.replace();
+  </script>
+</body>
+</html>
