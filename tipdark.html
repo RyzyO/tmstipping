@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tip Now - The Great Spring Tip Off</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <style>
+    @keyframes float { 0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)} }
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(30,30,30,0.7); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .race-card { transition: all .3s ease; }
+    .race-card:hover { transform:translateY(-5px); box-shadow:0 20px 40px rgba(0,0,0,0.6); }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 glass-effect">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit:contain;">
+          <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <button class="md:hidden" onclick="toggleMenu()">
+            <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
+          </button>
+          <div class="hidden md:flex space-x-6">
+            <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+            <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+            <a href="leaderboard.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+            <a href="faq.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+            <a href="prizes.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
+      <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
+      <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+      <a href="leaderboard.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+      <a href="faq.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+      <a href="prizes.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+
+    <!-- Race List Section -->
+    <section id="race-list-section" data-aos="fade-up">
+      <h2 class="text-2xl md:text-3xl font-bold mb-6 gradient-text">Select a Race</h2>
+      <p class="text-sm text-gray-400 mb-8 text-center">TIPPING CLOSES 5 MINUTES BEFORE THE JUMP</p>
+      <div id="raceGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    </section>
+
+    <!-- Race Card Section (hidden until a race is selected) -->
+    <section id="race-card-section" class="hidden" data-aos="fade-up">
+      <button id="exit-race-btn" class="mb-6 px-4 py-2 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600 transition">← Back</button>
+      <h2 id="selected-race-title" class="text-2xl font-bold gradient-text mb-2"></h2>
+      <div id="race-distance" class="text-gray-400 mb-2"></div>
+      <div id="selected-race-date" class="mb-6 text-gray-400"></div>
+      <form id="tip-form" class="space-y-4">
+        <div id="horses-radio-list" class="space-y-2"></div>
+        <button type="submit" id="submit-tip-btn" class="w-full py-2 rounded-lg bg-yellow-500 text-gray-900 font-semibold hover:bg-yellow-400 transition">Submit Tip</button>
+        <div class="flex gap-3">
+          <button type="button" id="use-joker-btn" class="flex-1 bg-purple-600 text-white font-semibold py-2 rounded-lg hover:bg-purple-500 transition hidden">Use Joker (<span id="joker-count">0</span>)</button>
+          <button type="button" id="remove-joker-btn" class="flex-1 border-2 border-yellow-500 text-yellow-500 font-semibold py-2 rounded-lg hover:bg-yellow-600 hover:text-gray-900 transition hidden">Remove Joker</button>
+        </div>
+      </form>
+      <div id="tip-message" class="mt-6 text-center text-yellow-400"></div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-950 text-gray-400 py-8 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row justify-between items-center">
+        <p class="text-sm">&copy; 2025 The Mock Sports. All rights reserved.</p>
+        <div class="flex space-x-6 mt-4 md:mt-0">
+          <a href="#" class="hover:text-yellow-400 transition"><i data-feather="twitter"></i></a>
+          <a href="#" class="hover:text-yellow-400 transition"><i data-feather="facebook"></i></a>
+          <a href="#" class="hover:text-yellow-400 transition"><i data-feather="instagram"></i></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="fixed inset-0 z-50 bg-black/80 hidden items-center justify-center">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent mx-auto"></div>
+      <p class="mt-4 text-yellow-400 font-semibold">Loading…</p>
+    </div>
+  </div>
+
+  <!-- Firebase + Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, getDocs, getDoc, query, where, runTransaction, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    const { DateTime } = luxon;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false };
+
+    function showLoading(){ document.getElementById('loading-overlay').classList.remove('hidden'); }
+    function hideLoading(){ document.getElementById('loading-overlay').classList.add('hidden'); }
+    function setBusy(b){ state.inFlight=b; if(b) showLoading(); else hideLoading(); }
+
+    onAuthStateChanged(auth, async (_user)=>{
+      setBusy(true);
+      try{
+        if(!_user){ setBusy(false); return; }
+        state.user=_user;
+        const userRef=doc(db,"users",state.user.uid);
+        const userSnap=await getDoc(userRef);
+        if(!userSnap.exists()||userSnap.data().paid!==true){ alert("Your account is locked."); await signOut(auth); window.location.href="login.html"; return; }
+        await refreshJokerCount(); await loadUserTips(); await loadRaces();
+      }finally{ setBusy(false); }
+    });
+
+    async function refreshJokerCount(){
+      const snap=await getDoc(doc(db,"users",state.user.uid));
+      let count=0; if(snap.exists()&&!isNaN(snap.data().joker)) count=Number(snap.data().joker);
+      state.jokerCount=Math.max(0,count); document.getElementById('joker-count').textContent=state.jokerCount;
+    }
+    async function loadUserTips(){
+      state.tipsMap={}; const tipsQ=query(collection(db,"tips"),where("userId","==",state.user.uid));
+      const tipsSnap=await getDocs(tipsQ); tipsSnap.forEach(d=>{ if(d.data().raceId) state.tipsMap[d.data().raceId]=true; });
+    }
+
+    async function loadRaces(){
+      const grid=document.getElementById('raceGrid'); grid.innerHTML="";
+      const racesSnap=await getDocs(collection(db,"races")); const now=DateTime.now().setZone("Australia/Sydney");
+      const races=[]; racesSnap.forEach(docSnap=>races.push({id:docSnap.id,...docSnap.data()}));
+      races.sort((a,b)=>DateTime.fromISO(a.date+"T"+a.time,{zone:"Australia/Sydney"})-DateTime.fromISO(b.date+"T"+b.time,{zone:"Australia/Sydney"}));
+      let shown=0;
+      for(const race of races){
+        const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"});
+        if(dt<now) continue; shown++;
+        let photo="default.jpg"; const n=(race.name||"").toLowerCase();
+        if(n.includes("valley")) photo="valley.jpg"; else if(n.includes("randwick")) photo="randwick.jpg"; else if(n.includes("rosehill")) photo="rosehill.jpg"; else if(n.includes("caulfield")) photo="caulfield.jpg"; else if(n.includes("flemington")) photo="flemington.jpg";
+        const isLocked=now>=dt.minus({minutes:5}); const timerId="timer-"+race.id; const tipped=state.tipsMap[race.id];
+        const card=document.createElement("div"); card.className="bg-gray-800 rounded-xl shadow-lg overflow-hidden race-card";
+        card.innerHTML=`
+          <div class="h-32"><img src="images/${photo}" class="w-full h-full object-cover opacity-70"></div>
+          <div class="p-6">
+            <div class="flex justify-between items-start mb-4">
+              <div><h3 class="text-xl font-bold text-gray-200">${race.name}</h3><p class="text-gray-400">${dt.toFormat("cccc, h:mm a")}</p></div>
+              <span class="bg-yellow-900 text-yellow-300 px-3 py-1 rounded-full text-sm font-medium">${race.type||"Open"}</span>
+            </div>
+            <div class="mb-4"><div id="${timerId}" class="text-center text-lg font-semibold text-yellow-400"></div></div>
+            <button ${isLocked?"disabled":""} onclick="selectRace('${race.id}')" class="w-full py-2 rounded-lg ${isLocked?"bg-gray-600 text-gray-400 cursor-not-allowed":"bg-yellow-500 text-gray-900 hover:bg-yellow-400"} font-semibold transition">${tipped?"✔ Submitted":"Tip Now"}</button>
+          </div>`;
+        grid.appendChild(card); startCountdown(timerId,dt.minus({minutes:5}).toMillis());
+      }
+      if(shown===0) grid.innerHTML=`<p class="col-span-full text-center text-gray-400">No upcoming races yet — check back soon!</p>`;
+    }
+
+    function startCountdown(id,target){const el=document.getElementById(id);if(!el)return;function u(){const diff=target-DateTime.now().toMillis();if(diff<=0){el.textContent="⛔ Closed";el.classList.replace("text-yellow-400","text-red-500");clearInterval(t);}else{const m=Math.floor(diff/60000)%60,h=Math.floor(diff/3600000)%24,d=Math.floor(diff/86400000);el.textContent=(d>0?d+"d ":"")+(h>0?h+"h ":"")+m+"m";}}u();const t=setInterval(u,1000);}
+
+    window.selectRace=async(raceId)=>{ setBusy(true); try{ state.selectedRaceId=raceId; document.getElementById("race-list-section").classList.add("hidden"); document.getElementById("race-card-section").classList.remove("hidden");
+      const race= (await getDoc(doc(db,"races",raceId))).data(); const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"}); const now=DateTime.now().setZone("Australia/Sydney"); const isLocked=now>=dt.minus({minutes:5});
+      document.getElementById("selected-race-title").textContent=race.name; document.getElementById("selected-race-date").textContent="Date: "+race.date+" — "+dt.toFormat("h:mm a"); document.getElementById("race-distance").textContent="Distance: "+(race.distance||"N/A");
+      const tipRef=doc(db,"tips",state.user.uid+"_"+raceId); const tipSnap=await getDoc(tipRef); let tippedHorseId=null,prevJoker=false; if(tipSnap.exists()){tippedHorseId=tipSnap.data().horseId||null;prevJoker=tipSnap.data().joker===true;}
+      renderHorsesRadioList(race,tippedHorseId); document.getElementById("tip-form").style.display=isLocked?"none":""; document.getElementById("tip-message").textContent=isLocked?"⛔ Tipping closed.":""; await refreshJokerCount(); document.getElementById("joker-count").textContent=state.jokerCount;
+      document.getElementById("use-joker-btn").classList.toggle("hidden",isLocked||prevJoker); document.getElementById("remove-joker-btn").classList.toggle("hidden",isLocked||!prevJoker);
+    }finally{setBusy(false);} };
+
+    function renderHorsesRadioList(race,tippedHorseId){const list=document.getElementById("horses-radio-list");list.innerHTML="";Object.entries(race.horses||{}).filter(([_,h])=>!h.scratched).sort((a,b)=>a[1].number-b[1].number).forEach(([id,h])=>{const d=document.createElement("div");d.className="horse-row bg-gray-700 rounded-lg p-3 cursor-pointer";d.dataset.horseId=id;d.innerHTML=`<div class="flex justify-between"><span class="font-bold">#${h.number} ${h.name}</span><span class="text-sm text-gray-400">Barrier ${h.barrier||"?"}, Jockey: ${h.jockey||"?"}</span></div>`;if(id===tippedHorseId)d.classList.add("ring-2","ring-yellow-500");d.onclick=()=>{document.querySelectorAll(".horse-row").forEach(e=>e.classList.remove("ring-2","ring-yellow-500"));d.classList.add("ring-2","ring-yellow-500");};list.appendChild(d);});}
+    function getSelectedHorseId(){const sel=document.querySelector(".horse-row.ring-2");return sel?sel.dataset.horseId:null;}
+
+    // Submit tip
+    document.getElementById("tip-form").onsubmit=async e=>{e.preventDefault();if(!state.selectedRaceId||!state.user||state.inFlight)return;const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const userSnap=await tx.get(userRef);let jokers=(userSnap.exists()&&!isNaN(userSnap.data().joker))?Number(userSnap.data().joker):0;const prevJ=tipSnap.exists()?tipSnap.data().joker===true:false;if(prevJ)tx.set(userRef,{joker:increment(1)},{merge:true});tx.set(tipRef,{userId:state.user.uid,raceId:state.selectedRaceId,horseId,joker:false,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}finally{setBusy(false);}};
+
+    document.getElementById("use-joker-btn").onclick=async()=>{const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}if(!confirm("Use Joker?"))return;setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const userSnap=await tx.get(userRef);let jokers=(userSnap.exists()&&!isNaN(userSnap.data().joker))?Number(userSnap.data().joker):0;const prev=tipSnap.exists()?tipSnap.data().joker===true:false;if(!prev){if(jokers<=0)throw new Error("No jokers left");tx.set(userRef,{joker:increment(-1)},{merge:true});}tx.set(tipRef,{userId:state.user.uid,raceId:state.selectedRaceId,horseId,joker:true,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}catch(err){alert(err.message);}finally{setBusy(false);}};
+
+    document.getElementById("remove-joker-btn").onclick=async()=>{const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const prev=tipSnap.exists()?tipSnap.data().joker===true:false;if(prev)tx.set(userRef,{joker:increment(1)},{merge:true});tx.set(tipRef,{userId:state.user.uid,raceId:state.selectedRaceId,horseId,joker:false,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}finally{setBusy(false);}};
+
+    document.getElementById("exit-race-btn").onclick=()=>{if(state.inFlight)return;document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");};
+
+    AOS.init({duration:1000,once:true}); feather.replace();
+    window.toggleMenu=()=>document.getElementById("mobileMenu").classList.toggle("hidden");
+  </script>
+</body>
+</html>
