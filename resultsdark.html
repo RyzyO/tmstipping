@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Results - The Great Spring Tip Off</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <style>
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(30, 30, 30, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .result-card { transition: all .3s ease; cursor:pointer; }
+    .result-card.correct { background: linear-gradient(135deg, #22c55e33, #16a34a55); }
+    .result-card.incorrect { background: linear-gradient(135deg, #ef444433, #dc262655); }
+    .modal { background: rgba(0,0,0,0.8); }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 glass-effect">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2 object-contain"/>
+          <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <button class="md:hidden" onclick="toggleMenu()">
+            <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
+          </button>
+          <div class="hidden md:flex space-x-6">
+            <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+            <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+            <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+            <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition font-bold">Results</a>
+            <a href="faq.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+            <a href="prizes.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+    <h2 class="text-3xl md:text-4xl font-bold mb-6 gradient-text text-center">Your Results</h2>
+
+    <!-- Filter & Sort controls -->
+    <div class="flex flex-col md:flex-row gap-4 justify-center mb-8">
+      <select id="sort-date" class="px-4 py-2 rounded-lg bg-gray-800 text-yellow-400 border border-yellow-500">
+        <option value="newest">Date: Newest → Oldest</option>
+        <option value="oldest">Date: Oldest → Newest</option>
+      </select>
+      <select id="filter-win" class="px-4 py-2 rounded-lg bg-gray-800 text-yellow-400 border border-yellow-500">
+        <option value="all">All Results</option>
+        <option value="wins">Wins Only</option>
+        <option value="losses">Losses Only</option>
+      </select>
+      <select id="filter-venue" class="px-4 py-2 rounded-lg bg-gray-800 text-yellow-400 border border-yellow-500">
+        <option value="all">All Venues</option>
+        <option value="flemington">Flemington</option>
+        <option value="caulfield">Caulfield</option>
+        <option value="randwick">Randwick</option>
+        <option value="rosehill">Rosehill</option>
+        <option value="valley">Valley</option>
+      </select>
+    </div>
+
+    <div id="results-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-950 text-gray-400 py-8 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+      <p class="text-sm">&copy; 2025 The Mock Sports. All rights reserved.</p>
+      <div class="flex space-x-6">
+        <a href="#" class="hover:text-yellow-400"><i data-feather="twitter"></i></a>
+        <a href="#" class="hover:text-yellow-400"><i data-feather="facebook"></i></a>
+        <a href="#" class="hover:text-yellow-400"><i data-feather="instagram"></i></a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal -->
+  <div id="result-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal">
+    <div class="bg-gray-800 rounded-xl shadow-lg max-w-lg w-full p-6 relative">
+      <button onclick="closeModal()" class="absolute top-3 right-3 text-gray-400 hover:text-yellow-400">&times;</button>
+      <h3 id="modal-race-name" class="text-2xl font-bold mb-4 gradient-text"></h3>
+      <div id="modal-race-details" class="text-gray-200 space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading-overlay" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent mx-auto"></div>
+      <p class="mt-4 text-yellow-400 font-semibold">Loading Results…</p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const { DateTime } = luxon;
+
+    const firebaseConfig = {
+      apiKey:"AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain:"tmstipping.firebaseapp.com",
+      projectId:"tmstipping",
+      storageBucket:"tmstipping.appspot.com",
+      messagingSenderId:"401677933527",
+      appId:"1:401677933527:web:2312ad4ef69aef6551c992"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let user=null, allResults=[];
+
+    function showLoading(){document.getElementById("loading-overlay").classList.remove("hidden");}
+    function hideLoading(){document.getElementById("loading-overlay").classList.add("hidden");}
+    function openModal(race, detailsHtml){
+      document.getElementById("modal-race-name").textContent = race.name;
+      document.getElementById("modal-race-details").innerHTML = detailsHtml;
+      document.getElementById("result-modal").classList.remove("hidden");
+    }
+    window.closeModal=()=>document.getElementById("result-modal").classList.add("hidden");
+
+    onAuthStateChanged(auth, async (_user)=>{
+      if(!_user){alert("You must be logged in."); window.location.href="index.html"; return;}
+      user=_user; await loadAllResults();
+    });
+
+    async function loadAllResults() {
+      showLoading();
+      allResults=[];
+      const racesSnap = await getDocs(collection(db,"races"));
+      const tipsSnap = await getDocs(collection(db,"tips"));
+      const userTips={};
+      tipsSnap.forEach(d=>{const t=d.data(); if(t.userId===user.uid) userTips[t.raceId]=t;});
+
+      for(const docSnap of racesSnap.docs){
+        const race={id:docSnap.id,...docSnap.data()};
+        const resultDoc=await getDoc(doc(db,"results",race.id));
+        if(!resultDoc.exists()) continue;
+        const rd=resultDoc.data();
+
+        const winnerPoints=parseFloat(rd.points)||0;
+        const place1Points=parseFloat(rd.place1Points)||0;
+        const place2Points=parseFloat(rd.place2Points)||0;
+
+        const tip=userTips[race.id];
+        let horseId=tip?tip.horseId:null;
+        let joker=tip?tip.joker===true:false;
+        if(tip && race.horses && horseId && race.horses[horseId]?.scratched){
+          const sub=Object.entries(race.horses).find(([_,h])=>h.substitute);
+          if(sub) horseId=sub[0];
+        }
+
+        const winnerName=race.horses?.[rd.winningHorseId]?.name||"";
+        const place1Name=race.horses?.[rd.place1HorseId]?.name||"";
+        const place2Name=race.horses?.[rd.place2HorseId]?.name||"";
+
+        let correct=false, pts=0;
+        if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints;}
+        else if(horseId===rd.place1HorseId){correct=true; pts=place1Points;}
+        else if(horseId===rd.place2HorseId){correct=true; pts=place2Points;}
+        if(correct && joker && pts>0) pts*=2;
+
+        const dt= race.date ? DateTime.fromISO(race.date) : null;
+        const dtStr=dt?dt.toFormat("dd/LL/yyyy"):"";
+
+        allResults.push({race, rd, correct, pts, joker, winnerName, place1Name, place2Name, dt, dtStr});
+      }
+      renderResults();
+      hideLoading();
+    }
+
+    function renderResults(){
+      const container=document.getElementById("results-container");
+      container.innerHTML="";
+      let results=[...allResults];
+
+      // Apply filters
+      const winFilter=document.getElementById("filter-win").value;
+      if(winFilter==="wins") results=results.filter(r=>r.correct);
+      if(winFilter==="losses") results=results.filter(r=>!r.correct);
+
+      const venueFilter=document.getElementById("filter-venue").value;
+      if(venueFilter!=="all") results=results.filter(r=>r.race.name?.toLowerCase().includes(venueFilter));
+
+      // Apply sorting
+      const sort=document.getElementById("sort-date").value;
+      results.sort((a,b)=>{
+        if(!a.dt||!b.dt) return 0;
+        return sort==="newest" ? b.dt-a.dt : a.dt-b.dt;
+      });
+
+      // Render
+      results.forEach(({race,rd,correct,pts,joker,winnerName,place1Name,place2Name,dtStr})=>{
+        const card=document.createElement("div");
+        card.className=`p-6 rounded-xl shadow-lg result-card ${correct?"correct":"incorrect"}`;
+        card.innerHTML=`
+          <h3 class="text-xl font-bold mb-1">${race.name}</h3>
+          <p class="text-sm text-gray-400 mb-2">${dtStr}</p>
+          <p class="text-gray-300">
+            ${correct?`You earned <span class="text-green-500 font-bold">+${pts.toFixed(2)}</span>`:"No points earned"}
+          </p>
+        `;
+        card.onclick=()=>{
+          openModal(race,`
+            <p class="text-gray-200">
+              1st: <strong>${winnerName}</strong><br>
+              2nd: <strong>${place1Name}</strong><br>
+              3rd: <strong>${place2Name}</strong>
+            </p>
+            ${correct?`<p class="mt-4 text-3xl font-bold text-green-500">+${pts.toFixed(2)}</p>`:""}
+            ${joker && correct?`<p class="mt-2 bg-purple-600 text-white px-3 py-1 rounded inline-block">JOKER USED</p>`:""}
+          `);
+        };
+        container.appendChild(card);
+      });
+    }
+
+    // Hook up filter controls
+    ["sort-date","filter-win","filter-venue"].forEach(id=>{
+      document.getElementById(id).onchange=renderResults;
+    });
+
+    AOS.init({duration:1000,once:true}); feather.replace();
+    window.toggleMenu=()=>document.getElementById("mobileMenu").classList.toggle("hidden");
+  </script>
+</body>
+</html>
