@@ -34,18 +34,29 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex justify-between items-center py-4">
         <div class="flex items-center">
-          <img src="logo.jfif" alt="Logo" class="h-8 w-8 mr-2 object-contain rounded"/>
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit:contain;">
           <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
         </div>
-        <div class="hidden md:flex space-x-6">
-          <a href="dark.html" class="text-gray-300 hover:text-yellow-400">Home</a>
-          <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400">Tip Now</a>
-          <a href="leaderboarddark.html" class="text-yellow-400 font-bold">Leaderboard</a>
-          <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400">Results</a>
-          <a href="faq.html" class="text-gray-300 hover:text-yellow-400">FAQ</a>
-          <a href="prizes.html" class="text-gray-300 hover:text-yellow-400">Prizes</a>
+        <div class="flex items-center space-x-4">
+          <button class="md:hidden" onclick="toggleMenu()">
+            <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
+          </button>
+          <div class="hidden md:flex space-x-6">
+            <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+            <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+            <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+            <a href="faq.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+            <a href="prizes.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+          </div>
         </div>
       </div>
+    </div>
+    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
+      <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
+      <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+      <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+      <a href="faq.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+      <a href="prizes.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
     </div>
   </nav>
 
