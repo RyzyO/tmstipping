@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Leaderboard</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="navbar.css">
+    <link rel="stylesheet" href="fontawesome.css">
+    <style>
+        body { background: #f8f9fa; }
+        .leaderboard-table { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .dropdown-week { max-width: 200px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container my-3">
+        <a href="admin.html" class="btn btn-secondary">&larr; Back to Admin</a>
+    </div>
+    <div class="container py-5">
+        <h2 class="mb-4">Admin Leaderboard</h2>
+        <div class="dropdown-week">
+            <label for="weekSelect" class="form-label">Select Week:</label>
+            <select id="weekSelect" class="form-select">
+                <!-- Weeks will be populated by JS -->
+            </select>
+        </div>
+        <div class="table-responsive">
+            <table class="table leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>User</th>
+                        <th>Points</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboardBody">
+                    <!-- Leaderboard rows will be populated by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="admin-leaderboard.js"></script>
+</body>
+</html>
