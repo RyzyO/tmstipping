@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Full-screen Typeform Embed</title>
+    <style>
+        /* Make the embed truly full-screen */
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: #fff;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Container that will hold Typeform and force it to cover the viewport */
+        .tf-embed-container,
+        div[data-tf-live] {
+            position: fixed;
+            inset: 0; /* top:0; right:0; bottom:0; left:0 */
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            background: transparent;
+        }
+
+        /* Ensure any iframe injected by Typeform fills the container */
+        div[data-tf-live] iframe,
+        .typeform-widget,
+        .typeform-widget iframe,
+        .tf-v1 iframe {
+            width: 100% !important;
+            height: 100% !important;
+            border: 0 !important;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="tf-embed-container">
+        <div data-tf-live="01KB9GR9AXCZS0CPX42X1NMAFS"></div>
+    </div>
+
+    <script>
+        // Load the Typeform embed script explicitly over HTTPS
+        (function() {
+            var s = document.createElement('script');
+            s.src = 'https://embed.typeform.com/next/embed.js';
+            s.async = true;
+            document.body.appendChild(s);
+        })();
+    </script>
+
+    <noscript>
+        <p>Please enable JavaScript to view the survey or open it directly:
+            <a href="https://form.typeform.com/to/01KB9GR9AXCZS0CPX42X1NMAFS" target="_blank" rel="noopener">Open survey</a>
+        </p>
+    </noscript>
+</body>
+</html>
