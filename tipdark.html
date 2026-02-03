@@ -249,7 +249,10 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{} };
+    const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{}, pendingRaceId:null };
+
+    const urlParams = new URLSearchParams(window.location.search);
+    state.pendingRaceId = urlParams.get('raceId');
 
     function showLoading(){ document.getElementById('loading-overlay').classList.remove('hidden'); }
     function hideLoading(){ document.getElementById('loading-overlay').classList.add('hidden'); }
@@ -335,13 +338,21 @@
             </div>
             <div class="mb-4"><div id="${timerId}" class="${isLocked?'bg-red-900/20 border border-red-700/30 text-red-400':'bg-gray-800/50 border border-gray-700 text-yellow-400'} text-center py-2 rounded-lg text-sm font-semibold"></div></div>
             <div class="space-y-2">
-              <button ${isLocked?"disabled":""} onclick="selectRace('${race.id}')" class="w-full py-2.5 rounded-lg font-semibold transition-all duration-200 ${isLocked?"bg-gray-700 text-gray-500 cursor-not-allowed":tipped?"bg-green-600 text-white hover:bg-green-500":"bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 hover:from-yellow-400 hover:to-amber-400 shadow-lg shadow-yellow-900/30"}">${tipped?"✔ Tip Submitted":isLocked?"⛔ Closed":"Make Your Pick"}</button>
+              <button ${isLocked?"disabled":""} onclick="selectRace('${race.id}')" class="w-full py-2.5 rounded-lg font-semibold transition-all duration-200 ${isLocked?"bg-gray-700 text-gray-500 cursor-not-allowed":tipped?"bg-green-600 text-white hover:bg-green-500":"bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 hover:from-yellow-400 hover:to-amber-400 shadow-lg shadow-yellow-900/30"}">${tipped?"✔ Tip Submitted":isLocked?"⛔ Closed":"Tip Now"}</button>
               ${hasPreview?`<a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-900/30">Preview</a>`:""}
             </div>
           </div>`;
         grid.appendChild(card); startCountdown(timerId,dt.minus({minutes:5}).toMillis());
       }
       feather.replace();
+      if(state.pendingRaceId){
+        const raceExists = races.some(r => r.id === state.pendingRaceId);
+        if(raceExists){
+          const raceId = state.pendingRaceId;
+          state.pendingRaceId = null;
+          await window.selectRace(raceId);
+        }
+      }
       if(shown===0) {
         grid.innerHTML=`
           <div class="col-span-full card rounded-xl p-12 text-center">
