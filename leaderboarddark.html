@@ -451,7 +451,7 @@
           </td>
           <td class="px-6 py-4 font-semibold text-gray-100">
             <div class="flex items-center gap-2">
-              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover border border-gray-600">
+              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover object-top border border-gray-600">
               <span>${entry.teamName || entry.userId}</span>${verifiedBadge}${developerBadge}
             </div>
           </td>
@@ -484,7 +484,7 @@
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-2 flex-1">
               <div class="rank-badge ${rankBadgeClass}" style="width: 2.25rem; height: 2.25rem; font-size: 0.875rem;">${i + 1}</div>
-              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover border border-gray-600 flex-shrink-0">
+              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover object-top border border-gray-600 flex-shrink-0">
               <div class="flex-1 min-w-0">
                 <h4 class="font-bold text-gray-100 truncate flex items-center gap-1">
                   <span>${entry.teamName || entry.userId}</span>
@@ -642,7 +642,7 @@
           dateGroup.appendChild(dateHeader);
 
           const racesContainer = document.createElement("div");
-          racesContainer.className = "races-for-date show";
+          racesContainer.className = "races-for-date";
 
           for (const { raceId, race, result: res, tip } of races) {
 
