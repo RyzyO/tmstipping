@@ -262,7 +262,7 @@ async function selectRace(raceId) {
   document.getElementById('edit-race-date').value = race.date || '';
   document.getElementById('edit-race-time').value = race.time || '';
   document.getElementById('edit-race-distance').value = race.distance || '';
-  document.getElementById('edit-race-type').value = race.type || '';
+  document.getElementById('edit-race-preview').value = race.preview || '';
 
   // Load horses
   await loadRaceHorses(race);
@@ -349,7 +349,7 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
   const date = document.getElementById('race-date').value;
   const time = document.getElementById('race-time').value;
   const distance = document.getElementById('race-distance').value;
-  const type = document.getElementById('race-type').value;
+  const preview = document.getElementById('race-preview').value;
 
   // Collect horses
   const horses = {};
@@ -381,7 +381,7 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
       date,
       time,
       distance,
-      type,
+      preview,
       horses
     });
 
@@ -449,15 +449,15 @@ async function updateRaceDistance() {
   }
 }
 
-async function updateRaceType() {
+async function updateRacePreview() {
   if (!currentRaceId) return;
-  const type = document.getElementById('edit-race-type').value;
+  const preview = document.getElementById('edit-race-preview').value;
 
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), { type });
-    showNotification('Type updated', 'success', 'race-notifications');
+    await updateDoc(doc(db, 'races', currentRaceId), { preview });
+    showNotification('Preview updated', 'success', 'race-notifications');
   } catch (error) {
-    showNotification('Error updating type', 'error', 'race-notifications');
+    showNotification('Error updating preview', 'error', 'race-notifications');
   }
 }
 
@@ -786,7 +786,7 @@ window.parseHorseTable = parseHorseTable;
 window.updateRaceDate = updateRaceDate;
 window.updateRaceTime = updateRaceTime;
 window.updateRaceDistance = updateRaceDistance;
-window.updateRaceType = updateRaceType;
+window.updateRacePreview = updateRacePreview;
 window.addHorseToRace = addHorseToRace;
 window.saveResults = saveResults;
 window.switchTab = switchTab;

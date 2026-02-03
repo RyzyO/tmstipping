@@ -543,8 +543,8 @@
                   <input type="text" id="race-distance" required placeholder="e.g., 1200m">
                 </div>
                 <div class="form-group">
-                  <label>Race Type</label>
-                  <input type="text" id="race-type" placeholder="e.g., Handicap, Open">
+                  <label>Preview URL</label>
+                  <input type="url" id="race-preview" placeholder="https://...">
                 </div>
               </div>
 
@@ -630,10 +630,10 @@
                   </div>
                 </div>
                 <div class="form-group">
-                  <label>Race Type</label>
+                  <label>Preview URL</label>
                   <div class="flex gap-2">
-                    <input type="text" id="edit-race-type" class="flex-1">
-                    <button onclick="updateRaceType()" class="btn-secondary"><i data-feather="save" class="h-4 w-4"></i></button>
+                    <input type="url" id="edit-race-preview" class="flex-1" placeholder="https://...">
+                    <button onclick="updateRacePreview()" class="btn-secondary"><i data-feather="save" class="h-4 w-4"></i></button>
                   </div>
                 </div>
               </div>
