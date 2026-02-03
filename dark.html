@@ -246,6 +246,15 @@
 
     const HOME_STATS_CACHE_KEY = "tmstipping:homeStats";
 
+    function getOrdinalSuffix(num) {
+      if (typeof num !== 'number' || num < 1) return num;
+      const j = num % 10, k = num % 100;
+      if (j === 1 && k !== 11) return num + "st";
+      if (j === 2 && k !== 12) return num + "nd";
+      if (j === 3 && k !== 13) return num + "rd";
+      return num + "th";
+    }
+
     function applyCachedHomeStats() {
       try {
         const raw = localStorage.getItem(HOME_STATS_CACHE_KEY);
@@ -257,7 +266,7 @@
           document.getElementById("userName").textContent = cached.userName;
         }
         if (cached.rank !== undefined) {
-          document.getElementById("leaderboard-rank").textContent = cached.rank;
+          document.getElementById("leaderboard-rank").textContent = getOrdinalSuffix(cached.rank);
         }
         if (cached.wins !== undefined) {
           document.getElementById("wins-count").textContent = cached.wins;
@@ -291,7 +300,7 @@
           const points = data.points?.toFixed(2) || 0;
 
           document.getElementById("userName").textContent = userName;
-          document.getElementById("leaderboard-rank").textContent = rank;
+          document.getElementById("leaderboard-rank").textContent = getOrdinalSuffix(rank);
           document.getElementById("wins-count").textContent = wins;
           document.getElementById("points").textContent = points;
 
