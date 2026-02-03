@@ -130,6 +130,45 @@
       0%, 100% { background: rgba(251, 191, 36, 0.15); }
       50% { background: rgba(251, 191, 36, 0.25); }
     }
+    .date-group {
+      margin-bottom: 16px;
+    }
+    .date-header {
+      padding: 12px 16px;
+      background: rgba(251, 191, 36, 0.15);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #fbbf24;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .date-header:hover {
+      background: rgba(251, 191, 36, 0.25);
+      border-color: rgba(251, 191, 36, 0.5);
+    }
+    .date-header.expanded {
+      background: rgba(251, 191, 36, 0.2);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .races-for-date {
+      display: none;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-top: none;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
+      background: rgba(17, 24, 39, 0.5);
+      padding: 8px;
+    }
+    .races-for-date.show {
+      display: block;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -557,6 +596,9 @@
         const container = document.getElementById("modal-user-results");
         container.innerHTML = "";
 
+        const isCurrentUser = currentUserId === entry.userId;
+        const tipLabel = isCurrentUser ? "Your tip" : "Their tip";
+
         let resultCount = 0;
         const fragment = document.createDocumentFragment();
 
@@ -576,7 +618,33 @@
           return dateB - dateA;
         });
 
-        for (const { raceId, race, result: res, tip } of racesWithResults) {
+        // Group races by date
+        const racesByDate = {};
+        for (const item of racesWithResults) {
+          const dateStr = item.race.date ? DateTime.fromISO(item.race.date).toFormat("dd/LL/yyyy") : "Unknown Date";
+          if (!racesByDate[dateStr]) {
+            racesByDate[dateStr] = [];
+          }
+          racesByDate[dateStr].push(item);
+        }
+
+        // Create date groups
+        for (const [dateStr, races] of Object.entries(racesByDate)) {
+          const dateGroup = document.createElement("div");
+          dateGroup.className = "date-group";
+
+          const dateHeader = document.createElement("div");
+          dateHeader.className = "date-header";
+          dateHeader.innerHTML = `
+            <span>${dateStr}</span>
+            <i data-feather="chevron-down" class="h-5 w-5 transition-transform"></i>
+          `;
+          dateGroup.appendChild(dateHeader);
+
+          const racesContainer = document.createElement("div");
+          racesContainer.className = "races-for-date show";
+
+          for (const { raceId, race, result: res, tip } of races) {
 
           resultCount++;
 
@@ -602,42 +670,55 @@
           }
           if (correct && tip.joker) pts *= 2;
 
-          const div = document.createElement("div");
-          div.className = `p-5 rounded-xl border ${correct ? "border-green-500/30 bg-gradient-to-br from-green-900/20 to-green-900/10" : "border-red-500/30 bg-gradient-to-br from-red-900/20 to-red-900/10"}`;
-          div.innerHTML = `
-            <div class="flex justify-between items-start mb-4">
-              <h4 class="text-lg font-bold text-white flex-1">${race.name}</h4>
-              <span class="text-xs text-gray-400 whitespace-nowrap ml-2">${dateStr}</span>
-            </div>
-            <div class="space-y-3 text-sm mb-4">
-              <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
-                <span class="text-gray-300">Your tip:</span>
-                <div class="flex items-center gap-2">
-                  <strong class="text-yellow-400">${race.horses?.[tip.horseId]?.name || "—"}</strong>
-                  ${tip.joker ? "<span class='bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs font-semibold'>JOKER</span>" : ""}
+            const div = document.createElement("div");
+            div.className = `p-4 mb-3 rounded-xl border ${correct ? "border-green-500/30 bg-gradient-to-br from-green-900/20 to-green-900/10" : "border-red-500/30 bg-gradient-to-br from-red-900/20 to-red-900/10"}`;
+            div.innerHTML = `
+              <div class="flex justify-between items-start mb-3">
+                <h4 class="text-base font-bold text-white flex-1">${race.name}</h4>
+              </div>
+              <div class="space-y-2 text-sm mb-3">
+                <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+                  <span class="text-gray-300">${tipLabel}:</span>
+                  <div class="flex items-center gap-2">
+                    <strong class="text-yellow-400">${race.horses?.[tip.horseId]?.name || "—"}</strong>
+                    ${tip.joker ? "<span class='bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs font-semibold'>JOKER</span>" : ""}
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+                    <span class="text-gray-400">1st Place:</span>
+                    <span class="font-semibold text-gray-200">${winnerName}</span>
+                  </div>
+                  <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+                    <span class="text-gray-400">2nd Place:</span>
+                    <span class="font-semibold text-gray-200">${place1Name}</span>
+                  </div>
+                  <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+                    <span class="text-gray-400">3rd Place:</span>
+                    <span class="font-semibold text-gray-200">${place2Name}</span>
+                  </div>
                 </div>
               </div>
-              <div class="grid grid-cols-3 gap-3">
-                <div class="p-3 bg-black/30 rounded-lg">
-                  <p class="text-xs text-gray-400 mb-1">1st Place</p>
-                  <p class="font-semibold text-gray-200">${winnerName}</p>
-                </div>
-                <div class="p-3 bg-black/30 rounded-lg">
-                  <p class="text-xs text-gray-400 mb-1">2nd Place</p>
-                  <p class="font-semibold text-gray-200">${place1Name}</p>
-                </div>
-                <div class="p-3 bg-black/30 rounded-lg">
-                  <p class="text-xs text-gray-400 mb-1">3rd Place</p>
-                  <p class="font-semibold text-gray-200">${place2Name}</p>
-                </div>
+              <div class="pt-3 border-t border-gray-700/50">
+                ${correct ? `<p class="text-green-400 font-bold">✓ +${pts.toFixed(2)} points</p>` : `<p class="text-red-400 font-semibold">✗ No points</p>`}
               </div>
-            </div>
-            <div class="pt-4 border-t border-gray-700/50">
-              ${correct ? `<p class="text-green-400 font-bold text-lg">✓ +${pts.toFixed(2)} points</p>` : `<p class="text-red-400 font-semibold">✗ No points</p>`}
-            </div>
-          `;
-          fragment.appendChild(div);
-          resultCount++;
+            `;
+            racesContainer.appendChild(div);
+            resultCount++;
+          }
+
+          dateGroup.appendChild(racesContainer);
+          fragment.appendChild(dateGroup);
+
+          // Add click handler for date header
+          dateHeader.addEventListener('click', () => {
+            dateHeader.classList.toggle('expanded');
+            racesContainer.classList.toggle('show');
+            const icon = dateHeader.querySelector('i[data-feather="chevron-down"]');
+            if (icon) {
+              icon.style.transform = racesContainer.classList.contains('show') ? 'rotate(0deg)' : 'rotate(-90deg)';
+            }
+          });
         }
 
         if (resultCount === 0) {
