@@ -71,7 +71,7 @@
           <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
           <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
           <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
-          <a href="prizesdark.html" class="text-yellow-400 font-semibold">Prizes</a>
+          <a href="prizes.html" class="text-yellow-400 font-semibold">Prizes</a>
         </div>
       </div>
     </div>
@@ -83,7 +83,7 @@
     <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
     <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
     <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
-    <a href="prizesdark.html" class="block py-2 text-yellow-400 font-semibold">Prizes</a>
+    <a href="prizes.html" class="block py-2 text-yellow-400 font-semibold">Prizes</a>
   </div>
 </nav>
 
@@ -140,55 +140,26 @@
     </div>
   </section>
 
-  <!-- ATC Members Tickets Section -->
-  <section data-aos="fade-up" class="mb-8">
-    <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
-      <div class="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-600/10 to-transparent rounded-full blur-3xl"></div>
-      <div class="relative z-10">
-        <div class="flex items-center justify-center mb-6">
-          <i data-feather="ticket" class="h-10 w-10 text-yellow-400 mr-3"></i>
-          <h3 class="text-2xl md:text-3xl font-bold gradient-text">ATC Members Tickets</h3>
-          <i data-feather="ticket" class="h-10 w-10 text-yellow-400 ml-3"></i>
-        </div>
-        <div class="space-y-4 text-gray-300">
-          <p>
-            It's not just about the final leaderboard — <span class="font-bold text-yellow-400">consistency pays!</span>
-          </p>
-          <p>
-            Each week that there is an <span class="font-bold text-white">ATC Group 1 Raceday</span>, the highest performing player will score 
-            <span class="font-bold text-yellow-400">2 x Members' Tickets</span> to an ATC Raceday (excludes Everest Day).
-          </p>
-          <p>
-            That means prizes will be awarded in the weeks of:<br>
-            <span class="italic text-gray-400">Winx Stakes, Golden Rose, Epsom, Everest, Spring Champion Stakes, Golden Eagle</span>.
-          </p>
-          <p>
-            <span class="font-bold text-white">6 separate winners</span> throughout the comp will get the chance to experience the thrill of a day at the track in style!
-          </p>
-          <p class="text-center pt-4">
-            <span class="gradient-text font-bold text-lg">Special thanks to the ATC</span><br>
-            <span class="text-gray-400 text-sm">for making the Sydney weeks of the comp even bigger and better!</span>
-          </p>
-        </div>
-        
-        <div class="mt-8 p-6 bg-gray-800/50 rounded-xl border border-gray-700">
-          <h4 class="text-lg font-semibold mb-4 gradient-text flex items-center">
-            <i data-feather="trophy" class="h-5 w-5 mr-2"></i>
-            Winners so far:
-          </h4>
-          <ul class="space-y-2 text-gray-200">
-            <li class="flex items-start">
-              <i data-feather="check-circle" class="h-5 w-5 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-              <span><span class="text-gray-400">Week 1 (Winx Stakes):</span> <span class="font-bold text-yellow-400">GrainMan</span></span>
-            </li>
-            <li class="flex items-start">
-              <i data-feather="check-circle" class="h-5 w-5 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-              <span><span class="text-gray-400">Week 6 (Golden Rose):</span> <span class="font-bold text-yellow-400">Not here to copulate arachnids!</span></span>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
+  <section data-aos="fade-up" class="glass-effect rounded-2xl shadow-lg p-8 max-w-3xl mx-auto">
+    <h3 class="text-2xl font-bold gradient-text mb-4">🎟 ATC Members Tickets 🎟</h3>
+    <p class="text-gray-300 mb-4">
+      It’s not just about the final leaderboard — <b>consistency pays!</b> <br><br>
+      Each week that there is an <b>ATC Group 1 Raceday</b>, the highest performing player will score 
+      <b>2 x Members’ Tickets</b> to an ATC Raceday (excludes Everest Day).
+    </p>
+    <p class="text-gray-300 mb-4">
+      That means prizes will be awarded in the weeks of: <br>
+      <i>Winx Stakes, Golden Rose, Epsom, Everest, Spring Champion Stakes, Golden Eagle</i>.
+    </p>
+    <p class="text-gray-300 mb-6">
+      <b>6 separate winners</b> throughout the comp will get the chance to experience the thrill of a day at the track in style!<br><br>
+      <span class="gradient-text">Special thanks to the ATC</span> for making the Sydney weeks of the comp even bigger and better!
+    </p>
+    <h4 class="text-lg font-semibold mb-2">🏅 Winners so far:</h4>
+    <ul class="list-disc list-inside text-gray-200">
+      <li>Week 1 (Winx Stakes): <b>GrainMan</b></li>
+      <li>Week 6 (Golden Rose): <b>Not here to copulate arachnids!</b></li>
+    </ul>
   </section>
 
   <p class="text-center text-gray-400 mt-12">*Prizes rounded to nearest $50</p>
