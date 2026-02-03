@@ -113,6 +113,23 @@
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
+    .find-me-btn {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      transition: all 0.3s ease;
+    }
+    .find-me-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(251, 191, 36, 0.3);
+    }
+    .highlight-user {
+      animation: pulse-highlight 2s ease-in-out;
+      background: rgba(251, 191, 36, 0.15) !important;
+      border: 2px solid rgba(251, 191, 36, 0.5) !important;
+    }
+    @keyframes pulse-highlight {
+      0%, 100% { background: rgba(251, 191, 36, 0.15); }
+      50% { background: rgba(251, 191, 36, 0.25); }
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -169,9 +186,15 @@
     </section>
 
     <!-- Search Section -->
-    <div class="max-w-2xl mx-auto mb-8">
+    <div class="max-w-2xl mx-auto mb-8 space-y-3">
       <input id="search-input" type="text" placeholder="Search team name..."
         class="search-input w-full px-5 py-3 rounded-xl text-gray-100 focus:outline-none transition-all">
+      <button id="find-me-btn" class="find-me-btn w-full px-5 py-3 rounded-xl text-gray-900 font-semibold focus:outline-none transition-all">
+        <span class="flex items-center justify-center gap-2">
+          <i data-feather="target" class="h-5 w-5"></i>
+          <span>Find Me</span>
+        </span>
+      </button>
     </div>
 
     <!-- Leaderboard Container -->
@@ -270,6 +293,7 @@
     let cachedResults = {};
     let cachedTips = {};
     let searchTimeout;
+    let currentUserId = null;
     const LEADERBOARD_CACHE_KEY = "tmstipping:leaderboardCache";
 
     function showLoading() {
@@ -381,6 +405,7 @@
         const developerBadge = isDeveloper ? '<svg class="h-4 w-4 ml-1" style="display: inline-block; vertical-align: middle;" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#10B981"/><path d="M8 7L6 11L8 15M14 7L16 11L14 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
         const silkNumber = entry.silk || 1;
         
+        tr.setAttribute('data-user-id', entry.userId);
         tr.innerHTML = `
           <td class="px-6 py-4">
             <div class="rank-badge ${rankClass}">${i + 1}</div>
@@ -415,6 +440,7 @@
         else if (i === 1) rankBadgeClass = "rank-2";
         else if (i === 2) rankBadgeClass = "rank-3";
 
+        card.setAttribute('data-user-id', entry.userId);
         card.innerHTML = `
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-2 flex-1">
@@ -464,6 +490,7 @@
         window.location.href = "login.html";
         return;
       }
+      currentUserId = user.uid;
       await loadLeaderboard();
     });
 
@@ -624,6 +651,53 @@
         alert('Failed to load team details. Please try again.');
       }
     }
+
+    function findMe() {
+      if (!currentUserId) {
+        alert('Unable to find your position. Please refresh the page.');
+        return;
+      }
+
+      // Clear search first
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.value = '';
+
+      // Find user in desktop table
+      const tbody = document.getElementById('leaderboard-body');
+      const userRow = tbody?.querySelector(`tr[data-user-id="${currentUserId}"]`);
+      
+      // Find user in mobile cards
+      const mobile = document.getElementById('leaderboard-mobile');
+      const userCard = mobile?.querySelector(`div[data-user-id="${currentUserId}"]`);
+
+      if (userRow || userCard) {
+        // Remove previous highlights
+        document.querySelectorAll('.highlight-user').forEach(el => {
+          el.classList.remove('highlight-user');
+        });
+
+        // Add highlight to user's row/card
+        if (userRow) {
+          userRow.classList.add('highlight-user');
+          userRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (userCard) {
+          userCard.classList.add('highlight-user');
+          userCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Remove highlight after animation
+        setTimeout(() => {
+          if (userRow) userRow.classList.remove('highlight-user');
+          if (userCard) userCard.classList.remove('highlight-user');
+        }, 2000);
+      } else {
+        alert('You are not on the leaderboard yet. Submit some tips to get started!');
+      }
+    }
+
+    // Setup Find Me button
+    document.getElementById('find-me-btn')?.addEventListener('click', findMe);
 
     AOS.init({duration: 1000, once: true});
     feather.replace();
