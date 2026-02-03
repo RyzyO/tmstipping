@@ -415,7 +415,21 @@
         
         await refreshJokerCount(); 
         document.getElementById("joker-count").textContent=state.jokerCount;
-        document.getElementById("use-joker-btn").classList.toggle("hidden",isLocked||prevJoker); 
+        
+        const useJokerBtn = document.getElementById("use-joker-btn");
+        const shouldShowUseJoker = !isLocked && !prevJoker;
+        useJokerBtn.classList.toggle("hidden", !shouldShowUseJoker);
+        
+        if(shouldShowUseJoker) {
+          if(state.jokerCount === 0) {
+            useJokerBtn.className = "flex-1 bg-gradient-to-r from-gray-600 to-gray-700 text-gray-400 font-semibold py-2.5 rounded-lg cursor-not-allowed flex items-center justify-center gap-2";
+            useJokerBtn.disabled = true;
+          } else {
+            useJokerBtn.className = "flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold py-2.5 rounded-lg hover:from-violet-500 hover:to-purple-500 transition-all shadow-lg shadow-purple-900/30 flex items-center justify-center gap-2";
+            useJokerBtn.disabled = false;
+          }
+        }
+        
         document.getElementById("remove-joker-btn").classList.toggle("hidden",isLocked||!prevJoker);
         feather.replace();
       } finally {
@@ -473,7 +487,13 @@
     // Submit tip
     document.getElementById("tip-form").onsubmit=async e=>{e.preventDefault();if(!state.selectedRaceId||!state.user||state.inFlight)return;const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const userSnap=await tx.get(userRef);let jokers=(userSnap.exists()&&!isNaN(userSnap.data().joker))?Number(userSnap.data().joker):0;const prevJ=tipSnap.exists()?tipSnap.data().joker===true:false;if(prevJ)tx.set(userRef,{joker:increment(1)},{merge:true});tx.set(tipRef,{userId:state.user.uid,raceId:state.selectedRaceId,horseId,joker:false,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}finally{setBusy(false);}};
 
-    document.getElementById("use-joker-btn").onclick=async()=>{const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}if(!confirm("Use Joker?"))return;setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const userSnap=await tx.get(userRef);let jokers=(userSnap.exists()&&!isNaN(userSnap.data().joker))?Number(userSnap.data().joker):0;const prev=tipSnap.exists()?tipSnap.data().joker===true:false;if(!prev){if(jokers<=0)throw new Error("No jokers left");tx.set(userRef,{joker:increment(-1)},{merge:true});}tx.set(tipRef,{userId:state.user.uid,raceId:state.selectedRaceId,horseId,joker:true,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}catch(err){alert(err.message);}finally{setBusy(false);}};
+    document.getElementById("use-joker-btn").onclick=async()=>{
+      if(state.jokerCount === 0) return; // Do nothing if no jokers
+      const horseId=getSelectedHorseId();
+      if(!horseId){alert("Select a horse");return;}
+      if(!confirm("Use Joker?"))return;
+      setBusy(true);
+      try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const userSnap=await tx.get(userRef);let jokers=(userSnap.exists()&&!isNaN(userSnap.data().joker))?Number(userSnap.data().joker):0;const prev=tipSnap.exists()?tipSnap.data().joker===true:false;if(!prev){if(jokers<=0)throw new Error("No jokers left");tx.set(userRef,{joker:increment(-1)},{merge:true});}tx.set(tipRef,{userId:state.user.uid,raceId:state.selectedRaceId,horseId,joker:true,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}catch(err){alert(err.message);}finally{setBusy(false);}};
 
     document.getElementById("remove-joker-btn").onclick=async()=>{const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const prev=tipSnap.exists()?tipSnap.data().joker===true:false;if(prev)tx.set(userRef,{joker:increment(1)},{merge:true});tx.set(tipRef,{userId:state.user.uid,raceId:state.selectedRaceId,horseId,joker:false,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}finally{setBusy(false);}};
 
