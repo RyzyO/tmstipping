@@ -560,23 +560,33 @@
         let resultCount = 0;
         const fragment = document.createDocumentFragment();
 
+        // Collect all races with results and sort by date
+        const racesWithResults = [];
         for (const [raceId, race] of Object.entries(cachedRaces)) {
           if (!cachedResults[raceId]) continue;
-          const res = cachedResults[raceId];
           const tip = userTips[raceId];
           if (!tip) continue;
+          racesWithResults.push({ raceId, race, result: cachedResults[raceId], tip });
+        }
+
+        // Sort by date (most recent first)
+        racesWithResults.sort((a, b) => {
+          const dateA = a.race.date ? DateTime.fromISO(a.race.date) : DateTime.fromMillis(0);
+          const dateB = b.race.date ? DateTime.fromISO(b.race.date) : DateTime.fromMillis(0);
+          return dateB - dateA;
+        });
+
+        for (const { raceId, race, result: res, tip } of racesWithResults) {
 
           resultCount++;
 
           const winnerPoints = parseFloat(res.points) || 0;
           const place1Points = parseFloat(res.place1Points) || 0;
           const place2Points = parseFloat(res.place2Points) || 0;
-          const place3Points = parseFloat(res.place3Points) || 0;
 
           const winnerName = race.horses?.[res.winningHorseId]?.name || "—";
           const place1Name = race.horses?.[res.place1HorseId]?.name || "—";
           const place2Name = race.horses?.[res.place2HorseId]?.name || "—";
-          const place3Name = race.horses?.[res.place3HorseId]?.name || "—";
           const dateStr = race.date ? DateTime.fromISO(race.date).toFormat("dd/LL/yyyy") : "—";
 
           let pts = 0, correct = false;
@@ -588,9 +598,6 @@
             correct = true;
           } else if (tip.horseId === res.place2HorseId) {
             pts = place2Points;
-            correct = true;
-          } else if (tip.horseId === res.place3HorseId) {
-            pts = place3Points;
             correct = true;
           }
           if (correct && tip.joker) pts *= 2;
@@ -610,7 +617,7 @@
                   ${tip.joker ? "<span class='bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs font-semibold'>JOKER</span>" : ""}
                 </div>
               </div>
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-3 gap-3">
                 <div class="p-3 bg-black/30 rounded-lg">
                   <p class="text-xs text-gray-400 mb-1">1st Place</p>
                   <p class="font-semibold text-gray-200">${winnerName}</p>
@@ -623,10 +630,6 @@
                   <p class="text-xs text-gray-400 mb-1">3rd Place</p>
                   <p class="font-semibold text-gray-200">${place2Name}</p>
                 </div>
-                <div class="p-3 bg-black/30 rounded-lg">
-                  <p class="text-xs text-gray-400 mb-1">4th Place</p>
-                  <p class="font-semibold text-gray-200">${place3Name}</p>
-                </div>
               </div>
             </div>
             <div class="pt-4 border-t border-gray-700/50">
@@ -634,6 +637,7 @@
             </div>
           `;
           fragment.appendChild(div);
+          resultCount++;
         }
 
         if (resultCount === 0) {
