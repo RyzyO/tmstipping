@@ -264,6 +264,7 @@
     let cachedResults = {};
     let cachedTips = {};
     let searchTimeout;
+    const LEADERBOARD_CACHE_KEY = "tmstipping:leaderboardCache";
 
     function showLoading() {
       document.getElementById("loading-overlay").classList.remove("hidden");
@@ -288,6 +289,153 @@
     document.getElementById("user-modal").addEventListener('click', (e) => {
       if (e.target.id === 'user-modal') closeModal();
     });
+
+    function readCachedLeaderboard() {
+      try {
+        const raw = localStorage.getItem(LEADERBOARD_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed?.entries)) return null;
+        return parsed.entries;
+      } catch (error) {
+        localStorage.removeItem(LEADERBOARD_CACHE_KEY);
+        return null;
+      }
+    }
+
+    function writeCachedLeaderboard(entries) {
+      localStorage.setItem(
+        LEADERBOARD_CACHE_KEY,
+        JSON.stringify({ entries, updatedAt: Date.now() })
+      );
+    }
+
+    function setupSearch(tbody, mobile) {
+      const searchInput = document.getElementById("search-input");
+      if (!searchInput) return;
+      searchInput.oninput = e => {
+        clearTimeout(searchTimeout);
+        const val = e.target.value.toLowerCase();
+
+        searchTimeout = setTimeout(() => {
+          let visibleCount = 0;
+
+          Array.from(tbody.children).forEach(row => {
+            if (row.classList.contains('no-results-row')) {
+              row.remove();
+              return;
+            }
+            const teamName = row.children[1]?.textContent.toLowerCase();
+            const isVisible = !val || teamName?.includes(val);
+            row.style.display = isVisible ? "" : "none";
+            if (isVisible) visibleCount++;
+          });
+
+          Array.from(mobile.children).forEach(card => {
+            const isVisible = !val || card.textContent.toLowerCase().includes(val);
+            card.style.display = isVisible ? "" : "none";
+          });
+
+          if (visibleCount === 0 && val) {
+            const noResults = document.createElement("tr");
+            noResults.className = 'no-results-row';
+            noResults.innerHTML = '<td colspan="4" class="px-4 py-8 text-center text-gray-400">No teams found matching your search.</td>';
+            tbody.appendChild(noResults);
+          }
+        }, 150);
+      };
+    }
+
+    function renderLeaderboard(entries) {
+      const tbody = document.getElementById("leaderboard-body");
+      const mobile = document.getElementById("leaderboard-mobile");
+      tbody.innerHTML = "";
+      mobile.innerHTML = "";
+
+      if (!entries || entries.length === 0) {
+        const emptyMsg = document.createElement("tr");
+        emptyMsg.innerHTML = '<td colspan="4" class="px-6 py-12 text-center text-gray-400 text-base">No leaderboard data available yet.</td>';
+        tbody.appendChild(emptyMsg);
+        setupSearch(tbody, mobile);
+        return;
+      }
+
+      entries.forEach((entry, i) => {
+        const tr = document.createElement("tr");
+        tr.className = "table-row";
+
+        let rankClass = "rank-other";
+        if (i === 0) rankClass = "rank-1";
+        else if (i === 1) rankClass = "rank-2";
+        else if (i === 2) rankClass = "rank-3";
+
+        tr.innerHTML = `
+          <td class="px-6 py-4">
+            <div class="rank-badge ${rankClass}">${i + 1}</div>
+          </td>
+          <td class="px-6 py-4 font-semibold text-gray-100">${entry.teamName || entry.userId}</td>
+          <td class="px-6 py-4 text-right">
+            <span class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</span>
+          </td>
+          <td class="px-6 py-4 text-center">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 font-semibold text-sm">${entry.jokers}</span>
+          </td>
+        `;
+        tr.onclick = () => loadUserResults(entry);
+        tr.setAttribute('role', 'button');
+        tr.setAttribute('tabindex', '0');
+        tr.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
+        tr.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
+        });
+        tbody.appendChild(tr);
+
+        const card = document.createElement("div");
+        card.className = "leaderboard-card p-5 rounded-xl shadow cursor-pointer";
+
+        let rankBadgeClass = "rank-other";
+        if (i === 0) rankBadgeClass = "rank-1";
+        else if (i === 1) rankBadgeClass = "rank-2";
+        else if (i === 2) rankBadgeClass = "rank-3";
+
+        card.innerHTML = `
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3 flex-1">
+              <div class="rank-badge ${rankBadgeClass}" style="width: 2.5rem; height: 2.5rem;">${i + 1}</div>
+              <div class="flex-1 min-w-0">
+                <h4 class="font-bold text-gray-100 truncate">${entry.teamName || entry.userId}</h4>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div class="bg-black/30 rounded-lg p-3">
+              <p class="text-xs text-gray-400 mb-1">Points</p>
+              <p class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</p>
+            </div>
+            <div class="bg-black/30 rounded-lg p-3">
+              <p class="text-xs text-gray-400 mb-1">Jokers</p>
+              <p class="text-xl font-bold text-yellow-400">${entry.jokers}</p>
+            </div>
+          </div>
+        `;
+        card.onclick = () => loadUserResults(entry);
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
+        card.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
+        });
+        mobile.appendChild(card);
+      });
+
+      setupSearch(tbody, mobile);
+    }
+
+    const cached = readCachedLeaderboard();
+    if (cached) {
+      cachedLeaderboard = cached;
+      renderLeaderboard(cachedLeaderboard);
+    }
 
     onAuthStateChanged(auth, async user => {
       if (!user) {
@@ -322,134 +470,8 @@
 
         cachedLeaderboard.sort((a, b) => b.points - a.points);
 
-        const tbody = document.getElementById("leaderboard-body");
-        const mobile = document.getElementById("leaderboard-mobile");
-        tbody.innerHTML = "";
-        mobile.innerHTML = "";
-
-        if (cachedLeaderboard.length === 0) {
-          const emptyMsg = document.createElement("tr");
-          emptyMsg.innerHTML = '<td colspan="4" class="px-6 py-12 text-center text-gray-400 text-base">No leaderboard data available yet.</td>';
-          tbody.appendChild(emptyMsg);
-          return;
-        }
-
-        cachedLeaderboard.forEach((entry, i) => {
-          // Desktop row
-          const tr = document.createElement("tr");
-          tr.className = "table-row";
-          
-          let rankClass = "rank-other";
-          if (i === 0) rankClass = "rank-1";
-          else if (i === 1) rankClass = "rank-2";
-          else if (i === 2) rankClass = "rank-3";
-          
-          tr.innerHTML = `
-            <td class="px-6 py-4">
-              <div class="rank-badge ${rankClass}">${i + 1}</div>
-            </td>
-            <td class="px-6 py-4 font-semibold text-gray-100">${entry.teamName || entry.userId}</td>
-            <td class="px-6 py-4 text-right">
-              <span class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</span>
-            </td>
-            <td class="px-6 py-4 text-center">
-              <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 font-semibold text-sm">${entry.jokers}</span>
-            </td>
-          `;
-          tr.onclick = () => loadUserResults(entry);
-          tr.setAttribute('role', 'button');
-          tr.setAttribute('tabindex', '0');
-          tr.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
-          tr.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
-          });
-          tbody.appendChild(tr);
-
-          // Mobile card
-          const card = document.createElement("div");
-          card.className = "leaderboard-card p-5 rounded-xl shadow cursor-pointer";
-          
-          let rankDisplay = `#${i + 1}`;
-          let rankBadgeClass = "rank-other";
-          if (i === 0) {
-            rankDisplay = "🥇 #1";
-            rankBadgeClass = "rank-1";
-          }
-          else if (i === 1) {
-            rankDisplay = "🥈 #2";
-            rankBadgeClass = "rank-2";
-          }
-          else if (i === 2) {
-            rankDisplay = "🥉 #3";
-            rankBadgeClass = "rank-3";
-          }
-          
-          card.innerHTML = `
-            <div class="flex items-start justify-between mb-3">
-              <div class="flex items-center gap-3 flex-1">
-                <div class="rank-badge ${rankBadgeClass}" style="width: 2.5rem; height: 2.5rem;">${i + 1}</div>
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-bold text-gray-100 truncate">${entry.teamName || entry.userId}</h4>
-                </div>
-              </div>
-            </div>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="bg-black/30 rounded-lg p-3">
-                <p class="text-xs text-gray-400 mb-1">Points</p>
-                <p class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</p>
-              </div>
-              <div class="bg-black/30 rounded-lg p-3">
-                <p class="text-xs text-gray-400 mb-1">Jokers</p>
-                <p class="text-xl font-bold text-yellow-400">${entry.jokers}</p>
-              </div>
-            </div>
-          `;
-          card.onclick = () => loadUserResults(entry);
-          card.setAttribute('role', 'button');
-          card.setAttribute('tabindex', '0');
-          card.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
-          card.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
-          });
-          mobile.appendChild(card);
-        });
-
-        // Search functionality with debouncing
-        const searchInput = document.getElementById("search-input");
-        searchInput.oninput = e => {
-          clearTimeout(searchTimeout);
-          const val = e.target.value.toLowerCase();
-          
-          searchTimeout = setTimeout(() => {
-            let visibleCount = 0;
-            let noResultsRow = null;
-            
-            Array.from(tbody.children).forEach(row => {
-              if (row.classList.contains('no-results-row')) {
-                row.remove();
-                return;
-              }
-              const teamName = row.children[1]?.textContent.toLowerCase();
-              const isVisible = !val || teamName?.includes(val);
-              row.style.display = isVisible ? "" : "none";
-              if (isVisible) visibleCount++;
-            });
-            
-            Array.from(mobile.children).forEach(card => {
-              const isVisible = !val || card.textContent.toLowerCase().includes(val);
-              card.style.display = isVisible ? "" : "none";
-            });
-
-            // Show "no results" message if needed
-            if (visibleCount === 0 && val) {
-              const noResults = document.createElement("tr");
-              noResults.className = 'no-results-row';
-              noResults.innerHTML = '<td colspan="4" class="px-4 py-8 text-center text-gray-400">No teams found matching your search.</td>';
-              tbody.appendChild(noResults);
-            }
-          }, 150);
-        };
-
+        renderLeaderboard(cachedLeaderboard);
+        writeCachedLeaderboard(cachedLeaderboard);
         hideLoading();
       } catch (error) {
         console.error('Error loading leaderboard:', error);
