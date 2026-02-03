@@ -643,44 +643,52 @@ async function handleLogout() {
 }
 
 // ============ MOBILE NAVIGATION ============
-window.toggleMobileNav = function() {
+function toggleMobileNav() {
   const mobileNav = document.getElementById('mobile-nav');
   mobileNav.classList.toggle('hidden');
   feather.replace();
-};
+}
 
-window.toggleMobileSidebar = function() {
+function toggleMobileSidebar() {
+  console.log('toggleMobileSidebar called');
   const overlay = document.getElementById('mobile-sidebar-overlay');
-  overlay.classList.toggle('show');
+  if (!overlay) {
+    console.error('Mobile sidebar overlay not found');
+    return;
+  }
   
-  // Sync search and list between desktop and mobile
+  overlay.classList.toggle('show');
+  console.log('Sidebar show state:', overlay.classList.contains('show'));
+  
+  // When opening, sync the race list
   if (overlay.classList.contains('show')) {
-    const desktopSearch = document.getElementById('race-search').value;
-    const mobileSearch = document.getElementById('race-search-mobile');
-    mobileSearch.value = desktopSearch;
-    
-    // Clone race list to mobile
     const raceListMobile = document.getElementById('race-list-mobile');
     const raceList = document.getElementById('race-list');
-    raceListMobile.innerHTML = raceList.innerHTML;
     
-    // Add click handlers to mobile list
-    const mobileItems = raceListMobile.querySelectorAll('li');
-    mobileItems.forEach((li, index) => {
-      const race = allRaces[index];
-      if (race) {
+    if (raceListMobile && raceList) {
+      // Clear and rebuild mobile list
+      raceListMobile.innerHTML = '';
+      
+      allRaces.forEach(race => {
+        const li = document.createElement('li');
+        li.textContent = race.name || 'Unnamed Race';
+        li.className = currentRaceId === race.id ? 'selected' : '';
         li.onclick = () => {
           selectRace(race.id);
           toggleMobileSidebar();
         };
-      }
-    });
+        raceListMobile.appendChild(li);
+      });
+      console.log('Populated', allRaces.length, 'races in mobile list');
+    }
   }
   
   feather.replace();
-};
+}
 
 // Expose functions to window for onclick handlers
+window.toggleMobileNav = toggleMobileNav;
+window.toggleMobileSidebar = toggleMobileSidebar;
 window.showNewRaceForm = showNewRaceForm;
 window.cancelForm = cancelForm;
 window.addManualHorse = addManualHorse;

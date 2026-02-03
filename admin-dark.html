@@ -239,8 +239,13 @@
     }
     
     /* Mobile Responsive Styles */
+    .sidebar-toggle {
+      display: none; /* Hidden by default */
+    }
+    
     @media (max-width: 768px) {
       .sidebar-toggle {
+        display: flex; /* Show on mobile */
         position: fixed;
         bottom: 20px;
         right: 20px;
@@ -250,10 +255,10 @@
         border-radius: 50%;
         width: 56px;
         height: 56px;
-        display: flex;
         align-items: center;
         justify-content: center;
         box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+        border: none;
         cursor: pointer;
         transition: all 0.2s;
       }
@@ -445,7 +450,7 @@
       </div>
 
       <!-- Mobile Sidebar Toggle Button -->
-      <button onclick="toggleMobileSidebar()" class="md:hidden sidebar-toggle">
+      <button onclick="toggleMobileSidebar()" class="sidebar-toggle" aria-label="Open races menu">
         <i data-feather="list" class="h-6 w-6"></i>
       </button>
 
