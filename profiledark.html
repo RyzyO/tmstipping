@@ -17,17 +17,18 @@
 
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     
     const firebaseConfig = {
-      apiKey: "AIzaSyA4T77f_ERqx7h7s_NAlzoB87BGStOkNYk",
-      authDomain: "thegreattipoff.firebaseapp.com",
-      projectId: "thegreattipoff",
-      storageBucket: "thegreattipoff.firebasestorage.app",
-      messagingSenderId: "135574390231",
-      appId: "1:135574390231:web:d380256f8658414d0ad5d8"
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -40,44 +41,64 @@
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUser = user;
-        await loadUserProfile();
-        await loadUserStats();
+        try {
+          await loadUserProfile();
+          await loadUserStats();
+        } catch (error) {
+          console.error('Error loading profile:', error);
+        }
       } else {
-        window.location.href = 'login.html';
+        window.location.href = 'logindark';
       }
     });
 
     async function loadUserProfile() {
-      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        document.getElementById('userName').textContent = userData.teamName || currentUser.email;
-        selectedSilk = userData.silk || 1;
-        updateSilkSelection(selectedSilk);
+      if (!currentUser) return;
+      
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          document.getElementById('userName').textContent = userData.teamName || currentUser.email;
+          selectedSilk = userData.silk || 1;
+          updateSilkSelection(selectedSilk);
+          updateProfileAvatar(selectedSilk);
+        } else {
+          document.getElementById('userName').textContent = currentUser.email;
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+        document.getElementById('userName').textContent = currentUser.email;
       }
     }
 
     async function loadUserStats() {
-      // Get total tips
-      const tipsQuery = query(collection(db, 'tips'), where('userId', '==', currentUser.uid));
-      const tipsSnap = await getDocs(tipsQuery);
-      document.getElementById('totalTips').textContent = tipsSnap.size;
-
-      // Get leaderboard position and points
-      const leaderboardQuery = query(collection(db, 'leaderboard'), orderBy('points', 'desc'));
-      const leaderboardSnap = await getDocs(leaderboardQuery);
-      let rank = 0;
-      let points = 0;
+      if (!currentUser) return;
       
-      leaderboardSnap.forEach((doc, index) => {
-        if (doc.data().userId === currentUser.uid) {
-          rank = index + 1;
-          points = doc.data().points || 0;
-        }
-      });
+      try {
+        // Get total tips
+        const tipsQuery = query(collection(db, 'tips'), where('userId', '==', currentUser.uid));
+        const tipsSnap = await getDocs(tipsQuery);
+        document.getElementById('totalTips').textContent = tipsSnap.size;
 
-      document.getElementById('currentRank').textContent = rank > 0 ? rank : '-';
-      document.getElementById('totalPoints').textContent = points.toFixed(2);
+        // Get leaderboard position and points
+        const leaderboardQuery = query(collection(db, 'leaderboard'), orderBy('points', 'desc'));
+        const leaderboardSnap = await getDocs(leaderboardQuery);
+        let rank = 0;
+        let points = 0;
+        
+        leaderboardSnap.forEach((docSnap, index) => {
+          if (docSnap.data().userId === currentUser.uid) {
+            rank = index + 1;
+            points = docSnap.data().points || 0;
+          }
+        });
+
+        document.getElementById('currentRank').textContent = rank > 0 ? rank : '-';
+        document.getElementById('totalPoints').textContent = points.toFixed(2);
+      } catch (error) {
+        console.error('Error loading stats:', error);
+      }
     }
 
     function updateSilkSelection(silkNumber) {
@@ -90,9 +111,24 @@
       }
     }
 
+    function updateProfileAvatar(silkNumber) {
+      const avatarEl = document.getElementById('profileAvatar');
+      if (!avatarEl) return;
+      
+      if (silkNumber) {
+        avatarEl.innerHTML = `<img src="static/silks/${silkNumber}.png" alt="Silk ${silkNumber}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i data-feather=\\'user\\' class=\\'h-8 w-8 text-yellow-400\\'></i>'; feather.replace();">`;
+      } else {
+        avatarEl.innerHTML = `<i data-feather="user" class="h-8 w-8 text-yellow-400"></i>`;
+      }
+      feather.replace();
+    }
+
     window.selectSilk = async function(silkNumber) {
+      if (!currentUser) return;
+      
       selectedSilk = silkNumber;
       updateSilkSelection(silkNumber);
+      updateProfileAvatar(silkNumber);
       
       // Save to Firestore
       try {
@@ -115,25 +151,152 @@
     window.handleSignOut = async function() {
       try {
         await signOut(auth);
-        window.location.href = 'login.html';
+        window.location.href = 'logindark';
       } catch (error) {
         console.error('Sign out error:', error);
       }
     };
 
+    window.handleChangeEmail = async function() {
+      if (!currentUser) return;
+      
+      const currentPasswordInput = document.getElementById('emailCurrentPassword');
+      const newEmailInput = document.getElementById('newEmail');
+      const currentPasswordValue = currentPasswordInput.value.trim();
+      const newEmailValue = newEmailInput.value.trim();
+      
+      if (!currentPasswordValue) {
+        alert('Please enter your current password');
+        return;
+      }
+      
+      if (!newEmailValue) {
+        alert('Please enter a new email address');
+        return;
+      }
+      
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmailValue)) {
+        alert('Please enter a valid email address');
+        return;
+      }
+      
+      try {
+        // Reauthenticate user
+        const credential = EmailAuthProvider.credential(
+          currentUser.email,
+          currentPasswordValue
+        );
+        await reauthenticateWithCredential(currentUser, credential);
+        
+        // Update email
+        await updateEmail(currentUser, newEmailValue);
+        
+        // Show success message
+        alert('Email updated successfully! You may need to verify your new email.');
+        
+        // Clear inputs
+        currentPasswordInput.value = '';
+        newEmailInput.value = '';
+        
+        // Reload profile to show new email
+        await loadUserProfile();
+      } catch (error) {
+        console.error('Error updating email:', error);
+        if (error.code === 'auth/wrong-password') {
+          alert('Incorrect password. Please try again.');
+        } else if (error.code === 'auth/email-already-in-use') {
+          alert('This email is already in use by another account.');
+        } else if (error.code === 'auth/requires-recent-login') {
+          alert('For security reasons, please sign out and sign in again before changing your email.');
+        } else {
+          alert('Failed to update email: ' + error.message);
+        }
+      }
+    };
+
+    window.handleChangePassword = async function() {
+      if (!currentUser) return;
+      
+      const currentPasswordInput = document.getElementById('currentPassword');
+      const newPasswordInput = document.getElementById('newPassword');
+      const confirmPasswordInput = document.getElementById('confirmPassword');
+      
+      const currentPasswordValue = currentPasswordInput.value.trim();
+      const newPasswordValue = newPasswordInput.value.trim();
+      const confirmPasswordValue = confirmPasswordInput.value.trim();
+      
+      if (!currentPasswordValue) {
+        alert('Please enter your current password');
+        return;
+      }
+      
+      if (!newPasswordValue) {
+        alert('Please enter a new password');
+        return;
+      }
+      
+      if (newPasswordValue.length < 6) {
+        alert('Password must be at least 6 characters long');
+        return;
+      }
+      
+      if (newPasswordValue !== confirmPasswordValue) {
+        alert('Passwords do not match');
+        return;
+      }
+      
+      if (currentPasswordValue === newPasswordValue) {
+        alert('New password must be different from current password');
+        return;
+      }
+      
+      try {
+        // Reauthenticate user
+        const credential = EmailAuthProvider.credential(
+          currentUser.email,
+          currentPasswordValue
+        );
+        await reauthenticateWithCredential(currentUser, credential);
+        
+        // Update password
+        await updatePassword(currentUser, newPasswordValue);
+        
+        // Show success message
+        alert('Password updated successfully!');
+        
+        // Clear inputs
+        currentPasswordInput.value = '';
+        newPasswordInput.value = '';
+        confirmPasswordInput.value = '';
+      } catch (error) {
+        console.error('Error updating password:', error);
+        if (error.code === 'auth/wrong-password') {
+          alert('Incorrect current password. Please try again.');
+        } else if (error.code === 'auth/weak-password') {
+          alert('New password is too weak. Please choose a stronger password.');
+        } else if (error.code === 'auth/requires-recent-login') {
+          alert('For security reasons, please sign out and sign in again before changing your password.');
+        } else {
+          alert('Failed to update password: ' + error.message);
+        }
+      }
+    };
+
     // Initialize silk grid when page loads
-    window.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', () => {
       const silkGrid = document.getElementById('silkGrid');
-      for (let i = 1; i <= 32; i++) {
-        const silkOption = document.createElement('div');
-        silkOption.className = 'silk-option cursor-pointer rounded-xl p-4 border-2 border-gray-700 hover:border-yellow-400 transition-all duration-200';
-        silkOption.setAttribute('data-silk', i);
-        silkOption.onclick = () => selectSilk(i);
-        silkOption.innerHTML = `
-          <img src="static/silks/${i}.png" alt="Silk ${i}" class="w-full h-auto rounded-lg">
-          <p class="text-center text-gray-400 text-sm mt-2">Silk ${i}</p>
-        `;
-        silkGrid.appendChild(silkOption);
+      if (silkGrid) {
+        for (let i = 1; i <= 32; i++) {
+          const silkOption = document.createElement('div');
+          silkOption.className = 'silk-option cursor-pointer rounded-xl p-4 border-2 border-gray-700 hover:border-yellow-400 transition-all duration-200';
+          silkOption.setAttribute('data-silk', i);
+          silkOption.onclick = () => window.selectSilk(i);
+          silkOption.innerHTML = `
+            <img src="static/silks/${i}.png" alt="Silk ${i}" class="w-full h-auto rounded-lg" onerror="this.src='images/logo.png'">
+            <p class="text-center text-gray-400 text-sm mt-2">Silk ${i}</p>
+          `;
+          silkGrid.appendChild(silkOption);
+        }
       }
     });
   </script>
@@ -215,7 +378,7 @@
         <div class="relative z-10">
           <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-4">
-              <div class="w-16 h-16 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-full flex items-center justify-center border border-yellow-500/30">
+              <div id="profileAvatar" class="w-16 h-16 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 rounded-full flex items-center justify-center border border-yellow-500/30 overflow-hidden">
                 <i data-feather="user" class="h-8 w-8 text-yellow-400"></i>
               </div>
               <div>
@@ -243,6 +406,64 @@
               <p class="text-gray-400 text-sm mb-1">Total Points</p>
               <p class="text-3xl font-bold text-yellow-400" id="totalPoints">0.00</p>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Account Settings Section -->
+    <section data-aos="fade-up" class="mb-8">
+      <div class="card rounded-2xl shadow-2xl p-8 md:p-10">
+        <div class="flex items-center gap-3 mb-6">
+          <i data-feather="settings" class="h-8 w-8 text-yellow-400"></i>
+          <h3 class="text-2xl font-bold gradient-text">Account Settings</h3>
+        </div>
+
+        <!-- Change Email -->
+        <div class="mb-6 p-6 bg-gray-800/50 rounded-xl border border-gray-700">
+          <h4 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+            <i data-feather="mail" class="h-5 w-5 text-yellow-400"></i>
+            Change Email
+          </h4>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm text-gray-400 mb-2">Current Password</label>
+              <input type="password" id="emailCurrentPassword" placeholder="Enter current password to verify" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none transition">
+            </div>
+            <div>
+              <label class="block text-sm text-gray-400 mb-2">New Email</label>
+              <input type="email" id="newEmail" placeholder="Enter new email" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none transition">
+            </div>
+            <button onclick="handleChangeEmail()" class="px-6 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 text-yellow-400 rounded-lg transition-all duration-200 flex items-center gap-2">
+              <i data-feather="check" class="h-4 w-4"></i>
+              Update Email
+            </button>
+          </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="p-6 bg-gray-800/50 rounded-xl border border-gray-700">
+          <h4 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+            <i data-feather="lock" class="h-5 w-5 text-yellow-400"></i>
+            Change Password
+          </h4>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm text-gray-400 mb-2">Current Password</label>
+              <input type="password" id="currentPassword" placeholder="Enter current password" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none transition">
+            </div>
+            <div>
+              <label class="block text-sm text-gray-400 mb-2">New Password</label>
+              <input type="password" id="newPassword" placeholder="Enter new password (min 6 characters)" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none transition">
+            </div>
+            <div>
+              <label class="block text-sm text-gray-400 mb-2">Confirm New Password</label>
+              <input type="password" id="confirmPassword" placeholder="Confirm new password" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none transition">
+            </div>
+            <button onclick="handleChangePassword()" class="px-6 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 text-yellow-400 rounded-lg transition-all duration-200 flex items-center gap-2">
+              <i data-feather="check" class="h-4 w-4"></i>
+              Update Password
+            </button>
           </div>
         </div>
       </div>
