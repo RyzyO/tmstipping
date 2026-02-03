@@ -387,7 +387,7 @@
           </td>
           <td class="px-6 py-4 font-semibold text-gray-100">
             <div class="flex items-center gap-2">
-              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-8 h-8 rounded-lg object-cover border border-gray-600">
+              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover border border-gray-600">
               <span>${entry.teamName || entry.userId}</span>${verifiedBadge}${developerBadge}
             </div>
           </td>
@@ -419,7 +419,7 @@
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-3 flex-1">
               <div class="rank-badge ${rankBadgeClass}" style="width: 2.5rem; height: 2.5rem;">${i + 1}</div>
-              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-10 h-10 rounded-lg object-cover border border-gray-600 flex-shrink-0">
+              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-14 h-14 rounded-lg object-cover border border-gray-600 flex-shrink-0">
               <div class="flex-1 min-w-0">
                 <h4 class="font-bold text-gray-100 truncate flex items-center gap-1">
                   <span>${entry.teamName || entry.userId}</span>
@@ -474,8 +474,10 @@
         const usersSnap = await getDocs(collection(db, "users"));
 
         const jokersMap = {};
+        const silksMap = {};
         usersSnap.forEach(d => {
           jokersMap[d.id] = d.data().joker ?? 0;
+          silksMap[d.id] = d.data().silk || 1;
         });
 
         cachedLeaderboard = [];
@@ -486,7 +488,8 @@
             userId: docSnap.id,
             teamName: d.teamName,
             points: pts,
-            jokers: jokersMap[docSnap.id] || 0
+            jokers: jokersMap[docSnap.id] || 0,
+            silk: silksMap[docSnap.id] || 1
           });
         });
 
