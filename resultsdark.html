@@ -262,9 +262,14 @@
             if(sub) horseId=sub[0];
           }
 
-          const winnerName=race.horses?.[rd.winningHorseId]?.name||"";
-          const place1Name=race.horses?.[rd.place1HorseId]?.name||"";
-          const place2Name=race.horses?.[rd.place2HorseId]?.name||"";
+          const tippedHorse=horseId?race.horses?.[horseId]:null;
+          const tippedName=tippedHorse?.name||"";
+          const winnerHorse=race.horses?.[rd.winningHorseId];
+          const place1Horse=race.horses?.[rd.place1HorseId];
+          const place2Horse=race.horses?.[rd.place2HorseId];
+          const winnerName=winnerHorse?.name||"";
+          const place1Name=place1Horse?.name||"";
+          const place2Name=place2Horse?.name||"";
 
           let correct=false, pts=0;
           if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints;}
@@ -275,7 +280,7 @@
           const dt= race.date ? DateTime.fromISO(race.date) : null;
           const dtStr=dt?dt.toFormat("dd/LL/yyyy"):"";
 
-          allResults.push({race, rd, correct, pts, joker, winnerName, place1Name, place2Name, dt, dtStr});
+          allResults.push({race, rd, correct, pts, joker, tippedName, winnerName, place1Name, place2Name, dt, dtStr});
         }
         renderResults();
         saveCachedResults(allResults);
@@ -303,11 +308,31 @@
       const sort=document.getElementById("sort-date").value;
       results.sort((a,b)=>{
         if(!a.dt||!b.dt) return 0;
-        return sort==="newest" ? b.dt-a.dt : a.dt-b.dt;
+        const aMillis=a.dt.toMillis();
+        const bMillis=b.dt.toMillis();
+        return sort==="newest" ? bMillis-aMillis : aMillis-bMillis;
       });
 
+      // Show empty state
+      if(results.length===0){
+        const emptyDiv=document.createElement("div");
+        emptyDiv.className="col-span-full card rounded-xl p-12 text-center";
+        emptyDiv.innerHTML=`
+          <div class="max-w-sm mx-auto">
+            <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+              <i data-feather="flag" class="h-8 w-8 text-gray-500"></i>
+            </div>
+            <h3 class="text-lg font-semibold text-gray-300 mb-2">No Results Yet</h3>
+            <p class="text-gray-500 text-sm">Check back after races are completed.</p>
+          </div>
+        `;
+        container.appendChild(emptyDiv);
+        feather.replace();
+        return;
+      }
+
       // Render
-      results.forEach(({race,rd,correct,pts,joker,winnerName,place1Name,place2Name,dtStr})=>{
+      results.forEach(({race,rd,correct,pts,joker,tippedName,winnerName,place1Name,place2Name,dtStr})=>{
         const card=document.createElement("div");
         card.className=`p-6 rounded-xl shadow-lg result-card ${correct?"correct":"incorrect"}`;
         card.innerHTML=`
@@ -319,13 +344,30 @@
         `;
         card.onclick=()=>{
           openModal(race,`
-            <p class="text-gray-200">
-              1st: <strong>${winnerName}</strong><br>
-              2nd: <strong>${place1Name}</strong><br>
-              3rd: <strong>${place2Name}</strong>
-            </p>
-            ${correct?`<p class="mt-4 text-3xl font-bold text-green-500">+${pts.toFixed(2)}</p>`:""}
-            ${joker && correct?`<p class="mt-2 bg-purple-600 text-white px-3 py-1 rounded inline-block">JOKER USED</p>`:""}
+            <div class="space-y-4">
+              <div class="bg-gradient-to-r from-blue-600/20 to-blue-500/10 rounded-lg p-4 border border-blue-500/30">
+                <p class="text-xs text-blue-300 mb-1">Your Tip</p>
+                <p class="text-xl font-bold text-blue-200">${tippedName||"No tip placed"}</p>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="bg-black/30 rounded-lg p-3 border-2 border-yellow-500/50">
+                  <p class="text-xs text-yellow-300 font-semibold mb-1">🥇 1st Place</p>
+                  <p class="font-semibold text-gray-200">${winnerName}</p>
+                </div>
+                <div class="bg-black/30 rounded-lg p-3">
+                  <p class="text-xs text-gray-400 mb-1">🥈 2nd Place</p>
+                  <p class="font-semibold text-gray-200">${place1Name}</p>
+                </div>
+                <div class="bg-black/30 rounded-lg p-3">
+                  <p class="text-xs text-gray-400 mb-1">🥉 3rd Place</p>
+                  <p class="font-semibold text-gray-200">${place2Name}</p>
+                </div>
+              </div>
+              <div class="pt-4 border-t border-gray-700/50">
+                ${correct?`<p class="text-3xl font-bold text-green-400">✓ +${pts.toFixed(2)}</p>`:`<p class="text-lg font-semibold text-red-400">✗ No points</p>`}
+              </div>
+              ${joker && correct?`<p class="mt-2 bg-purple-600/30 text-purple-300 px-3 py-2 rounded border border-purple-500/30 text-sm font-semibold">🔥 JOKER BONUS - Points Doubled!</p>`:``}
+            </div>
           `);
         };
         container.appendChild(card);
