@@ -23,6 +23,8 @@ const rtdb = getDatabase(app);
 let currentRaceId = null;
 let allRaces = [];
 let currentTab = 'details';
+let racesByDateCache = {};
+let sortedDatesCache = [];
 
 // Initialize Feather Icons
 feather.replace();
@@ -112,6 +114,9 @@ async function loadRacesList() {
 
     // Sort dates
     const sortedDates = Object.keys(racesByDate).sort();
+
+    racesByDateCache = racesByDate;
+    sortedDatesCache = sortedDates;
 
     // Render both desktop and mobile lists
     renderRaceListByDate(racesByDate, sortedDates, 'race-list');
@@ -746,15 +751,12 @@ function toggleMobileNav() {
 }
 
 function toggleMobileSidebar() {
-  console.log('toggleMobileSidebar called');
   const overlay = document.getElementById('mobile-sidebar-overlay');
   if (!overlay) {
-    console.error('Mobile sidebar overlay not found');
     return;
   }
   
   overlay.classList.toggle('show');
-  console.log('Sidebar show state:', overlay.classList.contains('show'));
   
   // Sync search values
   if (overlay.classList.contains('show')) {
@@ -762,6 +764,12 @@ function toggleMobileSidebar() {
     const mobileSearch = document.getElementById('race-search-mobile');
     if (desktopSearch && mobileSearch) {
       mobileSearch.value = desktopSearch.value;
+    }
+
+    // Ensure mobile list is grouped by date
+    if (sortedDatesCache.length > 0) {
+      renderRaceListByDate(racesByDateCache, sortedDatesCache, 'race-list-mobile');
+      updateRaceSelection();
     }
   }
   
