@@ -244,19 +244,65 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
+    const HOME_STATS_CACHE_KEY = "tmstipping:homeStats";
+
+    function applyCachedHomeStats() {
+      try {
+        const raw = localStorage.getItem(HOME_STATS_CACHE_KEY);
+        if (!raw) return;
+        const cached = JSON.parse(raw);
+        if (!cached) return;
+
+        if (cached.userName) {
+          document.getElementById("userName").textContent = cached.userName;
+        }
+        if (cached.rank !== undefined) {
+          document.getElementById("leaderboard-rank").textContent = cached.rank;
+        }
+        if (cached.wins !== undefined) {
+          document.getElementById("wins-count").textContent = cached.wins;
+        }
+        if (cached.points !== undefined) {
+          document.getElementById("points").textContent = cached.points;
+        }
+      } catch (error) {
+        localStorage.removeItem(HOME_STATS_CACHE_KEY);
+      }
+    }
+
+    function saveHomeStatsToCache({ userName, rank, wins, points }) {
+      localStorage.setItem(
+        HOME_STATS_CACHE_KEY,
+        JSON.stringify({ userName, rank, wins, points, updatedAt: Date.now() })
+      );
+    }
+
+    applyCachedHomeStats();
+
     // --- Leaderboard data ---
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         const snap = await getDoc(doc(db, "leaderboard", user.uid));
         if (snap.exists()) {
           const data = snap.data();
-          document.getElementById("userName").textContent = data.teamName || user.displayName || user.email;
-          document.getElementById("leaderboard-rank").textContent = data.rank || "-";
-          document.getElementById("wins-count").textContent = data.winners || 0;
-          document.getElementById("points").textContent = data.points?.toFixed(2) || 0;
+          const userName = data.teamName || user.displayName || user.email || "Guest";
+          const rank = data.rank || "-";
+          const wins = data.winners || 0;
+          const points = data.points?.toFixed(2) || 0;
+
+          document.getElementById("userName").textContent = userName;
+          document.getElementById("leaderboard-rank").textContent = rank;
+          document.getElementById("wins-count").textContent = wins;
+          document.getElementById("points").textContent = points;
+
+          saveHomeStatsToCache({ userName, rank, wins, points });
         }
       } else {
         document.getElementById("userName").textContent = "Guest";
+        document.getElementById("leaderboard-rank").textContent = "-";
+        document.getElementById("wins-count").textContent = 0;
+        document.getElementById("points").textContent = 0;
+        localStorage.removeItem(HOME_STATS_CACHE_KEY);
       }
     });
 
