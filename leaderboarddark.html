@@ -137,6 +137,7 @@
             <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
             <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
             <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+            <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
           </div>
         </div>
       </div>
@@ -149,6 +150,7 @@
       <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
       <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
       <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+      <a href="profiledark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Profile</a>
     </div>
   </nav>
 
@@ -373,11 +375,22 @@
         else if (i === 1) rankClass = "rank-2";
         else if (i === 2) rankClass = "rank-3";
 
+        const isVerified = entry.teamName === 'The Mock Cashy' || entry.teamName === 'The Mock Nick';
+        const isDeveloper = entry.teamName === 'RyzyO';
+        const verifiedBadge = isVerified ? '<svg class="h-4 w-4 ml-1" style="display: inline-block; vertical-align: middle;" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#1DA1F2"/><path d="M9.5 14.5L6 11L7.5 9.5L9.5 11.5L14.5 6.5L16 8L9.5 14.5Z" fill="white"/></svg>' : '';
+        const developerBadge = isDeveloper ? '<svg class="h-4 w-4 ml-1" style="display: inline-block; vertical-align: middle;" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#10B981"/><path d="M8 7L6 11L8 15M14 7L16 11L14 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+        const silkNumber = entry.silk || 1;
+        
         tr.innerHTML = `
           <td class="px-6 py-4">
             <div class="rank-badge ${rankClass}">${i + 1}</div>
           </td>
-          <td class="px-6 py-4 font-semibold text-gray-100">${entry.teamName || entry.userId}</td>
+          <td class="px-6 py-4 font-semibold text-gray-100">
+            <div class="flex items-center gap-2">
+              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-8 h-8 rounded-lg object-cover border border-gray-600">
+              <span>${entry.teamName || entry.userId}</span>${verifiedBadge}${developerBadge}
+            </div>
+          </td>
           <td class="px-6 py-4 text-right">
             <span class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</span>
           </td>
@@ -406,8 +419,13 @@
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-3 flex-1">
               <div class="rank-badge ${rankBadgeClass}" style="width: 2.5rem; height: 2.5rem;">${i + 1}</div>
+              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-10 h-10 rounded-lg object-cover border border-gray-600 flex-shrink-0">
               <div class="flex-1 min-w-0">
-                <h4 class="font-bold text-gray-100 truncate">${entry.teamName || entry.userId}</h4>
+                <h4 class="font-bold text-gray-100 truncate flex items-center gap-1">
+                  <span>${entry.teamName || entry.userId}</span>
+                  ${isVerified ? '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#1DA1F2"/><path d="M9.5 14.5L6 11L7.5 9.5L9.5 11.5L14.5 6.5L16 8L9.5 14.5Z" fill="white"/></svg>' : ''}
+                  ${isDeveloper ? '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#10B981"/><path d="M8 7L6 11L8 15M14 7L16 11L14 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+                </h4>
               </div>
             </div>
           </div>
