@@ -98,22 +98,63 @@
     .tab-btn:hover {
       color: #fbbf24;
     }
-    .race-sidebar li {
+    .race-sidebar .date-group {
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+    .race-sidebar .date-header {
+      padding: 8px 12px;
+      background: rgba(251, 191, 36, 0.15);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #fbbf24;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .race-sidebar .date-header:hover {
+      background: rgba(251, 191, 36, 0.25);
+      border-color: rgba(251, 191, 36, 0.5);
+    }
+    .race-sidebar .date-header.expanded {
+      background: rgba(251, 191, 36, 0.2);
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    .race-sidebar .races-for-date {
+      display: none;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-top: none;
+      border-bottom-left-radius: 6px;
+      border-bottom-right-radius: 6px;
+      background: rgba(17, 24, 39, 0.5);
+      padding: 4px;
+      margin-bottom: 4px;
+    }
+    .race-sidebar .races-for-date.show {
+      display: block;
+    }
+    .race-sidebar .race-item {
       padding: 10px 12px;
-      margin: 4px 0;
+      margin: 2px 0;
       background: rgba(31, 41, 55, 0.5);
       border: 1px solid rgba(75, 85, 99, 0.2);
-      border-radius: 6px;
+      border-radius: 4px;
       cursor: pointer;
       transition: all 0.2s;
       font-size: 0.875rem;
       list-style: none;
     }
-    .race-sidebar li:hover {
+    .race-sidebar .race-item:hover {
       background: rgba(31, 41, 55, 0.8);
       border-color: rgba(251, 191, 36, 0.3);
     }
-    .race-sidebar li.selected {
+    .race-sidebar .race-item.selected {
       background: rgba(251, 191, 36, 0.1);
       border-color: rgba(251, 191, 36, 0.5);
       color: #fbbf24;
@@ -561,14 +602,6 @@
                 <i data-feather="flag" class="h-4 w-4"></i>
                 Results
               </button>
-              <button class="tab-btn" onclick="switchTab('tips')">
-                <i data-feather="users" class="h-4 w-4"></i>
-                Tips
-              </button>
-              <button class="tab-btn" onclick="switchTab('leaderboards')">
-                <i data-feather="bar-chart-2" class="h-4 w-4"></i>
-                Leaderboards
-              </button>
             </div>
 
             <!-- Details Tab -->
@@ -679,27 +712,6 @@
                 <i data-feather="save" class="h-4 w-4"></i>
                 Save Results
               </button>
-            </div>
-
-            <!-- Tips Tab -->
-            <div id="tips-tab" class="tab-content hidden">
-              <h3 class="text-lg font-semibold mb-4">Tips Submitted</h3>
-              <div class="bg-gray-800 rounded-lg p-6 mb-6">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="text-gray-400 text-sm">Paid Users with Tips</p>
-                    <p class="text-3xl font-bold text-yellow-400 mt-2"><span id="race-tips-count">0</span></p>
-                  </div>
-                  <i data-feather="check-circle" class="h-12 w-12 text-gray-600"></i>
-                </div>
-              </div>
-              <div id="tips-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
-            </div>
-
-            <!-- Leaderboards Tab -->
-            <div id="leaderboards-tab" class="tab-content hidden">
-              <h3 class="text-lg font-semibold mb-4">Weekly Leaderboards</h3>
-              <div id="leaderboards-list" class="space-y-6"></div>
             </div>
           </div>
         </div>

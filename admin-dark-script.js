@@ -101,29 +101,21 @@ async function loadRacesList() {
       return aTime - bTime;
     });
 
-    const raceList = document.getElementById('race-list');
-    const raceListMobile = document.getElementById('race-list-mobile');
-    raceList.innerHTML = '';
-    if (raceListMobile) raceListMobile.innerHTML = '';
-
+    // Group races by date
+    const racesByDate = {};
     allRaces.forEach(race => {
-      // Desktop list
-      const li = document.createElement('li');
-      li.textContent = race.name || 'Unnamed Race';
-      li.onclick = () => selectRace(race.id);
-      raceList.appendChild(li);
-
-      // Mobile list
-      if (raceListMobile) {
-        const liMobile = document.createElement('li');
-        liMobile.textContent = race.name || 'Unnamed Race';
-        liMobile.onclick = () => {
-          selectRace(race.id);
-          toggleMobileSidebar();
-        };
-        raceListMobile.appendChild(liMobile);
+      if (!racesByDate[race.date]) {
+        racesByDate[race.date] = [];
       }
+      racesByDate[race.date].push(race);
     });
+
+    // Sort dates
+    const sortedDates = Object.keys(racesByDate).sort();
+
+    // Render both desktop and mobile lists
+    renderRaceListByDate(racesByDate, sortedDates, 'race-list');
+    renderRaceListByDate(racesByDate, sortedDates, 'race-list-mobile');
 
     if (currentRaceId) {
       updateRaceSelection();
@@ -134,14 +126,118 @@ async function loadRacesList() {
   }
 }
 
+function renderRaceListByDate(racesByDate, sortedDates, listId) {
+  const raceList = document.getElementById(listId);
+  if (!raceList) return;
+  
+  raceList.innerHTML = '';
+
+  sortedDates.forEach(date => {
+    const races = racesByDate[date];
+    
+    // Create date group
+    const dateGroup = document.createElement('div');
+    dateGroup.className = 'date-group';
+    
+    // Format date nicely
+    const dt = DateTime.fromFormat(date, 'yyyy-MM-dd').setZone('Australia/Sydney');
+    const formattedDate = dt.toFormat('EEE, LLL d');
+    
+    // Create date header
+    const dateHeader = document.createElement('div');
+    dateHeader.className = 'date-header';
+    dateHeader.innerHTML = `
+      <span>${formattedDate}</span>
+      <i data-feather="chevron-down" class="h-4 w-4 transition-transform"></i>
+    `;
+    
+    // Create races container for this date
+    const racesForDate = document.createElement('div');
+    racesForDate.className = 'races-for-date';
+    
+    // Sort races by time (earliest to latest)
+    const sortedRaces = races.sort((a, b) => {
+      const aTime = a.time || '00:00';
+      const bTime = b.time || '00:00';
+      return aTime.localeCompare(bTime);
+    });
+    
+    // Add race items
+    sortedRaces.forEach(race => {
+      const raceItem = document.createElement('div');
+      raceItem.className = 'race-item';
+      const raceTime = race.time ? race.time.substring(0, 5) : '';
+      raceItem.innerHTML = `
+        <div class="font-semibold">${race.name || 'Unnamed Race'}</div>
+        <div class="text-xs text-gray-400 mt-1">${raceTime}</div>
+      `;
+      raceItem.onclick = () => {
+        selectRace(race.id);
+        if (listId === 'race-list-mobile') {
+          toggleMobileSidebar();
+        }
+      };
+      
+      racesForDate.appendChild(raceItem);
+    });
+    
+    // Toggle date group expansion
+    dateHeader.onclick = () => {
+      const isExpanded = racesForDate.classList.contains('show');
+      racesForDate.classList.toggle('show');
+      dateHeader.classList.toggle('expanded');
+      const icon = dateHeader.querySelector('i');
+      if (icon) {
+        icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+      }
+      feather.replace();
+    };
+    
+    dateGroup.appendChild(dateHeader);
+    dateGroup.appendChild(racesForDate);
+    raceList.appendChild(dateGroup);
+    
+    // Auto-expand if race in this date is selected
+    if (races.some(r => r.id === currentRaceId)) {
+      racesForDate.classList.add('show');
+      dateHeader.classList.add('expanded');
+      const icon = dateHeader.querySelector('i');
+      if (icon) {
+        icon.style.transform = 'rotate(180deg)';
+      }
+    }
+  });
+  
+  feather.replace();
+}
+
 function updateRaceSelection() {
-  const raceItems = document.querySelectorAll('.race-sidebar li');
+  const raceItems = document.querySelectorAll('.race-item');
   raceItems.forEach(item => item.classList.remove('selected'));
 
-  const selectedItems = Array.from(raceItems).filter(
-    item => allRaces.find(r => r.name === item.textContent)?.id === currentRaceId
-  );
-  selectedItems.forEach(item => item.classList.add('selected'));
+  const selectedItems = Array.from(raceItems).filter(item => {
+    const raceName = item.querySelector('.font-semibold')?.textContent;
+    return allRaces.find(r => r.name === raceName)?.id === currentRaceId;
+  });
+  
+  selectedItems.forEach(item => {
+    item.classList.add('selected');
+    // Make sure the date group is expanded
+    const racesForDate = item.closest('.races-for-date');
+    if (racesForDate) {
+      racesForDate.classList.add('show');
+      const dateHeader = racesForDate.previousElementSibling;
+      if (dateHeader && dateHeader.classList.contains('date-header')) {
+        dateHeader.classList.add('expanded');
+        const icon = dateHeader.querySelector('i');
+        if (icon) {
+          icon.style.transform = 'rotate(180deg)';
+        }
+      }
+    }
+  });
+  
+  feather.replace();
 }
 
 async function selectRace(raceId) {
@@ -660,26 +756,12 @@ function toggleMobileSidebar() {
   overlay.classList.toggle('show');
   console.log('Sidebar show state:', overlay.classList.contains('show'));
   
-  // When opening, sync the race list
+  // Sync search values
   if (overlay.classList.contains('show')) {
-    const raceListMobile = document.getElementById('race-list-mobile');
-    const raceList = document.getElementById('race-list');
-    
-    if (raceListMobile && raceList) {
-      // Clear and rebuild mobile list
-      raceListMobile.innerHTML = '';
-      
-      allRaces.forEach(race => {
-        const li = document.createElement('li');
-        li.textContent = race.name || 'Unnamed Race';
-        li.className = currentRaceId === race.id ? 'selected' : '';
-        li.onclick = () => {
-          selectRace(race.id);
-          toggleMobileSidebar();
-        };
-        raceListMobile.appendChild(li);
-      });
-      console.log('Populated', allRaces.length, 'races in mobile list');
+    const desktopSearch = document.getElementById('race-search');
+    const mobileSearch = document.getElementById('race-search-mobile');
+    if (desktopSearch && mobileSearch) {
+      mobileSearch.value = desktopSearch.value;
     }
   }
   
@@ -718,16 +800,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const isMobile = id.includes('mobile');
         const listId = isMobile ? 'race-list-mobile' : 'race-list';
         const list = document.getElementById(listId);
-        const items = list.querySelectorAll('li');
+        if (!list) return;
         
-        items.forEach(item => {
-          const text = item.textContent.toLowerCase();
-          if (text.includes(searchTerm)) {
-            item.style.display = '';
+        const dateGroups = list.querySelectorAll('.date-group');
+        
+        dateGroups.forEach(dateGroup => {
+          const raceItems = dateGroup.querySelectorAll('.race-item');
+          let hasVisibleRace = false;
+          
+          raceItems.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+              item.style.display = '';
+              hasVisibleRace = true;
+            } else {
+              item.style.display = 'none';
+            }
+          });
+          
+          // Show/hide entire date group based on whether it has visible races
+          const dateHeader = dateGroup.querySelector('.date-header');
+          const racesForDate = dateGroup.querySelector('.races-for-date');
+          
+          if (hasVisibleRace) {
+            dateGroup.style.display = '';
+            if (searchTerm) {
+              // Auto-expand when searching
+              racesForDate.classList.add('show');
+              dateHeader.classList.add('expanded');
+              const icon = dateHeader.querySelector('i');
+              if (icon) {
+                icon.style.transform = 'rotate(180deg)';
+              }
+            }
           } else {
-            item.style.display = 'none';
+            dateGroup.style.display = 'none';
           }
         });
+        
+        feather.replace();
       });
     }
   });
