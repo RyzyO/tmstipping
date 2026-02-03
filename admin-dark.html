@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - The Great Spring Tip Off</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <style>
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+    .stat-card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
+      border: 1px solid rgba(75, 85, 99, 0.4);
+    }
+    .horse-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .horse-table th {
+      background: rgba(31, 41, 55, 0.8);
+      padding: 12px;
+      text-align: left;
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid rgba(75, 85, 99, 0.3);
+    }
+    .horse-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(75, 85, 99, 0.2);
+    }
+    .horse-table tr:hover {
+      background: rgba(55, 65, 81, 0.4);
+    }
+    .horse-table input, .horse-table select {
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      color: #e5e7eb;
+      padding: 6px 8px;
+      border-radius: 4px;
+      width: 100%;
+      font-size: 0.75rem;
+    }
+    .horse-table input:focus, .horse-table select:focus {
+      outline: none;
+      border-color: rgba(251, 191, 36, 0.5);
+      box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.1);
+    }
+    .tab-btn {
+      padding: 12px 20px;
+      border: none;
+      background: rgba(31, 41, 55, 0.6);
+      color: #d1d5db;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+    }
+    .tab-btn.active {
+      background: rgba(31, 41, 55, 0.95);
+      color: #fbbf24;
+      border-bottom-color: #f59e0b;
+    }
+    .tab-btn:hover {
+      color: #fbbf24;
+    }
+    .race-sidebar li {
+      padding: 10px 12px;
+      margin: 4px 0;
+      background: rgba(31, 41, 55, 0.5);
+      border: 1px solid rgba(75, 85, 99, 0.2);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.875rem;
+      list-style: none;
+    }
+    .race-sidebar li:hover {
+      background: rgba(31, 41, 55, 0.8);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+    .race-sidebar li.selected {
+      background: rgba(251, 191, 36, 0.1);
+      border-color: rgba(251, 191, 36, 0.5);
+      color: #fbbf24;
+      font-weight: 600;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #1a1a1a;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 12px rgba(251, 191, 36, 0.3);
+    }
+    .btn-secondary {
+      background: rgba(31, 41, 55, 0.9);
+      color: #d1d5db;
+      padding: 10px 16px;
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.875rem;
+    }
+    .btn-secondary:hover {
+      border-color: rgba(251, 191, 36, 0.3);
+      color: #fbbf24;
+    }
+    .btn-danger {
+      background: rgba(220, 38, 38, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.75rem;
+    }
+    .btn-danger:hover {
+      background: rgba(220, 38, 38, 0.3);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #d1d5db;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      color: #e5e7eb;
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-family: inherit;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: rgba(251, 191, 36, 0.5);
+      box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.1);
+    }
+    .notification {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.875rem;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .notification.success {
+      background: rgba(34, 197, 94, 0.2);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      color: #86efac;
+    }
+    .notification.error {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .horse-row {
+      background: rgba(31, 41, 55, 0.5);
+      border: 1px solid rgba(75, 85, 99, 0.2);
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+    .horse-row input {
+      flex: 1;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 glass-effect">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit: contain;" />
+          <h1 class="text-xl font-bold gradient-text">Admin Dashboard</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <a href="user-admin.html" class="text-gray-300 hover:text-yellow-400 transition text-sm flex items-center gap-2">
+            <i data-feather="users" class="h-4 w-4"></i>
+            Users
+          </a>
+          <a href="admin-leaderboard.html" class="text-gray-300 hover:text-yellow-400 transition text-sm flex items-center gap-2">
+            <i data-feather="bar-chart-2" class="h-4 w-4"></i>
+            Leaderboard
+          </a>
+          <button onclick="removeUnpaidFromLeaderboard()" class="text-gray-300 hover:text-red-400 transition text-sm flex items-center gap-2" title="Remove unpaid users from leaderboard">
+            <i data-feather="trash-2" class="h-4 w-4"></i>
+            Clean Leaderboard
+          </button>
+          <button onclick="handleLogout()" class="text-gray-300 hover:text-yellow-400 transition text-sm flex items-center gap-2">
+            <i data-feather="log-out" class="h-4 w-4"></i>
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Dashboard Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8" data-aos="fade-up">
+      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('races')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-400 text-sm">Total Races</p>
+            <p class="text-3xl font-bold text-yellow-400 mt-2" id="total-races">0</p>
+          </div>
+          <i data-feather="calendar" class="h-8 w-8 text-gray-600"></i>
+        </div>
+      </div>
+      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('races')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-400 text-sm">Upcoming Races</p>
+            <p class="text-3xl font-bold text-blue-400 mt-2" id="upcoming-races">0</p>
+          </div>
+          <i data-feather="clock" class="h-8 w-8 text-gray-600"></i>
+        </div>
+      </div>
+      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('races')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-400 text-sm">Fully Tipped</p>
+            <p class="text-3xl font-bold text-green-400 mt-2" id="fully-tipped">0</p>
+          </div>
+          <i data-feather="check-circle" class="h-8 w-8 text-gray-600"></i>
+        </div>
+      </div>
+      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('users')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-400 text-sm">Paid Users</p>
+            <p class="text-3xl font-bold text-purple-400 mt-2" id="paid-users">0</p>
+          </div>
+          <i data-feather="users" class="h-8 w-8 text-gray-600"></i>
+        </div>
+      </div>
+      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('users')">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-gray-400 text-sm">Fees Collected</p>
+            <p class="text-3xl font-bold text-green-400 mt-2" id="fees-collected">$0</p>
+          </div>
+          <i data-feather="dollar-sign" class="h-8 w-8 text-gray-600"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex gap-6">
+      <!-- Sidebar -->
+      <div class="w-80 flex-shrink-0">
+        <div class="card rounded-lg p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-gray-100">Races</h3>
+            <button onclick="showNewRaceForm()" class="btn-primary" title="New Race">
+              <i data-feather="plus" class="h-4 w-4"></i>
+            </button>
+          </div>
+          <input type="text" id="race-search" placeholder="Search races..." class="form-group" style="margin-bottom: 12px; background: rgba(17, 24, 39, 0.9); border: 1px solid rgba(75, 85, 99, 0.3); color: #e5e7eb; padding: 8px 10px; border-radius: 4px; width: 100%; font-size: 0.875rem;">
+          <ul id="race-list" class="race-sidebar space-y-1"></ul>
+        </div>
+      </div>
+
+      <!-- Main Panel -->
+      <div class="flex-1">
+        <div id="no-selection" class="card rounded-lg p-12 text-center">
+          <i data-feather="inbox" class="h-16 w-16 text-gray-600 mx-auto mb-4"></i>
+          <p class="text-gray-400">Select a race or create a new one to get started</p>
+        </div>
+
+        <!-- New Race Form -->
+        <div id="new-race-panel" class="hidden">
+          <div class="card rounded-lg p-8">
+            <div id="form-notifications"></div>
+            <h2 class="text-2xl font-bold mb-6 gradient-text">Create New Race</h2>
+            <form id="race-form" class="space-y-6">
+              <div class="grid grid-cols-2 gap-6">
+                <div class="form-group col-span-2">
+                  <label>Race Name *</label>
+                  <input type="text" id="race-name" required placeholder="e.g., Randwick Race 7">
+                </div>
+                <div class="form-group">
+                  <label>Date *</label>
+                  <input type="date" id="race-date" required>
+                </div>
+                <div class="form-group">
+                  <label>Time *</label>
+                  <input type="time" id="race-time" required>
+                </div>
+                <div class="form-group">
+                  <label>Distance *</label>
+                  <input type="text" id="race-distance" required placeholder="e.g., 1200m">
+                </div>
+                <div class="form-group">
+                  <label>Race Type</label>
+                  <input type="text" id="race-type" placeholder="e.g., Handicap, Open">
+                </div>
+              </div>
+
+              <div class="border-t border-gray-700 pt-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <i data-feather="copy" class="h-5 w-5 text-yellow-400"></i>
+                  Import Horses from Table
+                </h3>
+                <p class="text-gray-400 text-sm mb-3">Paste a table with columns: No, Name, Trainer, Jockey, Barrier, Weight</p>
+                <textarea id="paste-table" class="form-group" style="min-height: 120px;" placeholder="Paste table rows here..."></textarea>
+                <button type="button" onclick="parseHorseTable()" class="btn-secondary">
+                  <i data-feather="upload" class="h-4 w-4"></i>
+                  Parse Table
+                </button>
+              </div>
+
+              <div class="border-t border-gray-700 pt-6">
+                <h3 class="text-lg font-semibold mb-4">Horses</h3>
+                <div id="horses-list" class="space-y-2 mb-4"></div>
+                <button type="button" onclick="addManualHorse()" class="btn-secondary">
+                  <i data-feather="plus" class="h-4 w-4"></i>
+                  Add Horse
+                </button>
+              </div>
+
+              <div class="flex gap-3 pt-6 border-t border-gray-700">
+                <button type="submit" class="btn-primary">
+                  <i data-feather="save" class="h-4 w-4"></i>
+                  Save Race
+                </button>
+                <button type="button" onclick="cancelForm()" class="btn-secondary">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Race Details Panel -->
+        <div id="race-details-panel" class="hidden">
+          <div class="card rounded-lg p-8">
+            <div id="race-notifications"></div>
+            
+            <!-- Tabs -->
+            <div class="flex flex-wrap border-b border-gray-700 mb-6">
+              <button class="tab-btn active" onclick="switchTab('details')">
+                <i data-feather="info" class="h-4 w-4"></i>
+                Race Details
+              </button>
+              <button class="tab-btn" onclick="switchTab('horses')">
+                <i data-feather="list" class="h-4 w-4"></i>
+                Horses
+              </button>
+              <button class="tab-btn" onclick="switchTab('results')">
+                <i data-feather="flag" class="h-4 w-4"></i>
+                Results
+              </button>
+              <button class="tab-btn" onclick="switchTab('tips')">
+                <i data-feather="users" class="h-4 w-4"></i>
+                Tips
+              </button>
+              <button class="tab-btn" onclick="switchTab('leaderboards')">
+                <i data-feather="bar-chart-2" class="h-4 w-4"></i>
+                Leaderboards
+              </button>
+            </div>
+
+            <!-- Details Tab -->
+            <div id="details-tab" class="tab-content">
+              <h2 id="selected-race-title" class="text-2xl font-bold mb-6 gradient-text"></h2>
+              <div class="grid grid-cols-2 gap-6 mb-6">
+                <div class="form-group">
+                  <label>Date</label>
+                  <div class="flex gap-2">
+                    <input type="date" id="edit-race-date" class="flex-1">
+                    <button onclick="updateRaceDate()" class="btn-secondary"><i data-feather="save" class="h-4 w-4"></i></button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Time</label>
+                  <div class="flex gap-2">
+                    <input type="time" id="edit-race-time" class="flex-1">
+                    <button onclick="updateRaceTime()" class="btn-secondary"><i data-feather="save" class="h-4 w-4"></i></button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Distance</label>
+                  <div class="flex gap-2">
+                    <input type="text" id="edit-race-distance" class="flex-1">
+                    <button onclick="updateRaceDistance()" class="btn-secondary"><i data-feather="save" class="h-4 w-4"></i></button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Race Type</label>
+                  <div class="flex gap-2">
+                    <input type="text" id="edit-race-type" class="flex-1">
+                    <button onclick="updateRaceType()" class="btn-secondary"><i data-feather="save" class="h-4 w-4"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Horses Tab -->
+            <div id="horses-tab" class="tab-content hidden">
+              <div class="mb-4 flex justify-between items-center">
+                <h3 class="text-lg font-semibold">Manage Horses</h3>
+                <button onclick="addHorseToRace()" class="btn-secondary"><i data-feather="plus" class="h-4 w-4"></i> Add</button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="horse-table">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>Name</th>
+                      <th>Trainer</th>
+                      <th>Jockey</th>
+                      <th>Barrier</th>
+                      <th>Weight</th>
+                      <th>Silk Desc</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="selected-horses-list"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Results Tab -->
+            <div id="results-tab" class="tab-content hidden">
+              <h3 class="text-lg font-semibold mb-6">Set Race Results</h3>
+              <div class="grid grid-cols-1 gap-6">
+                <div class="bg-gray-800 rounded-lg p-6">
+                  <h4 class="font-semibold mb-4 text-yellow-400">Winner</h4>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                      <label>Horse</label>
+                      <select id="winner-horse-id"></select>
+                    </div>
+                    <div class="form-group">
+                      <label>Points</label>
+                      <input type="number" id="winner-points" placeholder="10">
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-6">
+                  <h4 class="font-semibold mb-4 text-blue-400">Place 1</h4>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                      <label>Horse</label>
+                      <select id="place1-horse-id"></select>
+                    </div>
+                    <div class="form-group">
+                      <label>Points</label>
+                      <input type="number" id="place1-points" placeholder="5">
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-gray-800 rounded-lg p-6">
+                  <h4 class="font-semibold mb-4 text-green-400">Place 2</h4>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div class="form-group">
+                      <label>Horse</label>
+                      <select id="place2-horse-id"></select>
+                    </div>
+                    <div class="form-group">
+                      <label>Points</label>
+                      <input type="number" id="place2-points" placeholder="2">
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button onclick="saveResults()" class="btn-primary mt-6">
+                <i data-feather="save" class="h-4 w-4"></i>
+                Save Results
+              </button>
+            </div>
+
+            <!-- Tips Tab -->
+            <div id="tips-tab" class="tab-content hidden">
+              <h3 class="text-lg font-semibold mb-4">Tips Submitted</h3>
+              <div class="bg-gray-800 rounded-lg p-6 mb-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-gray-400 text-sm">Paid Users with Tips</p>
+                    <p class="text-3xl font-bold text-yellow-400 mt-2"><span id="race-tips-count">0</span></p>
+                  </div>
+                  <i data-feather="check-circle" class="h-12 w-12 text-gray-600"></i>
+                </div>
+              </div>
+              <div id="tips-list" class="space-y-2 max-h-96 overflow-y-auto"></div>
+            </div>
+
+            <!-- Leaderboards Tab -->
+            <div id="leaderboards-tab" class="tab-content hidden">
+              <h3 class="text-lg font-semibold mb-4">Weekly Leaderboards</h3>
+              <div id="leaderboards-list" class="space-y-6"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-950 border-t border-gray-800 text-gray-400 py-6 mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
+      <p>&copy; 2025 The Mock Sports. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script type="module" src="admin-dark-script.js"></script>
+</body>
+</html>

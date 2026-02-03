@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>Admin - Mock Sports Tipping</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .admin-flex { display: flex; }
+    .admin-main { flex: 2; }
+    .admin-sidebar { flex: 1; margin-left: 2rem; border-left: 1px solid #ddd; padding-left: 2rem; }
+    .race-list { list-style: none; padding: 0; }
+    .race-list li { cursor: pointer; padding: 0.5rem 0; }
+    .race-list li.selected { font-weight: bold; color: #007bff; }
+    .horse-row input { width: 120px; display: inline-block; margin-right: 8px; }
+    .horse-row button { margin-left: 8px; }
+    .paste-area { width: 100%; height: 150px; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>       
+<div class="container mt-5 admin-flex">
+  <div class="admin-main">
+    <div class="d-flex mb-3" style="gap: 0.5rem;">
+      <button class="btn btn-primary" id="new-race-btn">New Race</button>
+      <a href="user-admin.html" class="btn btn-secondary">Users</a>
+      <button class="btn btn-danger" id="remove-unpaid-leaderboard-btn">Remove Unpaid from Leaderboard</button>
+      <div class="mb-3">
+  <h5>Fully Tipped: <span id="fully-tipped-count">0</span></h5>
+</div>
+
+    </div>
+
+    <div id="race-form-section" style="display:none;">
+      <h2>New Race</h2>
+      <form id="race-form">
+        <input type="text" class="form-control mb-2" id="race-name" placeholder="Race Name" required>
+        <input type="date" class="form-control mb-2" id="race-date" required>
+        <input type="time" class="form-control mb-2" id="race-time" required>
+        <input type="text" class="form-control mb-2" id="race-distance" placeholder="Race Distance (e.g. 1200m)" required>
+
+        <h5>Paste Horse Table</h5>
+        <textarea id="paste-table" class="form-control paste-area" placeholder="Paste table rows here..."></textarea>
+        <button type="button" class="btn btn-secondary mb-3" id="parse-table-btn">Parse Table</button>
+
+        <h5>Horses</h5>
+        <div id="horses-list"></div>
+        <button type="button" class="btn btn-secondary mb-2" id="add-horse-row">Add Row Manually</button>
+        <br>
+        <button type="submit" class="btn btn-success">Save Race</button>
+        <button type="button" class="btn btn-link" id="cancel-race-form">Cancel</button>
+      </form>
+      <hr>
+    </div>
+
+    <div id="race-details-section" style="display:none;">
+      <h2 id="selected-race-title"></h2>
+      <div class="mb-2">
+        <label>Date:</label>
+        <input type="date" id="edit-race-date" class="form-control d-inline-block" style="width:auto;">
+        <button class="btn btn-sm btn-outline-primary" id="save-race-date">Save</button>
+      </div>
+      <div class="mb-2">
+        <label>Time:</label>
+        <input type="time" id="edit-race-time" class="form-control d-inline-block" style="width:auto;">
+        <button class="btn btn-sm btn-outline-primary" id="save-race-time">Save</button>
+      </div>
+      <div class="mb-2">
+        <label>Distance:</label>
+        <input type="text" id="edit-race-distance" class="form-control d-inline-block" style="width:auto;">
+        <button class="btn btn-sm btn-outline-primary" id="save-race-distance">Save</button>
+      </div>
+<div class="mb-2">
+  <h5>Tips Submitted: <span id="race-tips-count">0</span></h5>
+</div>
+
+      <h5>Horses</h5>
+      <div id="selected-horses-list"></div>
+      <button class="btn btn-secondary mt-2" id="add-horse-to-race">Add Horse</button>
+
+      <hr>
+      <h5>Set Results</h5>
+      <div class="mb-2">
+        <label>Winner:</label>
+        <select id="winner-horse-id" class="form-control d-inline-block" style="width:auto;"></select>
+        <label class="ms-3">Points:</label>
+        <input type="number" id="winner-points" class="form-control d-inline-block" style="width:100px;">
+      </div>
+      <div class="mb-2">
+        <label>Place 1:</label>
+        <select id="place1-horse-id" class="form-control d-inline-block" style="width:auto;"></select>
+        <label class="ms-3">Points:</label>
+        <input type="number" id="place1-points" class="form-control d-inline-block" style="width:100px;">
+      </div>
+      <div class="mb-2">
+        <label>Place 2:</label>
+        <select id="place2-horse-id" class="form-control d-inline-block" style="width:auto;"></select>
+        <label class="ms-3">Points:</label>
+        <input type="number" id="place2-points" class="form-control d-inline-block" style="width:100px;">
+      </div>
+
+      <button class="btn btn-success mt-2" id="save-results">Save Results</button>
+    </div>
+  </div>
+
+  <div class="admin-sidebar">
+    <h4>Races</h4>
+    <ul id="race-list" class="race-list"></ul>
+  </div>
+</div>
+
+<script type="module" src="admin-script.js"></script>
+<script type="module">
+import { getFirestore, collection, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+const db = getFirestore();
+
+document.getElementById('remove-unpaid-leaderboard-btn').onclick = async () => {
+  if (!confirm("Remove all unpaid players from the leaderboard?")) return;
+  const usersSnap = await getDocs(collection(db, "users"));
+  const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+  const unpaidIds = new Set();
+  usersSnap.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.paid !== true) unpaidIds.add(docSnap.id);
+  });
+  let removed = 0;
+  for (const docSnap of leaderboardSnap.docs) {
+    if (unpaidIds.has(docSnap.id)) {
+      await deleteDoc(doc(db, "leaderboard", docSnap.id));
+      removed++;
+    }
+  }
+  alert(`Removed ${removed} unpaid players from the leaderboard.`);
+  window.location.reload();
+};
+</script>
+<script>
+  // Manual row entry fix: add event listener for #add-horse-row
+  document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('add-horse-row');
+    if (btn) {
+      btn.onclick = function() {
+        // This must match the addHorseRow() logic in admin-script.js
+        const horsesList = document.getElementById('horses-list');
+        const div = document.createElement('div');
+        div.className = 'horse-row mb-2';
+        div.innerHTML = `
+          <input type="text" placeholder="No" class="form-control d-inline-block" style="width:60px;" required>
+          <input type="text" placeholder="Horse Name" class="form-control d-inline-block" style="width:150px;" required>
+          <input type="text" placeholder="Trainer" class="form-control d-inline-block" style="width:150px;">
+          <input type="text" placeholder="Jockey" class="form-control d-inline-block" style="width:150px;">
+          <input type="text" placeholder="Barrier" class="form-control d-inline-block" style="width:80px;">
+          <input type="text" placeholder="Weight" class="form-control d-inline-block" style="width:80px;">
+          <button type="button" class="btn btn-danger btn-sm remove-horse-row">Remove</button>
+        `;
+        div.querySelector('.remove-horse-row').onclick = () => div.remove();
+        horsesList.appendChild(div);
+      };
+    }
+  });
+</script>
+  <div class="container my-4 text-center">
+    <a href="admin-leaderboard.html" class="btn btn-primary">View Admin Leaderboard</a>
+  </div>
+</body>
+</html>
