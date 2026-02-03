@@ -247,7 +247,7 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false };
+    const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{} };
 
     function showLoading(){ document.getElementById('loading-overlay').classList.remove('hidden'); }
     function hideLoading(){ document.getElementById('loading-overlay').classList.add('hidden'); }
@@ -280,6 +280,20 @@
       const racesSnap=await getDocs(collection(db,"races")); const now=DateTime.now().setZone("Australia/Sydney");
       const races=[]; racesSnap.forEach(docSnap=>races.push({id:docSnap.id,...docSnap.data()}));
       races.sort((a,b)=>DateTime.fromISO(a.date+"T"+a.time,{zone:"Australia/Sydney"})-DateTime.fromISO(b.date+"T"+b.time,{zone:"Australia/Sydney"}));
+      
+      // Prefetch next 3 upcoming races
+      let prefetched = 0;
+      const prefetchPromises = [];
+      for(const race of races){
+        const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"});
+        if(dt<now) continue;
+        if(prefetched < 3) {
+          prefetchPromises.push(prefetchRaceData(race.id));
+          prefetched++;
+        }
+      }
+      Promise.all(prefetchPromises).catch(err => console.log('Prefetch error:', err));
+      
       let shown=0;
       for(const race of races){
         const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"});
@@ -334,16 +348,74 @@
       }
     }
 
+    async function prefetchRaceData(raceId) {
+      if(state.racesCache[raceId]) return; // Already cached
+      try {
+        const [raceSnap, tipSnap] = await Promise.all([
+          getDoc(doc(db,"races",raceId)),
+          getDoc(doc(db,"tips",state.user.uid+"_"+raceId))
+        ]);
+        if(raceSnap.exists()) state.racesCache[raceId] = raceSnap.data();
+        if(tipSnap.exists()) state.userTipsCache[raceId] = tipSnap.data();
+      } catch(err) {
+        console.log('Prefetch failed for race:', raceId, err);
+      }
+    }
+
     function startCountdown(id,target){const el=document.getElementById(id);if(!el)return;function u(){const diff=target-DateTime.now().toMillis();if(diff<=0){el.textContent="⛔ Tipping Closed";el.className="bg-red-900/20 border border-red-700/30 text-red-400 text-center py-2 rounded-lg text-sm font-semibold";clearInterval(t);}else{const d=Math.floor(diff/86400000),h=Math.floor(diff/3600000)%24,m=Math.floor(diff/60000)%60,s=Math.floor(diff/1000)%60;let txt="Closes in: ";if(d>0)txt+=d+"d ";if(h>0||d>0)txt+=h+"h ";txt+=m+"m "+s+"s";el.textContent=txt;}}u();const t=setInterval(u,1000);}
 
-    window.selectRace=async(raceId)=>{ setBusy(true); try{ state.selectedRaceId=raceId; document.getElementById("race-list-section").classList.add("hidden"); document.getElementById("race-card-section").classList.remove("hidden");
-      const race= (await getDoc(doc(db,"races",raceId))).data(); const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"}); const now=DateTime.now().setZone("Australia/Sydney"); const isLocked=now>=dt.minus({minutes:5});
-      document.getElementById("selected-race-title").textContent=race.name; document.getElementById("selected-race-date").textContent=race.date+" at "+dt.toFormat("h:mm a"); document.getElementById("race-distance").textContent=(race.distance||"N/A");
-      const tipRef=doc(db,"tips",state.user.uid+"_"+raceId); const tipSnap=await getDoc(tipRef); let tippedHorseId=null,prevJoker=false; if(tipSnap.exists()){tippedHorseId=tipSnap.data().horseId||null;prevJoker=tipSnap.data().joker===true;}
-      renderHorsesRadioList(race,tippedHorseId); document.getElementById("tip-form").style.display=isLocked?"none":""; document.getElementById("tip-message").textContent=isLocked?"⛔ Tipping is closed for this race":""; document.getElementById("tip-message").className=isLocked?"mt-6 text-center font-medium text-red-400":"mt-6 text-center font-medium"; await refreshJokerCount(); document.getElementById("joker-count").textContent=state.jokerCount;
-      document.getElementById("use-joker-btn").classList.toggle("hidden",isLocked||prevJoker); document.getElementById("remove-joker-btn").classList.toggle("hidden",isLocked||!prevJoker);
-      feather.replace();
-    }finally{setBusy(false);} };
+    window.selectRace=async(raceId)=>{ 
+      // Use cached data if available for instant load
+      const useCached = state.racesCache[raceId] ? true : false;
+      if(!useCached) setBusy(true); 
+      
+      try{ 
+        state.selectedRaceId=raceId; 
+        document.getElementById("race-list-section").classList.add("hidden"); 
+        document.getElementById("race-card-section").classList.remove("hidden");
+        
+        // Get race data from cache or fetch
+        let race, tipSnap;
+        if(useCached) {
+          race = state.racesCache[raceId];
+          tipSnap = { exists: () => !!state.userTipsCache[raceId], data: () => state.userTipsCache[raceId] || {} };
+        } else {
+          const raceDoc = await getDoc(doc(db,"races",raceId));
+          race = raceDoc.data();
+          tipSnap = await getDoc(doc(db,"tips",state.user.uid+"_"+raceId));
+          // Cache for next time
+          state.racesCache[raceId] = race;
+          if(tipSnap.exists()) state.userTipsCache[raceId] = tipSnap.data();
+        }
+        
+        const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"}); 
+        const now=DateTime.now().setZone("Australia/Sydney"); 
+        const isLocked=now>=dt.minus({minutes:5});
+        
+        document.getElementById("selected-race-title").textContent=race.name; 
+        document.getElementById("selected-race-date").textContent=race.date+" at "+dt.toFormat("h:mm a"); 
+        document.getElementById("race-distance").textContent=(race.distance||"N/A");
+        
+        let tippedHorseId=null,prevJoker=false; 
+        if(tipSnap.exists()){
+          tippedHorseId=tipSnap.data().horseId||null;
+          prevJoker=tipSnap.data().joker===true;
+        }
+        
+        renderHorsesRadioList(race,tippedHorseId); 
+        document.getElementById("tip-form").style.display=isLocked?"none":""; 
+        document.getElementById("tip-message").textContent=isLocked?"⛔ Tipping is closed for this race":""; 
+        document.getElementById("tip-message").className=isLocked?"mt-6 text-center font-medium text-red-400":"mt-6 text-center font-medium"; 
+        
+        await refreshJokerCount(); 
+        document.getElementById("joker-count").textContent=state.jokerCount;
+        document.getElementById("use-joker-btn").classList.toggle("hidden",isLocked||prevJoker); 
+        document.getElementById("remove-joker-btn").classList.toggle("hidden",isLocked||!prevJoker);
+        feather.replace();
+      } finally {
+        if(!useCached) setBusy(false);
+      } 
+    };
 
     function renderHorsesRadioList(race,tippedHorseId){
       const list=document.getElementById("horses-radio-list");
