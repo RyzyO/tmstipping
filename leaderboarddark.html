@@ -25,6 +25,10 @@
     .table-row { transition: all .2s ease; cursor:pointer; }
     .table-row:hover { background: rgba(255,215,0,0.1); }
     .modal { background: rgba(0,0,0,0.85); }
+    .search-input::placeholder { color: rgba(255, 193, 7, 0.6); }
+    .medal-gold { color: #fbbf24; }
+    .medal-silver { color: #c0cfd9; }
+    .medal-bronze { color: #cd7f32; }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -65,9 +69,9 @@
     <h2 class="text-3xl md:text-4xl font-bold mb-6 gradient-text text-center">Leaderboard</h2>
 
     <!-- Search -->
-    <div class="max-w-md mx-auto mb-6">
+    <div class="max-w-md mx-auto mb-8">
       <input id="search-input" type="text" placeholder="Search team..."
-        class="w-full px-4 py-2 rounded-lg bg-gray-800 text-yellow-400 border border-yellow-500 focus:ring-2 focus:ring-yellow-400">
+        class="search-input w-full px-4 py-3 rounded-lg bg-gray-800 text-gray-100 border border-yellow-500 focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none transition">
     </div>
 
     <!-- Leaderboard -->
@@ -95,29 +99,37 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
       <p class="text-sm">&copy; 2026 The Mock Sports. All rights reserved.</p>
       <div class="flex space-x-6">
-        <a href="#" class="hover:text-yellow-400"><i data-feather="twitter"></i></a>
-        <a href="#" class="hover:text-yellow-400"><i data-feather="facebook"></i></a>
-        <a href="#" class="hover:text-yellow-400"><i data-feather="instagram"></i></a>
+        <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Twitter"><i data-feather="twitter"></i></a>
+        <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Facebook"><i data-feather="facebook"></i></a>
+        <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Instagram"><i data-feather="instagram"></i></a>
       </div>
     </div>
   </footer>
 
   <!-- Modal -->
-  <div id="user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal">
-    <div class="bg-gray-800 rounded-xl shadow-lg max-w-2xl w-full p-6 relative overflow-y-auto max-h-[80vh]">
-      <button onclick="closeModal()" class="absolute top-3 right-3 text-gray-400 hover:text-yellow-400">&times;</button>
-      <h3 id="modal-user-name" class="text-2xl font-bold mb-4 gradient-text"></h3>
+  <div id="user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal" role="dialog" aria-modal="true" aria-labelledby="modal-user-name">
+    <div class="bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 p-6 relative overflow-y-auto max-h-[90vh]">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl" aria-label="Close modal">&times;</button>
+      <h3 id="modal-user-name" class="text-2xl font-bold mb-6 gradient-text"></h3>
       <div id="modal-user-results" class="space-y-4"></div>
     </div>
   </div>
 
   <!-- Loading -->
-  <div id="loading-overlay" class="fixed inset-0 bg-black/80 hidden items-center justify-center z-50">
+  <div id="loading-overlay" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
     <div class="text-center">
       <div class="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent mx-auto"></div>
       <p class="mt-4 text-yellow-400 font-semibold">Loading Leaderboard…</p>
     </div>
   </div>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById("mobileMenu");
+      menu.classList.toggle("hidden");
+    }
+    window.toggleMenu = toggleMenu;
+  </script>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
@@ -126,156 +138,290 @@
 
     const { DateTime } = luxon;
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
+    // Load config from separate file to avoid exposing credentials
+    let firebaseConfig = null;
+    try {
+      const response = await fetch('firebase-config.js');
+      const text = await response.text();
+      eval(text);
+    } catch (e) {
+      console.error('Failed to load Firebase config:', e);
+    }
+
+    if (!firebaseConfig) {
+      // Fallback (but should use firebase-config.js)
+      firebaseConfig = {
+        apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+        authDomain: "tmstipping.firebaseapp.com",
+        projectId: "tmstipping",
+        storageBucket: "tmstipping.appspot.com",
+        messagingSenderId: "401677933527",
+        appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+        measurementId: "G-GXLRCHV687"
+      };
+    }
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    
+    let cachedLeaderboard = [];
+    let cachedRaces = {};
+    let cachedResults = {};
+    let cachedTips = {};
 
-    function showLoading(){document.getElementById("loading-overlay").classList.remove("hidden");}
-    function hideLoading(){document.getElementById("loading-overlay").classList.add("hidden");}
-    function closeModal(){document.getElementById("user-modal").classList.add("hidden");}
+    function showLoading() {
+      document.getElementById("loading-overlay").classList.remove("hidden");
+    }
+    
+    function hideLoading() {
+      document.getElementById("loading-overlay").classList.add("hidden");
+    }
+    
+    function closeModal() {
+      document.getElementById("user-modal").classList.add("hidden");
+    }
+    
     window.closeModal = closeModal;
 
-    onAuthStateChanged(auth, async user=>{
-      if(!user){window.location.href="login.html"; return;}
+    // Close modal on ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // Close modal when clicking outside
+    document.getElementById("user-modal").addEventListener('click', (e) => {
+      if (e.target.id === 'user-modal') closeModal();
+    });
+
+    onAuthStateChanged(auth, async user => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
       await loadLeaderboard();
     });
 
-    async function loadLeaderboard(){
+    async function loadLeaderboard() {
       showLoading();
-      const leaderboardSnap = await getDocs(collection(db,"leaderboard"));
-      const usersSnap = await getDocs(collection(db,"users"));
+      try {
+        const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+        const usersSnap = await getDocs(collection(db, "users"));
 
-      const jokersMap = {};
-      usersSnap.forEach(d=>{ jokersMap[d.id] = d.data().joker ?? 0; });
-
-      const leaderboard=[];
-      leaderboardSnap.forEach(docSnap=>{
-        const d = docSnap.data();
-        let pts = parseFloat(d.points)||0;
-        leaderboard.push({userId:docSnap.id, teamName:d.teamName, points:pts, jokers:jokersMap[docSnap.id]||0});
-      });
-
-      leaderboard.sort((a,b)=>b.points-a.points);
-
-      const tbody=document.getElementById("leaderboard-body");
-      const mobile=document.getElementById("leaderboard-mobile");
-      tbody.innerHTML="";
-      mobile.innerHTML="";
-
-      leaderboard.forEach((entry,i)=>{
-        // Desktop row
-        const tr=document.createElement("tr");
-        tr.className="table-row";
-        tr.innerHTML=`
-          <td class="px-3 py-2">${i+1}</td>
-          <td class="px-3 py-2">${entry.teamName||entry.userId}</td>
-          <td class="px-3 py-2">${entry.points.toFixed(2)}</td>
-          <td class="px-3 py-2">${entry.jokers}</td>
-        `;
-        tr.onclick=()=>loadUserResults(entry);
-        tbody.appendChild(tr);
-
-        // Mobile card
-        const card=document.createElement("div");
-        card.className="glass-effect p-4 rounded-lg shadow cursor-pointer";
-        card.innerHTML=`
-          <div class="flex justify-between items-center mb-2">
-            <span class="text-yellow-400 font-bold">#${i+1}</span>
-            <span class="text-gray-300 font-semibold">${entry.teamName||entry.userId}</span>
-          </div>
-          <div class="flex justify-between text-sm text-gray-400">
-            <span>Points: <span class="text-yellow-400 font-bold">${entry.points.toFixed(2)}</span></span>
-            <span>Jokers: <span class="text-yellow-400 font-bold">${entry.jokers}</span></span>
-          </div>
-        `;
-        card.onclick=()=>loadUserResults(entry);
-        mobile.appendChild(card);
-      });
-
-      document.getElementById("search-input").oninput = e=>{
-        const val=e.target.value.toLowerCase();
-        Array.from(tbody.children).forEach(row=>{
-          row.style.display=row.children[1].textContent.toLowerCase().includes(val)?"":"none";
+        const jokersMap = {};
+        usersSnap.forEach(d => {
+          jokersMap[d.id] = d.data().joker ?? 0;
         });
-        Array.from(mobile.children).forEach(card=>{
-          card.style.display=card.textContent.toLowerCase().includes(val)?"":"none";
+
+        cachedLeaderboard = [];
+        leaderboardSnap.forEach(docSnap => {
+          const d = docSnap.data();
+          let pts = parseFloat(d.points) || 0;
+          cachedLeaderboard.push({
+            userId: docSnap.id,
+            teamName: d.teamName,
+            points: pts,
+            jokers: jokersMap[docSnap.id] || 0
+          });
         });
-      };
 
-      hideLoading();
-    }
+        cachedLeaderboard.sort((a, b) => b.points - a.points);
 
-    async function loadUserResults(entry){
-      showLoading();
-      const tipsSnap = await getDocs(collection(db,"tips"));
-      const resultsSnap = await getDocs(collection(db,"results"));
-      const racesSnap = await getDocs(collection(db,"races"));
+        const tbody = document.getElementById("leaderboard-body");
+        const mobile = document.getElementById("leaderboard-mobile");
+        tbody.innerHTML = "";
+        mobile.innerHTML = "";
 
-      const races={}; racesSnap.forEach(d=>races[d.id]=d.data());
-      const results={}; resultsSnap.forEach(d=>results[d.id]=d.data());
+        if (cachedLeaderboard.length === 0) {
+          const emptyMsg = document.createElement("tr");
+          emptyMsg.innerHTML = '<td colspan="4" class="px-4 py-8 text-center text-gray-400">No leaderboard data available yet.</td>';
+          tbody.appendChild(emptyMsg);
+          return;
+        }
 
-      const userTips={};
-      tipsSnap.forEach(d=>{const t=d.data(); if(t.userId===entry.userId) userTips[t.raceId]=t;});
+        cachedLeaderboard.forEach((entry, i) => {
+          // Desktop row
+          const tr = document.createElement("tr");
+          tr.className = "table-row";
+          
+          let rankDisplay = `${i + 1}`;
+          if (i === 0) rankDisplay = '🥇 ' + rankDisplay;
+          else if (i === 1) rankDisplay = '🥈 ' + rankDisplay;
+          else if (i === 2) rankDisplay = '🥉 ' + rankDisplay;
+          
+          tr.innerHTML = `
+            <td class="px-3 py-3">${rankDisplay}</td>
+            <td class="px-3 py-3 font-medium">${entry.teamName || entry.userId}</td>
+            <td class="px-3 py-3 text-yellow-400 font-bold">${entry.points.toFixed(2)}</td>
+            <td class="px-3 py-3">${entry.jokers}</td>
+          `;
+          tr.onclick = () => loadUserResults(entry);
+          tr.setAttribute('role', 'button');
+          tr.setAttribute('tabindex', '0');
+          tr.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
+          tr.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
+          });
+          tbody.appendChild(tr);
 
-      const container=document.getElementById("modal-user-results");
-      container.innerHTML="";
-      for(const [raceId,race] of Object.entries(races)){
-        if(!results[raceId]) continue;
-        const res=results[raceId];
-        const tip=userTips[raceId];
-        if(!tip) continue;
+          // Mobile card
+          const card = document.createElement("div");
+          card.className = "glass-effect p-4 rounded-lg shadow cursor-pointer hover:bg-yellow-400/5 transition";
+          card.innerHTML = `
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-yellow-400 font-bold text-lg">#${i + 1}</span>
+              <span class="text-gray-300 font-semibold">${entry.teamName || entry.userId}</span>
+            </div>
+            <div class="flex justify-between text-sm text-gray-400">
+              <span>Points: <span class="text-yellow-400 font-bold">${entry.points.toFixed(2)}</span></span>
+              <span>Jokers: <span class="text-yellow-400 font-bold">${entry.jokers}</span></span>
+            </div>
+          `;
+          card.onclick = () => loadUserResults(entry);
+          card.setAttribute('role', 'button');
+          card.setAttribute('tabindex', '0');
+          card.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
+          card.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
+          });
+          mobile.appendChild(card);
+        });
 
-        // winner points = win odds + place odds
-        const winOnly = parseFloat(res.points)||0;
-        const placeFromWin = parseFloat(res.place1Points)||0;
-        const winnerPoints = winOnly + placeFromWin;
-        const place2Points = parseFloat(res.place2Points)||0;
-        const place3Points = parseFloat(res.place3Points)||0;
+        // Search functionality
+        document.getElementById("search-input").oninput = e => {
+          const val = e.target.value.toLowerCase();
+          let visibleCount = 0;
+          
+          Array.from(tbody.children).forEach(row => {
+            const teamName = row.children[1]?.textContent.toLowerCase();
+            const isVisible = !val || teamName?.includes(val);
+            row.style.display = isVisible ? "" : "none";
+            if (isVisible) visibleCount++;
+          });
+          
+          Array.from(mobile.children).forEach(card => {
+            const isVisible = !val || card.textContent.toLowerCase().includes(val);
+            card.style.display = isVisible ? "" : "none";
+          });
 
-        const winnerName=race.horses?.[res.winningHorseId]?.name||"";
-        const place1Name=race.horses?.[res.place1HorseId]?.name||"";
-        const place2Name=race.horses?.[res.place2HorseId]?.name||"";
-        const place3Name=race.horses?.[res.place3HorseId]?.name||"";
-        const dateStr=race.date?DateTime.fromISO(race.date).toFormat("dd/LL/yyyy"):"";
+          // Show "no results" message if needed
+          if (visibleCount === 0 && val) {
+            const noResults = document.createElement("tr");
+            noResults.innerHTML = '<td colspan="4" class="px-4 py-8 text-center text-gray-400">No teams found matching your search.</td>';
+            tbody.appendChild(noResults);
+          }
+        };
 
-        let pts=0, correct=false;
-        if(tip.horseId===res.winningHorseId){pts=winnerPoints; correct=true;}
-        else if(tip.horseId===res.place1HorseId){pts=placeFromWin; correct=true;}
-        else if(tip.horseId===res.place2HorseId){pts=place2Points; correct=true;}
-        else if(tip.horseId===res.place3HorseId){pts=place3Points; correct=true;}
-        if(correct && tip.joker) pts*=2;
-
-        const div=document.createElement("div");
-        div.className=`p-4 rounded-lg shadow ${correct?"bg-green-900/40":"bg-red-900/40"}`;
-        div.innerHTML=`
-          <h4 class="text-lg font-bold">${race.name} <span class="text-sm text-gray-400">(${dateStr})</span></h4>
-          <p>Their tip: <strong>${race.horses?.[tip.horseId]?.name||"—"}</strong>
-            ${tip.joker?"<span class='ml-2 bg-purple-600 text-white px-2 py-0.5 rounded text-xs'>JOKER</span>":""}</p>
-          <p>1st: <strong>${winnerName}</strong> ${winnerPoints?`(+${winnerPoints.toFixed(2)})`:""}</p>
-          <p>2nd: <strong>${place1Name}</strong> ${placeFromWin?`(+${placeFromWin.toFixed(2)})`:""}</p>
-          <p>3rd: <strong>${place2Name}</strong> ${place2Points?`(+${place2Points.toFixed(2)})`:""}</p>
-          <p>4th: <strong>${place3Name}</strong> ${place3Points?`(+${place3Points.toFixed(2)})`:""}</p>
-          ${correct?`<p class="text-green-400 font-bold mt-2">+${pts.toFixed(2)} pts</p>`:`<p class="text-red-400 mt-2">No points</p>`}
-        `;
-        container.appendChild(div);
+        hideLoading();
+      } catch (error) {
+        console.error('Error loading leaderboard:', error);
+        hideLoading();
+        alert('Failed to load leaderboard. Please refresh the page.');
       }
-
-      document.getElementById("modal-user-name").textContent=entry.teamName||entry.userId;
-      document.getElementById("user-modal").classList.remove("hidden");
-      hideLoading();
     }
 
-    AOS.init({duration:1000,once:true}); feather.replace();
+    async function loadUserResults(entry) {
+      showLoading();
+      try {
+        // Use cached data if available, otherwise fetch
+        if (Object.keys(cachedRaces).length === 0) {
+          const tipsSnap = await getDocs(collection(db, "tips"));
+          const resultsSnap = await getDocs(collection(db, "results"));
+          const racesSnap = await getDocs(collection(db, "races"));
+
+          racesSnap.forEach(d => cachedRaces[d.id] = d.data());
+          resultsSnap.forEach(d => cachedResults[d.id] = d.data());
+          tipsSnap.forEach(d => {
+            const t = d.data();
+            if (t.userId === entry.userId) cachedTips[t.raceId] = t;
+          });
+        }
+
+        const userTips = {};
+        const tipsSnap = await getDocs(collection(db, "tips"));
+        tipsSnap.forEach(d => {
+          const t = d.data();
+          if (t.userId === entry.userId) userTips[t.raceId] = t;
+        });
+
+        const container = document.getElementById("modal-user-results");
+        container.innerHTML = "";
+
+        let resultCount = 0;
+        for (const [raceId, race] of Object.entries(cachedRaces)) {
+          if (!cachedResults[raceId]) continue;
+          const res = cachedResults[raceId];
+          const tip = userTips[raceId];
+          if (!tip) continue;
+
+          resultCount++;
+
+          const winOnly = parseFloat(res.points) || 0;
+          const placeFromWin = parseFloat(res.place1Points) || 0;
+          const winnerPoints = winOnly + placeFromWin;
+          const place2Points = parseFloat(res.place2Points) || 0;
+          const place3Points = parseFloat(res.place3Points) || 0;
+
+          const winnerName = race.horses?.[res.winningHorseId]?.name || "—";
+          const place1Name = race.horses?.[res.place1HorseId]?.name || "—";
+          const place2Name = race.horses?.[res.place2HorseId]?.name || "—";
+          const place3Name = race.horses?.[res.place3HorseId]?.name || "—";
+          const dateStr = race.date ? DateTime.fromISO(race.date).toFormat("dd/LL/yyyy") : "—";
+
+          let pts = 0, correct = false;
+          if (tip.horseId === res.winningHorseId) {
+            pts = winnerPoints;
+            correct = true;
+          } else if (tip.horseId === res.place1HorseId) {
+            pts = placeFromWin;
+            correct = true;
+          } else if (tip.horseId === res.place2HorseId) {
+            pts = place2Points;
+            correct = true;
+          } else if (tip.horseId === res.place3HorseId) {
+            pts = place3Points;
+            correct = true;
+          }
+          if (correct && tip.joker) pts *= 2;
+
+          const div = document.createElement("div");
+          div.className = `p-4 rounded-lg border ${correct ? "border-green-500/30 bg-green-900/20" : "border-red-500/30 bg-red-900/20"}`;
+          div.innerHTML = `
+            <div class="flex justify-between items-start mb-2">
+              <h4 class="text-lg font-bold text-white">${race.name}</h4>
+              <span class="text-xs text-gray-400">${dateStr}</span>
+            </div>
+            <div class="space-y-2 text-sm">
+              <p>Your tip: <strong class="text-yellow-400">${race.horses?.[tip.horseId]?.name || "—"}</strong>
+                ${tip.joker ? "<span class='ml-2 bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs inline-block'>JOKER</span>" : ""}</p>
+              <p>1st: <strong>${winnerName}</strong> <span class="text-green-400">${winnerPoints ? `+${winnerPoints.toFixed(2)}` : "—"}</span></p>
+              <p>2nd: <strong>${place1Name}</strong> <span class="text-green-400">${placeFromWin ? `+${placeFromWin.toFixed(2)}` : "—"}</span></p>
+              <p>3rd: <strong>${place2Name}</strong> <span class="text-green-400">${place2Points ? `+${place2Points.toFixed(2)}` : "—"}</span></p>
+              <p>4th: <strong>${place3Name}</strong> <span class="text-green-400">${place3Points ? `+${place3Points.toFixed(2)}` : "—"}</span></p>
+            </div>
+            <div class="mt-3 pt-2 border-t border-gray-700">
+              ${correct ? `<p class="text-green-400 font-bold">✓ +${pts.toFixed(2)} pts</p>` : `<p class="text-red-400 font-semibold">✗ No points</p>`}
+            </div>
+          `;
+          container.appendChild(div);
+        }
+
+        if (resultCount === 0) {
+          container.innerHTML = '<div class="p-4 text-center text-gray-400">No results to display yet.</div>';
+        }
+
+        document.getElementById("modal-user-name").textContent = entry.teamName || entry.userId;
+        document.getElementById("user-modal").classList.remove("hidden");
+        hideLoading();
+      } catch (error) {
+        console.error('Error loading user results:', error);
+        hideLoading();
+        alert('Failed to load team details. Please try again.');
+      }
+    }
+
+    AOS.init({duration: 1000, once: true});
+    feather.replace();
   </script>
 </body>
 </html>
