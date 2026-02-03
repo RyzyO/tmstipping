@@ -102,13 +102,27 @@ async function loadRacesList() {
     });
 
     const raceList = document.getElementById('race-list');
+    const raceListMobile = document.getElementById('race-list-mobile');
     raceList.innerHTML = '';
+    if (raceListMobile) raceListMobile.innerHTML = '';
 
     allRaces.forEach(race => {
+      // Desktop list
       const li = document.createElement('li');
       li.textContent = race.name || 'Unnamed Race';
       li.onclick = () => selectRace(race.id);
       raceList.appendChild(li);
+
+      // Mobile list
+      if (raceListMobile) {
+        const liMobile = document.createElement('li');
+        liMobile.textContent = race.name || 'Unnamed Race';
+        liMobile.onclick = () => {
+          selectRace(race.id);
+          toggleMobileSidebar();
+        };
+        raceListMobile.appendChild(liMobile);
+      }
     });
 
     if (currentRaceId) {
@@ -124,10 +138,10 @@ function updateRaceSelection() {
   const raceItems = document.querySelectorAll('.race-sidebar li');
   raceItems.forEach(item => item.classList.remove('selected'));
 
-  const selectedItem = Array.from(raceItems).find(
+  const selectedItems = Array.from(raceItems).filter(
     item => allRaces.find(r => r.name === item.textContent)?.id === currentRaceId
   );
-  if (selectedItem) selectedItem.classList.add('selected');
+  selectedItems.forEach(item => item.classList.add('selected'));
 }
 
 async function selectRace(raceId) {
@@ -627,6 +641,89 @@ async function handleLogout() {
     console.error('Error logging out:', error);
   }
 }
+
+// ============ MOBILE NAVIGATION ============
+window.toggleMobileNav = function() {
+  const mobileNav = document.getElementById('mobile-nav');
+  mobileNav.classList.toggle('hidden');
+  feather.replace();
+};
+
+window.toggleMobileSidebar = function() {
+  const overlay = document.getElementById('mobile-sidebar-overlay');
+  overlay.classList.toggle('show');
+  
+  // Sync search and list between desktop and mobile
+  if (overlay.classList.contains('show')) {
+    const desktopSearch = document.getElementById('race-search').value;
+    const mobileSearch = document.getElementById('race-search-mobile');
+    mobileSearch.value = desktopSearch;
+    
+    // Clone race list to mobile
+    const raceListMobile = document.getElementById('race-list-mobile');
+    const raceList = document.getElementById('race-list');
+    raceListMobile.innerHTML = raceList.innerHTML;
+    
+    // Add click handlers to mobile list
+    const mobileItems = raceListMobile.querySelectorAll('li');
+    mobileItems.forEach((li, index) => {
+      const race = allRaces[index];
+      if (race) {
+        li.onclick = () => {
+          selectRace(race.id);
+          toggleMobileSidebar();
+        };
+      }
+    });
+  }
+  
+  feather.replace();
+};
+
+// Expose functions to window for onclick handlers
+window.showNewRaceForm = showNewRaceForm;
+window.cancelForm = cancelForm;
+window.addManualHorse = addManualHorse;
+window.parseHorseTable = parseHorseTable;
+window.updateRaceDate = updateRaceDate;
+window.updateRaceTime = updateRaceTime;
+window.updateRaceDistance = updateRaceDistance;
+window.updateRaceType = updateRaceType;
+window.addHorseToRace = addHorseToRace;
+window.saveResults = saveResults;
+window.switchTab = switchTab;
+window.handleLogout = handleLogout;
+
+// Placeholder functions for features not yet implemented
+window.removeUnpaidFromLeaderboard = async function() {
+  alert('This feature will be implemented soon.');
+};
+
+// Search functionality for both desktop and mobile
+document.addEventListener('DOMContentLoaded', () => {
+  const searchInputs = ['race-search', 'race-search-mobile'];
+  searchInputs.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const isMobile = id.includes('mobile');
+        const listId = isMobile ? 'race-list-mobile' : 'race-list';
+        const list = document.getElementById(listId);
+        const items = list.querySelectorAll('li');
+        
+        items.forEach(item => {
+          const text = item.textContent.toLowerCase();
+          if (text.includes(searchTerm)) {
+            item.style.display = '';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+      });
+    }
+  });
+});
 
 // Initialize on load
 window.addEventListener('load', () => {

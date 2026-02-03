@@ -237,6 +237,90 @@
     .horse-row input {
       flex: 1;
     }
+    
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .sidebar-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 100;
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        color: #1a1a1a;
+        border-radius: 50%;
+        width: 56px;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .sidebar-toggle:active {
+        transform: scale(0.95);
+      }
+      .mobile-sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 90;
+        display: none;
+      }
+      .mobile-sidebar.show {
+        display: block;
+      }
+      .mobile-sidebar-content {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        max-height: 70vh;
+        background: linear-gradient(145deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98));
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        overflow-y: auto;
+        animation: slideUp 0.3s ease;
+      }
+      @keyframes slideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+      }
+      .tab-btn {
+        font-size: 0.75rem;
+        padding: 10px 12px;
+        gap: 4px;
+      }
+      .tab-btn svg {
+        width: 14px;
+        height: 14px;
+      }
+      .horse-table {
+        font-size: 0.75rem;
+      }
+      .horse-table th,
+      .horse-table td {
+        padding: 8px 6px;
+        white-space: nowrap;
+      }
+      .stat-card {
+        padding: 1rem !important;
+      }
+      .stat-card p:first-child {
+        font-size: 0.75rem;
+      }
+      .stat-card .text-3xl {
+        font-size: 1.5rem;
+      }
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        font-size: 16px; /* Prevents zoom on iOS */
+      }
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -246,9 +330,12 @@
       <div class="flex justify-between items-center py-4">
         <div class="flex items-center">
           <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit: contain;" />
-          <h1 class="text-xl font-bold gradient-text">Admin Dashboard</h1>
+          <h1 class="text-xl sm:text-xl font-bold gradient-text">Admin</h1>
         </div>
-        <div class="flex items-center gap-4">
+        <button onclick="toggleMobileNav()" class="md:hidden text-gray-300">
+          <i data-feather="menu" class="h-6 w-6"></i>
+        </button>
+        <div id="desktop-nav" class="hidden md:flex items-center gap-4">
           <a href="user-admin.html" class="text-gray-300 hover:text-yellow-400 transition text-sm flex items-center gap-2">
             <i data-feather="users" class="h-4 w-4"></i>
             Users
@@ -259,7 +346,8 @@
           </a>
           <button onclick="removeUnpaidFromLeaderboard()" class="text-gray-300 hover:text-red-400 transition text-sm flex items-center gap-2" title="Remove unpaid users from leaderboard">
             <i data-feather="trash-2" class="h-4 w-4"></i>
-            Clean Leaderboard
+            <span class="hidden lg:inline">Clean Leaderboard</span>
+            <span class="lg:hidden">Clean</span>
           </button>
           <button onclick="handleLogout()" class="text-gray-300 hover:text-yellow-400 transition text-sm flex items-center gap-2">
             <i data-feather="log-out" class="h-4 w-4"></i>
@@ -267,14 +355,33 @@
           </button>
         </div>
       </div>
+      <!-- Mobile Nav Menu -->
+      <div id="mobile-nav" class="hidden md:hidden pb-4 space-y-2">
+        <a href="user-admin.html" class="block text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
+          <i data-feather="users" class="h-4 w-4 inline mr-2"></i>
+          Users
+        </a>
+        <a href="admin-leaderboard.html" class="block text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
+          <i data-feather="bar-chart-2" class="h-4 w-4 inline mr-2"></i>
+          Leaderboard
+        </a>
+        <button onclick="removeUnpaidFromLeaderboard()" class="w-full text-left text-gray-300 hover:text-red-400 transition text-sm py-2 px-3 rounded bg-gray-800">
+          <i data-feather="trash-2" class="h-4 w-4 inline mr-2"></i>
+          Clean Leaderboard
+        </button>
+        <button onclick="handleLogout()" class="w-full text-left text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
+          <i data-feather="log-out" class="h-4 w-4 inline mr-2"></i>
+          Logout
+        </button>
+      </div>
     </div>
   </nav>
 
   <!-- Main Content -->
   <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Dashboard Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8" data-aos="fade-up">
-      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('races')">
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4 mb-6 lg:mb-8" data-aos="fade-up">
+      <div class="stat-card rounded-lg p-6 hover:scale-105 transition">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-400 text-sm">Total Races</p>
@@ -283,7 +390,7 @@
           <i data-feather="calendar" class="h-8 w-8 text-gray-600"></i>
         </div>
       </div>
-      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('races')">
+      <div class="stat-card rounded-lg p-6 hover:scale-105 transition">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-400 text-sm">Upcoming Races</p>
@@ -292,7 +399,7 @@
           <i data-feather="clock" class="h-8 w-8 text-gray-600"></i>
         </div>
       </div>
-      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('races')">
+      <div class="stat-card rounded-lg p-6 hover:scale-105 transition">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-400 text-sm">Fully Tipped</p>
@@ -301,7 +408,7 @@
           <i data-feather="check-circle" class="h-8 w-8 text-gray-600"></i>
         </div>
       </div>
-      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('users')">
+      <div class="stat-card rounded-lg p-6 hover:scale-105 transition">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-400 text-sm">Paid Users</p>
@@ -310,7 +417,7 @@
           <i data-feather="users" class="h-8 w-8 text-gray-600"></i>
         </div>
       </div>
-      <div class="stat-card rounded-lg p-6 cursor-pointer hover:scale-105 transition" onclick="showSection('users')">
+      <div class="stat-card rounded-lg p-6 hover:scale-105 transition">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-gray-400 text-sm">Fees Collected</p>
@@ -322,9 +429,9 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="flex gap-6">
-      <!-- Sidebar -->
-      <div class="w-80 flex-shrink-0">
+    <div class="flex gap-6 relative">
+      <!-- Desktop Sidebar -->
+      <div class="hidden md:block w-80 flex-shrink-0">
         <div class="card rounded-lg p-6">
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold text-gray-100">Races</h3>
@@ -337,8 +444,30 @@
         </div>
       </div>
 
+      <!-- Mobile Sidebar Toggle Button -->
+      <button onclick="toggleMobileSidebar()" class="md:hidden sidebar-toggle">
+        <i data-feather="list" class="h-6 w-6"></i>
+      </button>
+
+      <!-- Mobile Sidebar Overlay -->
+      <div id="mobile-sidebar-overlay" class="mobile-sidebar" onclick="toggleMobileSidebar()">
+        <div class="mobile-sidebar-content" onclick="event.stopPropagation()">
+          <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-gray-100">Races</h3>
+            <button onclick="showNewRaceForm(); toggleMobileSidebar();" class="btn-primary">
+              <i data-feather="plus" class="h-4 w-4"></i>
+              New
+            </button>
+          </div>
+          <div class="p-4">
+            <input type="text" id="race-search-mobile" placeholder="Search races..." class="form-group" style="margin-bottom: 12px; background: rgba(17, 24, 39, 0.9); border: 1px solid rgba(75, 85, 99, 0.3); color: #e5e7eb; padding: 10px 12px; border-radius: 6px; width: 100%; font-size: 16px;">
+            <ul id="race-list-mobile" class="race-sidebar space-y-1"></ul>
+          </div>
+        </div>
+      </div>
+
       <!-- Main Panel -->
-      <div class="flex-1">
+      <div class="flex-1 min-w-0">
         <div id="no-selection" class="card rounded-lg p-12 text-center">
           <i data-feather="inbox" class="h-16 w-16 text-gray-600 mx-auto mb-4"></i>
           <p class="text-gray-400">Select a race or create a new one to get started</p>
@@ -350,7 +479,7 @@
             <div id="form-notifications"></div>
             <h2 class="text-2xl font-bold mb-6 gradient-text">Create New Race</h2>
             <form id="race-form" class="space-y-6">
-              <div class="grid grid-cols-2 gap-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div class="form-group col-span-2">
                   <label>Race Name *</label>
                   <input type="text" id="race-name" required placeholder="e.g., Randwick Race 7">
@@ -414,7 +543,7 @@
             <div id="race-notifications"></div>
             
             <!-- Tabs -->
-            <div class="flex flex-wrap border-b border-gray-700 mb-6">
+            <div class="flex overflow-x-auto border-b border-gray-700 mb-6 -mx-4 md:mx-0 px-4 md:px-0" style="scrollbar-width: none; -ms-overflow-style: none;">
               <button class="tab-btn active" onclick="switchTab('details')">
                 <i data-feather="info" class="h-4 w-4"></i>
                 Race Details
@@ -439,8 +568,8 @@
 
             <!-- Details Tab -->
             <div id="details-tab" class="tab-content">
-              <h2 id="selected-race-title" class="text-2xl font-bold mb-6 gradient-text"></h2>
-              <div class="grid grid-cols-2 gap-6 mb-6">
+              <h2 id="selected-race-title" class="text-xl md:text-2xl font-bold mb-6 gradient-text"></h2>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6">
                 <div class="form-group">
                   <label>Date</label>
                   <div class="flex gap-2">
@@ -475,10 +604,10 @@
             <!-- Horses Tab -->
             <div id="horses-tab" class="tab-content hidden">
               <div class="mb-4 flex justify-between items-center">
-                <h3 class="text-lg font-semibold">Manage Horses</h3>
-                <button onclick="addHorseToRace()" class="btn-secondary"><i data-feather="plus" class="h-4 w-4"></i> Add</button>
+                <h3 class="text-base md:text-lg font-semibold">Manage Horses</h3>
+                <button onclick="addHorseToRace()" class="btn-secondary text-xs md:text-sm"><i data-feather="plus" class="h-4 w-4"></i> Add</button>
               </div>
-              <div class="overflow-x-auto">
+              <div class="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
                 <table class="horse-table">
                   <thead>
                     <tr>
@@ -499,11 +628,11 @@
 
             <!-- Results Tab -->
             <div id="results-tab" class="tab-content hidden">
-              <h3 class="text-lg font-semibold mb-6">Set Race Results</h3>
-              <div class="grid grid-cols-1 gap-6">
-                <div class="bg-gray-800 rounded-lg p-6">
-                  <h4 class="font-semibold mb-4 text-yellow-400">Winner</h4>
-                  <div class="grid grid-cols-2 gap-4">
+              <h3 class="text-base md:text-lg font-semibold mb-4 md:mb-6">Set Race Results</h3>
+              <div class="grid grid-cols-1 gap-4 md:gap-6">
+                <div class="bg-gray-800 rounded-lg p-4 md:p-6">
+                  <h4 class="font-semibold mb-3 md:mb-4 text-yellow-400">Winner</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div class="form-group">
                       <label>Horse</label>
                       <select id="winner-horse-id"></select>
@@ -514,9 +643,9 @@
                     </div>
                   </div>
                 </div>
-                <div class="bg-gray-800 rounded-lg p-6">
-                  <h4 class="font-semibold mb-4 text-blue-400">Place 1</h4>
-                  <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-800 rounded-lg p-4 md:p-6">
+                  <h4 class="font-semibold mb-3 md:mb-4 text-blue-400">Place 1</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div class="form-group">
                       <label>Horse</label>
                       <select id="place1-horse-id"></select>
@@ -527,9 +656,9 @@
                     </div>
                   </div>
                 </div>
-                <div class="bg-gray-800 rounded-lg p-6">
-                  <h4 class="font-semibold mb-4 text-green-400">Place 2</h4>
-                  <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-800 rounded-lg p-4 md:p-6">
+                  <h4 class="font-semibold mb-3 md:mb-4 text-green-400">Place 2</h4>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div class="form-group">
                       <label>Horse</label>
                       <select id="place2-horse-id"></select>
