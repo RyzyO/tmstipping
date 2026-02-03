@@ -155,7 +155,7 @@
   </footer>
 
   <!-- Modal -->
-  <div id="result-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal">
+  <div id="result-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal" onclick="if(event.target.id==='result-modal') closeModal()">
     <div class="modal-content rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 relative">
       <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl" aria-label="Close">&times;</button>
       <h3 id="modal-race-name" class="text-2xl md:text-3xl font-bold mb-6 gradient-text"></h3>
@@ -219,9 +219,11 @@
     window.closeModal=()=>document.getElementById("result-modal").classList.add("hidden");
 
     const cached = getCachedResults();
+    let hasInitialCache = false;
     if (cached) {
       allResults = cached;
       renderResults();
+      hasInitialCache = true;
     }
 
     onAuthStateChanged(auth, async (_user)=>{
@@ -230,7 +232,7 @@
     });
 
     async function loadAllResults() {
-      showLoading();
+      if (!hasInitialCache) showLoading();
       try {
         allResults=[];
         const [racesSnap, tipsSnap, resultsSnap] = await Promise.all([
@@ -279,8 +281,9 @@
 
           const dt= race.date ? DateTime.fromISO(race.date) : null;
           const dtStr=dt?dt.toFormat("dd/LL/yyyy"):"";
+          const dtMillis=dt?dt.toMillis():0;
 
-          allResults.push({race, rd, correct, pts, joker, tippedName, winnerName, place1Name, place2Name, dt, dtStr});
+          allResults.push({race, rd, correct, pts, joker, tippedName, winnerName, place1Name, place2Name, dtStr, dtMillis});
         }
         renderResults();
         saveCachedResults(allResults);
@@ -307,10 +310,8 @@
       // Apply sorting
       const sort=document.getElementById("sort-date").value;
       results.sort((a,b)=>{
-        if(!a.dt||!b.dt) return 0;
-        const aMillis=a.dt.toMillis();
-        const bMillis=b.dt.toMillis();
-        return sort==="newest" ? bMillis-aMillis : aMillis-bMillis;
+        if(!a.dtMillis||!b.dtMillis) return 0;
+        return sort==="newest" ? b.dtMillis-a.dtMillis : a.dtMillis-b.dtMillis;
       });
 
       // Show empty state
@@ -328,6 +329,7 @@
         `;
         container.appendChild(emptyDiv);
         feather.replace();
+
         return;
       }
 
@@ -343,22 +345,22 @@
           </p>
         `;
         card.onclick=()=>{
-          openModal(race,`
+          const modalContent = `
             <div class="space-y-4">
               <div class="bg-gradient-to-r from-blue-600/20 to-blue-500/10 rounded-lg p-4 border border-blue-500/30">
                 <p class="text-xs text-blue-300 mb-1">Your Tip</p>
                 <p class="text-xl font-bold text-blue-200">${tippedName||"No tip placed"}</p>
               </div>
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div class="bg-black/30 rounded-lg p-3 border-2 border-yellow-500/50">
-                  <p class="text-xs text-yellow-300 font-semibold mb-1">🥇 1st Place</p>
+                <div class="bg-black/30 rounded-lg p-3 ${tippedName===winnerName?'border-2 border-green-500/50 bg-green-600/10':''}">
+                  <p class="text-xs text-gray-400 mb-1">🥇 1st Place</p>
                   <p class="font-semibold text-gray-200">${winnerName}</p>
                 </div>
-                <div class="bg-black/30 rounded-lg p-3">
+                <div class="bg-black/30 rounded-lg p-3 ${tippedName===place1Name?'border-2 border-green-500/50 bg-green-600/10':''}">
                   <p class="text-xs text-gray-400 mb-1">🥈 2nd Place</p>
                   <p class="font-semibold text-gray-200">${place1Name}</p>
                 </div>
-                <div class="bg-black/30 rounded-lg p-3">
+                <div class="bg-black/30 rounded-lg p-3 ${tippedName===place2Name?'border-2 border-green-500/50 bg-green-600/10':''}">
                   <p class="text-xs text-gray-400 mb-1">🥉 3rd Place</p>
                   <p class="font-semibold text-gray-200">${place2Name}</p>
                 </div>
@@ -368,7 +370,8 @@
               </div>
               ${joker && correct?`<p class="mt-2 bg-purple-600/30 text-purple-300 px-3 py-2 rounded border border-purple-500/30 text-sm font-semibold">🔥 JOKER BONUS - Points Doubled!</p>`:``}
             </div>
-          `);
+          `;
+          openModal(race, modalContent);
         };
         container.appendChild(card);
       });
