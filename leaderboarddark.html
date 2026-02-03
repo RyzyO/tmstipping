@@ -18,17 +18,96 @@
       background-clip: text;
     }
     .glass-effect {
-      background: rgba(24,24,24,0.85);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 215, 0, 0.1);
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
-    .table-row { transition: all .2s ease; cursor:pointer; }
-    .table-row:hover { background: rgba(255,215,0,0.1); }
-    .modal { background: rgba(0,0,0,0.85); }
-    .search-input::placeholder { color: rgba(255, 193, 7, 0.6); }
-    .medal-gold { color: #fbbf24; }
-    .medal-silver { color: #c0cfd9; }
-    .medal-bronze { color: #cd7f32; }
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+    .leaderboard-card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
+      border: 1px solid rgba(75, 85, 99, 0.4);
+      transition: all 0.2s ease;
+    }
+    .leaderboard-card:hover {
+      border-color: rgba(251, 191, 36, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    }
+    .rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.75rem;
+      font-weight: bold;
+      font-size: 1.25rem;
+    }
+    .rank-1 {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(217, 119, 6, 0.2));
+      border: 1px solid rgba(251, 191, 36, 0.4);
+      color: #fbbf24;
+    }
+    .rank-2 {
+      background: linear-gradient(135deg, rgba(192, 207, 217, 0.2), rgba(148, 163, 175, 0.2));
+      border: 1px solid rgba(192, 207, 217, 0.4);
+      color: #cbd5e1;
+    }
+    .rank-3 {
+      background: linear-gradient(135deg, rgba(205, 127, 50, 0.2), rgba(180, 83, 9, 0.2));
+      border: 1px solid rgba(205, 127, 50, 0.4);
+      color: #d97706;
+    }
+    .rank-other {
+      background: rgba(75, 85, 99, 0.3);
+      border: 1px solid rgba(75, 85, 99, 0.5);
+      color: #d1d5db;
+    }
+    .table-row {
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .table-row:hover {
+      background: rgba(251, 191, 36, 0.05);
+    }
+    .modal { 
+      background: rgba(0, 0, 0, 0.9);
+    }
+    .modal-content {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+    }
+    .search-input {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.4);
+      transition: all 0.2s ease;
+    }
+    .search-input:focus {
+      border-color: rgba(251, 191, 36, 0.5);
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+    }
+    .search-input::placeholder { 
+      color: rgba(156, 163, 175, 0.6);
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(55, 65, 81, 0.3) 25%, rgba(75, 85, 99, 0.3) 50%, rgba(55, 65, 81, 0.3) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -66,31 +145,41 @@
 
   <!-- Main -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow">
-    <h2 class="text-3xl md:text-4xl font-bold mb-6 gradient-text text-center">Leaderboard</h2>
+    <!-- Header Section -->
+    <section class="mb-10" data-aos="fade-up">
+      <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+        <div class="relative z-10">
+          <h1 class="text-3xl md:text-4xl font-bold mb-2 gradient-text">Leaderboard</h1>
+          <p class="text-gray-300">Check where you rank among all competitors</p>
+        </div>
+      </div>
+    </section>
 
-    <!-- Search -->
-    <div class="max-w-md mx-auto mb-8">
-      <input id="search-input" type="text" placeholder="Search team..."
-        class="search-input w-full px-4 py-3 rounded-lg bg-gray-800 text-gray-100 border border-yellow-500 focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none transition">
+    <!-- Search Section -->
+    <div class="max-w-2xl mx-auto mb-8">
+      <input id="search-input" type="text" placeholder="Search team name..."
+        class="search-input w-full px-5 py-3 rounded-xl text-gray-100 focus:outline-none transition-all">
     </div>
 
-    <!-- Leaderboard -->
-    <div class="glass-effect rounded-lg shadow-lg overflow-hidden">
+    <!-- Leaderboard Container -->
+    <div class="card rounded-2xl shadow-2xl overflow-hidden" data-aos="fade-up">
       <!-- Desktop Table -->
-      <table class="w-full hidden md:table divide-y divide-gray-700">
-        <thead class="bg-gray-800">
+      <table class="w-full hidden md:table divide-y divide-gray-700/50">
+        <thead class="bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
           <tr>
-            <th class="px-3 py-2 text-left text-sm font-semibold text-yellow-400">Rank</th>
-            <th class="px-3 py-2 text-left text-sm font-semibold text-yellow-400">Team</th>
-            <th class="px-3 py-2 text-left text-sm font-semibold text-yellow-400">Points</th>
-            <th class="px-3 py-2 text-left text-sm font-semibold text-yellow-400">Jokers</th>
+            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Rank</th>
+            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Team</th>
+            <th class="px-6 py-4 text-right text-sm font-semibold text-gray-300">Points</th>
+            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-300">Jokers</th>
           </tr>
         </thead>
-        <tbody id="leaderboard-body" class="divide-y divide-gray-700"></tbody>
+        <tbody id="leaderboard-body" class="divide-y divide-gray-700/50"></tbody>
       </table>
 
       <!-- Mobile Card View -->
-      <div id="leaderboard-mobile" class="space-y-3 p-3 md:hidden"></div>
+      <div id="leaderboard-mobile" class="space-y-2 md:hidden p-4"></div>
     </div>
   </main>
 
@@ -108,9 +197,9 @@
 
   <!-- Modal -->
   <div id="user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal" role="dialog" aria-modal="true" aria-labelledby="modal-user-name">
-    <div class="bg-gray-800 rounded-xl shadow-2xl max-w-2xl w-full mx-4 p-6 relative overflow-y-auto max-h-[90vh]">
+    <div class="modal-content rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 relative overflow-y-auto max-h-[90vh]">
       <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl" aria-label="Close modal">&times;</button>
-      <h3 id="modal-user-name" class="text-2xl font-bold mb-6 gradient-text"></h3>
+      <h3 id="modal-user-name" class="text-2xl md:text-3xl font-bold mb-8 gradient-text"></h3>
       <div id="modal-user-results" class="space-y-4"></div>
     </div>
   </div>
@@ -169,6 +258,7 @@
     let cachedRaces = {};
     let cachedResults = {};
     let cachedTips = {};
+    let searchTimeout;
 
     function showLoading() {
       document.getElementById("loading-overlay").classList.remove("hidden");
@@ -234,7 +324,7 @@
 
         if (cachedLeaderboard.length === 0) {
           const emptyMsg = document.createElement("tr");
-          emptyMsg.innerHTML = '<td colspan="4" class="px-4 py-8 text-center text-gray-400">No leaderboard data available yet.</td>';
+          emptyMsg.innerHTML = '<td colspan="4" class="px-6 py-12 text-center text-gray-400 text-base">No leaderboard data available yet.</td>';
           tbody.appendChild(emptyMsg);
           return;
         }
@@ -244,16 +334,22 @@
           const tr = document.createElement("tr");
           tr.className = "table-row";
           
-          let rankDisplay = `${i + 1}`;
-          if (i === 0) rankDisplay = '🥇 ' + rankDisplay;
-          else if (i === 1) rankDisplay = '🥈 ' + rankDisplay;
-          else if (i === 2) rankDisplay = '🥉 ' + rankDisplay;
+          let rankClass = "rank-other";
+          if (i === 0) rankClass = "rank-1";
+          else if (i === 1) rankClass = "rank-2";
+          else if (i === 2) rankClass = "rank-3";
           
           tr.innerHTML = `
-            <td class="px-3 py-3">${rankDisplay}</td>
-            <td class="px-3 py-3 font-medium">${entry.teamName || entry.userId}</td>
-            <td class="px-3 py-3 text-yellow-400 font-bold">${entry.points.toFixed(2)}</td>
-            <td class="px-3 py-3">${entry.jokers}</td>
+            <td class="px-6 py-4">
+              <div class="rank-badge ${rankClass}">${i + 1}</div>
+            </td>
+            <td class="px-6 py-4 font-semibold text-gray-100">${entry.teamName || entry.userId}</td>
+            <td class="px-6 py-4 text-right">
+              <span class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</span>
+            </td>
+            <td class="px-6 py-4 text-center">
+              <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 font-semibold text-sm">${entry.jokers}</span>
+            </td>
           `;
           tr.onclick = () => loadUserResults(entry);
           tr.setAttribute('role', 'button');
@@ -266,15 +362,41 @@
 
           // Mobile card
           const card = document.createElement("div");
-          card.className = "glass-effect p-4 rounded-lg shadow cursor-pointer hover:bg-yellow-400/5 transition";
+          card.className = "leaderboard-card p-5 rounded-xl shadow cursor-pointer";
+          
+          let rankDisplay = `#${i + 1}`;
+          let rankBadgeClass = "rank-other";
+          if (i === 0) {
+            rankDisplay = "🥇 #1";
+            rankBadgeClass = "rank-1";
+          }
+          else if (i === 1) {
+            rankDisplay = "🥈 #2";
+            rankBadgeClass = "rank-2";
+          }
+          else if (i === 2) {
+            rankDisplay = "🥉 #3";
+            rankBadgeClass = "rank-3";
+          }
+          
           card.innerHTML = `
-            <div class="flex justify-between items-center mb-3">
-              <span class="text-yellow-400 font-bold text-lg">#${i + 1}</span>
-              <span class="text-gray-300 font-semibold">${entry.teamName || entry.userId}</span>
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex items-center gap-3 flex-1">
+                <div class="rank-badge ${rankBadgeClass}" style="width: 2.5rem; height: 2.5rem;">${i + 1}</div>
+                <div class="flex-1 min-w-0">
+                  <h4 class="font-bold text-gray-100 truncate">${entry.teamName || entry.userId}</h4>
+                </div>
+              </div>
             </div>
-            <div class="flex justify-between text-sm text-gray-400">
-              <span>Points: <span class="text-yellow-400 font-bold">${entry.points.toFixed(2)}</span></span>
-              <span>Jokers: <span class="text-yellow-400 font-bold">${entry.jokers}</span></span>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="bg-black/30 rounded-lg p-3">
+                <p class="text-xs text-gray-400 mb-1">Points</p>
+                <p class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</p>
+              </div>
+              <div class="bg-black/30 rounded-lg p-3">
+                <p class="text-xs text-gray-400 mb-1">Jokers</p>
+                <p class="text-xl font-bold text-yellow-400">${entry.jokers}</p>
+              </div>
             </div>
           `;
           card.onclick = () => loadUserResults(entry);
@@ -287,29 +409,40 @@
           mobile.appendChild(card);
         });
 
-        // Search functionality
-        document.getElementById("search-input").oninput = e => {
+        // Search functionality with debouncing
+        const searchInput = document.getElementById("search-input");
+        searchInput.oninput = e => {
+          clearTimeout(searchTimeout);
           const val = e.target.value.toLowerCase();
-          let visibleCount = 0;
           
-          Array.from(tbody.children).forEach(row => {
-            const teamName = row.children[1]?.textContent.toLowerCase();
-            const isVisible = !val || teamName?.includes(val);
-            row.style.display = isVisible ? "" : "none";
-            if (isVisible) visibleCount++;
-          });
-          
-          Array.from(mobile.children).forEach(card => {
-            const isVisible = !val || card.textContent.toLowerCase().includes(val);
-            card.style.display = isVisible ? "" : "none";
-          });
+          searchTimeout = setTimeout(() => {
+            let visibleCount = 0;
+            let noResultsRow = null;
+            
+            Array.from(tbody.children).forEach(row => {
+              if (row.classList.contains('no-results-row')) {
+                row.remove();
+                return;
+              }
+              const teamName = row.children[1]?.textContent.toLowerCase();
+              const isVisible = !val || teamName?.includes(val);
+              row.style.display = isVisible ? "" : "none";
+              if (isVisible) visibleCount++;
+            });
+            
+            Array.from(mobile.children).forEach(card => {
+              const isVisible = !val || card.textContent.toLowerCase().includes(val);
+              card.style.display = isVisible ? "" : "none";
+            });
 
-          // Show "no results" message if needed
-          if (visibleCount === 0 && val) {
-            const noResults = document.createElement("tr");
-            noResults.innerHTML = '<td colspan="4" class="px-4 py-8 text-center text-gray-400">No teams found matching your search.</td>';
-            tbody.appendChild(noResults);
-          }
+            // Show "no results" message if needed
+            if (visibleCount === 0 && val) {
+              const noResults = document.createElement("tr");
+              noResults.className = 'no-results-row';
+              noResults.innerHTML = '<td colspan="4" class="px-4 py-8 text-center text-gray-400">No teams found matching your search.</td>';
+              tbody.appendChild(noResults);
+            }
+          }, 150);
         };
 
         hideLoading();
@@ -323,31 +456,31 @@
     async function loadUserResults(entry) {
       showLoading();
       try {
-        // Use cached data if available, otherwise fetch
+        // Load all data once on first modal open
         if (Object.keys(cachedRaces).length === 0) {
-          const tipsSnap = await getDocs(collection(db, "tips"));
-          const resultsSnap = await getDocs(collection(db, "results"));
-          const racesSnap = await getDocs(collection(db, "races"));
+          const [tipsSnap, resultsSnap, racesSnap] = await Promise.all([
+            getDocs(collection(db, "tips")),
+            getDocs(collection(db, "results")),
+            getDocs(collection(db, "races"))
+          ]);
 
           racesSnap.forEach(d => cachedRaces[d.id] = d.data());
           resultsSnap.forEach(d => cachedResults[d.id] = d.data());
           tipsSnap.forEach(d => {
             const t = d.data();
-            if (t.userId === entry.userId) cachedTips[t.raceId] = t;
+            if (!cachedTips[t.userId]) cachedTips[t.userId] = {};
+            cachedTips[t.userId][t.raceId] = t;
           });
         }
 
-        const userTips = {};
-        const tipsSnap = await getDocs(collection(db, "tips"));
-        tipsSnap.forEach(d => {
-          const t = d.data();
-          if (t.userId === entry.userId) userTips[t.raceId] = t;
-        });
-
+        // Use cached user tips directly
+        const userTips = cachedTips[entry.userId] || {};
         const container = document.getElementById("modal-user-results");
         container.innerHTML = "";
 
         let resultCount = 0;
+        const fragment = document.createDocumentFragment();
+
         for (const [raceId, race] of Object.entries(cachedRaces)) {
           if (!cachedResults[raceId]) continue;
           const res = cachedResults[raceId];
@@ -356,9 +489,8 @@
 
           resultCount++;
 
-          const winOnly = parseFloat(res.points) || 0;
-          const placeFromWin = parseFloat(res.place1Points) || 0;
-          const winnerPoints = winOnly + placeFromWin;
+          const winnerPoints = parseFloat(res.points) || 0;
+          const place1Points = parseFloat(res.place1Points) || 0;
           const place2Points = parseFloat(res.place2Points) || 0;
           const place3Points = parseFloat(res.place3Points) || 0;
 
@@ -373,7 +505,7 @@
             pts = winnerPoints;
             correct = true;
           } else if (tip.horseId === res.place1HorseId) {
-            pts = placeFromWin;
+            pts = place1Points;
             correct = true;
           } else if (tip.horseId === res.place2HorseId) {
             pts = place2Points;
@@ -385,29 +517,50 @@
           if (correct && tip.joker) pts *= 2;
 
           const div = document.createElement("div");
-          div.className = `p-4 rounded-lg border ${correct ? "border-green-500/30 bg-green-900/20" : "border-red-500/30 bg-red-900/20"}`;
+          div.className = `p-5 rounded-xl border ${correct ? "border-green-500/30 bg-gradient-to-br from-green-900/20 to-green-900/10" : "border-red-500/30 bg-gradient-to-br from-red-900/20 to-red-900/10"}`;
           div.innerHTML = `
-            <div class="flex justify-between items-start mb-2">
-              <h4 class="text-lg font-bold text-white">${race.name}</h4>
-              <span class="text-xs text-gray-400">${dateStr}</span>
+            <div class="flex justify-between items-start mb-4">
+              <h4 class="text-lg font-bold text-white flex-1">${race.name}</h4>
+              <span class="text-xs text-gray-400 whitespace-nowrap ml-2">${dateStr}</span>
             </div>
-            <div class="space-y-2 text-sm">
-              <p>Your tip: <strong class="text-yellow-400">${race.horses?.[tip.horseId]?.name || "—"}</strong>
-                ${tip.joker ? "<span class='ml-2 bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs inline-block'>JOKER</span>" : ""}</p>
-              <p>1st: <strong>${winnerName}</strong> <span class="text-green-400">${winnerPoints ? `+${winnerPoints.toFixed(2)}` : "—"}</span></p>
-              <p>2nd: <strong>${place1Name}</strong> <span class="text-green-400">${placeFromWin ? `+${placeFromWin.toFixed(2)}` : "—"}</span></p>
-              <p>3rd: <strong>${place2Name}</strong> <span class="text-green-400">${place2Points ? `+${place2Points.toFixed(2)}` : "—"}</span></p>
-              <p>4th: <strong>${place3Name}</strong> <span class="text-green-400">${place3Points ? `+${place3Points.toFixed(2)}` : "—"}</span></p>
+            <div class="space-y-3 text-sm mb-4">
+              <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
+                <span class="text-gray-300">Your tip:</span>
+                <div class="flex items-center gap-2">
+                  <strong class="text-yellow-400">${race.horses?.[tip.horseId]?.name || "—"}</strong>
+                  ${tip.joker ? "<span class='bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs font-semibold'>JOKER</span>" : ""}
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 bg-black/30 rounded-lg">
+                  <p class="text-xs text-gray-400 mb-1">1st Place</p>
+                  <p class="font-semibold text-gray-200">${winnerName}</p>
+                </div>
+                <div class="p-3 bg-black/30 rounded-lg">
+                  <p class="text-xs text-gray-400 mb-1">2nd Place</p>
+                  <p class="font-semibold text-gray-200">${place1Name}</p>
+                </div>
+                <div class="p-3 bg-black/30 rounded-lg">
+                  <p class="text-xs text-gray-400 mb-1">3rd Place</p>
+                  <p class="font-semibold text-gray-200">${place2Name}</p>
+                </div>
+                <div class="p-3 bg-black/30 rounded-lg">
+                  <p class="text-xs text-gray-400 mb-1">4th Place</p>
+                  <p class="font-semibold text-gray-200">${place3Name}</p>
+                </div>
+              </div>
             </div>
-            <div class="mt-3 pt-2 border-t border-gray-700">
-              ${correct ? `<p class="text-green-400 font-bold">✓ +${pts.toFixed(2)} pts</p>` : `<p class="text-red-400 font-semibold">✗ No points</p>`}
+            <div class="pt-4 border-t border-gray-700/50">
+              ${correct ? `<p class="text-green-400 font-bold text-lg">✓ +${pts.toFixed(2)} points</p>` : `<p class="text-red-400 font-semibold">✗ No points</p>`}
             </div>
           `;
-          container.appendChild(div);
+          fragment.appendChild(div);
         }
 
         if (resultCount === 0) {
-          container.innerHTML = '<div class="p-4 text-center text-gray-400">No results to display yet.</div>';
+          container.innerHTML = '<div class="p-8 text-center text-gray-400"><p class="text-base">No results to display yet.</p></div>';
+        } else {
+          container.appendChild(fragment);
         }
 
         document.getElementById("modal-user-name").textContent = entry.teamName || entry.userId;
