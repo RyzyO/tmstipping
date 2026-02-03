@@ -399,7 +399,7 @@
         const isLocked=now>=dt.minus({minutes:5});
         
         document.getElementById("selected-race-title").textContent=race.name; 
-        document.getElementById("selected-race-date").textContent=race.date+" at "+dt.toFormat("h:mm a"); 
+        document.getElementById("selected-race-date").textContent=dt.toFormat("EEE, LLL d • h:mm a"); 
         document.getElementById("race-distance").textContent=(race.distance||"N/A");
         
         let tippedHorseId=null,prevJoker=false; 
@@ -450,7 +450,7 @@
             <div class="flex-1 min-w-0">
               <div class="flex items-baseline gap-3 mb-1">
                 
-                <span class="font-bold text-gray-100 text-base">${h.name}</span>
+                <span class="font-bold text-gray-100 text-base">${h.name}${h.barrier ? ` (${h.barrier})` : ''}</span>
               </div>
               <div class="text-sm text-gray-400 leading-relaxed">
                 <div class="mb-0.5"><span class="font-semibold text-gray-300">J</span> ${h.jockey||"Unknown"} ${h.weight?h.weight:''}</div>
