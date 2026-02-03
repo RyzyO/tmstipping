@@ -23,14 +23,38 @@
       background-clip: text;
     }
     .glass-effect {
-      background: rgba(30, 30, 30, 0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+      border-color: rgba(251, 191, 36, 0.3);
     }
     .result-card { transition: all .3s ease; cursor:pointer; }
-    .result-card.correct { background: linear-gradient(135deg, #22c55e33, #16a34a55); }
-    .result-card.incorrect { background: linear-gradient(135deg, #ef444433, #dc262655); }
-    .modal { background: rgba(0,0,0,0.8); }
+    .result-card.correct { background: linear-gradient(145deg, rgba(22, 163, 74, 0.15), rgba(34, 197, 94, 0.1)); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .result-card.incorrect { background: linear-gradient(145deg, rgba(220, 38, 38, 0.15), rgba(239, 68, 68, 0.1)); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .modal { background: rgba(0,0,0,0.9); }
+    .modal-content {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+    }
+    .filter-select {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.4);
+      transition: all 0.2s ease;
+    }
+    .filter-select:focus {
+      border-color: rgba(251, 191, 36, 0.5);
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -50,6 +74,7 @@
             <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
             <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
             <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+            <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
             <a href="faq.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
             <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
           </div>
@@ -60,6 +85,7 @@
       <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
       <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
       <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+      <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
       <a href="faq.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
       <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
     </div>
@@ -67,20 +93,29 @@
 
   <!-- Main Content -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
-    <h2 class="text-3xl md:text-4xl font-bold mb-6 gradient-text text-center">Your Results</h2>
+    <section class="mb-10" data-aos="fade-up">
+      <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+        <div class="relative z-10">
+          <h1 class="text-3xl md:text-4xl font-bold mb-2 gradient-text">Your Results</h1>
+          <p class="text-gray-300">Review your tips and race outcomes</p>
+        </div>
+      </div>
+    </section>
 
     <!-- Filter & Sort controls -->
-    <div class="flex flex-col md:flex-row gap-4 justify-center mb-8">
-      <select id="sort-date" class="px-4 py-2 rounded-lg bg-gray-800 text-yellow-400 border border-yellow-500">
+    <div class="flex flex-col sm:flex-row gap-3 mb-8" data-aos="fade-up">
+      <select id="sort-date" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 flex-1">
         <option value="newest">Date: Newest → Oldest</option>
         <option value="oldest">Date: Oldest → Newest</option>
       </select>
-      <select id="filter-win" class="px-4 py-2 rounded-lg bg-gray-800 text-yellow-400 border border-yellow-500">
+      <select id="filter-win" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 flex-1">
         <option value="all">All Results</option>
         <option value="wins">Wins Only</option>
         <option value="losses">Losses Only</option>
       </select>
-      <select id="filter-venue" class="px-4 py-2 rounded-lg bg-gray-800 text-yellow-400 border border-yellow-500">
+      <select id="filter-venue" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 flex-1">
         <option value="all">All Venues</option>
         <option value="flemington">Flemington</option>
         <option value="caulfield">Caulfield</option>
@@ -90,27 +125,41 @@
       </select>
     </div>
 
-    <div id="results-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    <div id="results-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" data-aos="fade-up"></div>
   </main>
 
   <!-- Footer -->
-  <footer class="bg-gray-950 text-gray-400 py-8 mt-auto">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-      <p class="text-sm">&copy; 2026 The Mock Sports. All rights reserved.</p>
-      <div class="flex space-x-6">
-        <a href="#" class="hover:text-yellow-400"><i data-feather="twitter"></i></a>
-        <a href="#" class="hover:text-yellow-400"><i data-feather="facebook"></i></a>
-        <a href="#" class="hover:text-yellow-400"><i data-feather="instagram"></i></a>
+  <footer class="bg-gray-950 border-t border-gray-800 text-gray-400 py-10 mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex flex-col items-center md:items-start">
+          <div class="flex items-center mb-2">
+            <img src="images/logo.png" alt="Logo" class="h-6 w-6 mr-2" style="object-fit: contain;" />
+            <span class="font-semibold text-gray-300">The Mock Sports</span>
+          </div>
+          <p class="text-sm text-gray-500">&copy; 2026 All rights reserved.</p>
+        </div>
+        <div class="flex space-x-6">
+          <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on X">
+            <i data-feather="twitter" class="h-5 w-5"></i>
+          </a>
+          <a href="https://facebook.com/TheMockSports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Facebook">
+            <i data-feather="facebook" class="h-5 w-5"></i>
+          </a>
+          <a href="https://instagram.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Instagram">
+            <i data-feather="instagram" class="h-5 w-5"></i>
+          </a>
+        </div>
       </div>
     </div>
   </footer>
 
   <!-- Modal -->
   <div id="result-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal">
-    <div class="bg-gray-800 rounded-xl shadow-lg max-w-lg w-full p-6 relative">
-      <button onclick="closeModal()" class="absolute top-3 right-3 text-gray-400 hover:text-yellow-400">&times;</button>
-      <h3 id="modal-race-name" class="text-2xl font-bold mb-4 gradient-text"></h3>
-      <div id="modal-race-details" class="text-gray-200 space-y-2"></div>
+    <div class="modal-content rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl" aria-label="Close">&times;</button>
+      <h3 id="modal-race-name" class="text-2xl md:text-3xl font-bold mb-6 gradient-text"></h3>
+      <div id="modal-race-details" class="text-gray-200 space-y-4"></div>
     </div>
   </div>
 
@@ -141,6 +190,24 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
     let user=null, allResults=[];
+    const RESULTS_CACHE_KEY = "tmstipping:resultsCache";
+
+    function getCachedResults() {
+      try {
+        const raw = localStorage.getItem(RESULTS_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed?.entries)) return null;
+        return parsed.entries;
+      } catch (error) {
+        localStorage.removeItem(RESULTS_CACHE_KEY);
+        return null;
+      }
+    }
+
+    function saveCachedResults(entries) {
+      localStorage.setItem(RESULTS_CACHE_KEY, JSON.stringify({ entries, updatedAt: Date.now() }));
+    }
 
     function showLoading(){document.getElementById("loading-overlay").classList.remove("hidden");}
     function hideLoading(){document.getElementById("loading-overlay").classList.add("hidden");}
@@ -151,54 +218,72 @@
     }
     window.closeModal=()=>document.getElementById("result-modal").classList.add("hidden");
 
+    const cached = getCachedResults();
+    if (cached) {
+      allResults = cached;
+      renderResults();
+    }
+
     onAuthStateChanged(auth, async (_user)=>{
-      if(!_user){alert("You must be logged in."); window.location.href="index.html"; return;}
+      if(!_user){window.location.href="login.html"; return;}
       user=_user; await loadAllResults();
     });
 
     async function loadAllResults() {
       showLoading();
-      allResults=[];
-      const racesSnap = await getDocs(collection(db,"races"));
-      const tipsSnap = await getDocs(collection(db,"tips"));
-      const userTips={};
-      tipsSnap.forEach(d=>{const t=d.data(); if(t.userId===user.uid) userTips[t.raceId]=t;});
+      try {
+        allResults=[];
+        const [racesSnap, tipsSnap, resultsSnap] = await Promise.all([
+          getDocs(collection(db,"races")),
+          getDocs(collection(db,"tips")),
+          getDocs(collection(db,"results"))
+        ]);
 
-      for(const docSnap of racesSnap.docs){
-        const race={id:docSnap.id,...docSnap.data()};
-        const resultDoc=await getDoc(doc(db,"results",race.id));
-        if(!resultDoc.exists()) continue;
-        const rd=resultDoc.data();
+        const userTips={};
+        tipsSnap.forEach(d=>{const t=d.data(); if(t.userId===user.uid) userTips[t.raceId]=t;});
 
-        const winnerPoints=parseFloat(rd.points)||0;
-        const place1Points=parseFloat(rd.place1Points)||0;
-        const place2Points=parseFloat(rd.place2Points)||0;
+        const resultsMap={};
+        resultsSnap.forEach(d=>{resultsMap[d.id]=d.data();});
 
-        const tip=userTips[race.id];
-        let horseId=tip?tip.horseId:null;
-        let joker=tip?tip.joker===true:false;
-        if(tip && race.horses && horseId && race.horses[horseId]?.scratched){
-          const sub=Object.entries(race.horses).find(([_,h])=>h.substitute);
-          if(sub) horseId=sub[0];
+        for(const docSnap of racesSnap.docs){
+          const race={id:docSnap.id,...docSnap.data()};
+          const rd=resultsMap[race.id];
+          if(!rd) continue;
+
+          const winnerPoints=parseFloat(rd.points)||0;
+          const place1Points=parseFloat(rd.place1Points)||0;
+          const place2Points=parseFloat(rd.place2Points)||0;
+
+          const tip=userTips[race.id];
+          let horseId=tip?tip.horseId:null;
+          let joker=tip?tip.joker===true:false;
+          if(tip && race.horses && horseId && race.horses[horseId]?.scratched){
+            const sub=Object.entries(race.horses).find(([_,h])=>h.substitute);
+            if(sub) horseId=sub[0];
+          }
+
+          const winnerName=race.horses?.[rd.winningHorseId]?.name||"";
+          const place1Name=race.horses?.[rd.place1HorseId]?.name||"";
+          const place2Name=race.horses?.[rd.place2HorseId]?.name||"";
+
+          let correct=false, pts=0;
+          if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints;}
+          else if(horseId===rd.place1HorseId){correct=true; pts=place1Points;}
+          else if(horseId===rd.place2HorseId){correct=true; pts=place2Points;}
+          if(correct && joker && pts>0) pts*=2;
+
+          const dt= race.date ? DateTime.fromISO(race.date) : null;
+          const dtStr=dt?dt.toFormat("dd/LL/yyyy"):"";
+
+          allResults.push({race, rd, correct, pts, joker, winnerName, place1Name, place2Name, dt, dtStr});
         }
-
-        const winnerName=race.horses?.[rd.winningHorseId]?.name||"";
-        const place1Name=race.horses?.[rd.place1HorseId]?.name||"";
-        const place2Name=race.horses?.[rd.place2HorseId]?.name||"";
-
-        let correct=false, pts=0;
-        if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints;}
-        else if(horseId===rd.place1HorseId){correct=true; pts=place1Points;}
-        else if(horseId===rd.place2HorseId){correct=true; pts=place2Points;}
-        if(correct && joker && pts>0) pts*=2;
-
-        const dt= race.date ? DateTime.fromISO(race.date) : null;
-        const dtStr=dt?dt.toFormat("dd/LL/yyyy"):"";
-
-        allResults.push({race, rd, correct, pts, joker, winnerName, place1Name, place2Name, dt, dtStr});
+        renderResults();
+        saveCachedResults(allResults);
+      } catch (error) {
+        console.error('Error loading results:', error);
+      } finally {
+        hideLoading();
       }
-      renderResults();
-      hideLoading();
     }
 
     function renderResults(){
