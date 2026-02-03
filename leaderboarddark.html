@@ -408,7 +408,7 @@
         tbody.appendChild(tr);
 
         const card = document.createElement("div");
-        card.className = "leaderboard-card p-5 rounded-xl shadow cursor-pointer";
+        card.className = "leaderboard-card p-3 rounded-xl shadow cursor-pointer";
 
         let rankBadgeClass = "rank-other";
         if (i === 0) rankBadgeClass = "rank-1";
@@ -417,9 +417,9 @@
 
         card.innerHTML = `
           <div class="flex items-start justify-between mb-3">
-            <div class="flex items-center gap-3 flex-1">
-              <div class="rank-badge ${rankBadgeClass}" style="width: 2.5rem; height: 2.5rem;">${i + 1}</div>
-              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-14 h-14 rounded-lg object-cover border border-gray-600 flex-shrink-0">
+            <div class="flex items-center gap-2 flex-1">
+              <div class="rank-badge ${rankBadgeClass}" style="width: 2.25rem; height: 2.25rem; font-size: 0.875rem;">${i + 1}</div>
+              <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover border border-gray-600 flex-shrink-0">
               <div class="flex-1 min-w-0">
                 <h4 class="font-bold text-gray-100 truncate flex items-center gap-1">
                   <span>${entry.teamName || entry.userId}</span>
@@ -429,14 +429,14 @@
               </div>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-4">
-            <div class="bg-black/30 rounded-lg p-3">
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-black/30 rounded-lg p-2">
               <p class="text-xs text-gray-400 mb-1">Points</p>
-              <p class="text-xl font-bold text-yellow-400">${entry.points.toFixed(2)}</p>
+              <p class="text-lg font-bold text-yellow-400">${entry.points.toFixed(2)}</p>
             </div>
-            <div class="bg-black/30 rounded-lg p-3">
+            <div class="bg-black/30 rounded-lg p-2">
               <p class="text-xs text-gray-400 mb-1">Jokers</p>
-              <p class="text-xl font-bold text-yellow-400">${entry.jokers}</p>
+              <p class="text-lg font-bold text-yellow-400">${entry.jokers}</p>
             </div>
           </div>
         `;
