@@ -256,7 +256,11 @@
     onAuthStateChanged(auth, async (_user)=>{
       setBusy(true);
       try{
-        if(!_user){ setBusy(false); return; }
+        if(!_user){ 
+          setBusy(false); 
+          window.location.href="login.html"; 
+          return; 
+        }
         state.user=_user;
         const userRef=doc(db,"users",state.user.uid);
         const userSnap=await getDoc(userRef);
