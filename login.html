@@ -3,170 +3,185 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - Mock Sports Tipping</title>
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+  <title>Login - The Great Spring Tip Off</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#fbbf24">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 
   <style>
-    :root {
-      --gold: #FFD700;
-      --gold-dark: #bfa100;
-      --black: #181818;
-      --glass-bg: rgba(24,24,24,0.85);
-      --input-bg: rgba(255,255,255,0.08);
-      --input-border: #FFD700;
-      --error: #ff4d4f;
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-
-    * {
-      box-sizing: border-box;
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #181818 0%, #232526 100%);
-      color: #fff;
+    .input-field {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.4);
+      transition: all 0.2s ease;
     }
-
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem;
-    }
-
-    .login-container {
-      background: var(--glass-bg);
-      border-radius: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
-      backdrop-filter: blur(8px);
-      padding: 2rem;
-      width: 100%;
-      max-width: 400px;
-      animation: fadeInUp 1s ease-out both;
-    }
-
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(40px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    h2 {
-      text-align: center;
-      color: var(--gold);
-      font-family: 'Outfit', sans-serif;
-      font-size: 2rem;
-      margin-bottom: 1rem;
-    }
-
-    .gold-line {
-      width: 60px;
-      height: 4px;
-      background: linear-gradient(90deg, var(--gold), #fffbe6);
-      border-radius: 2px;
-      margin: 0 auto 1.5rem;
-      box-shadow: 0 0 8px 2px var(--gold);
-    }
-
-    .form-group {
-      margin-bottom: 1rem;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 0.3rem;
-      color: var(--gold);
-      font-weight: 600;
-    }
-
-    input {
-      width: 100%;
-      padding: 0.75rem;
-      background: var(--input-bg);
-      border: 2px solid var(--input-border);
-      border-radius: 8px;
-      color: #fff;
-      font-size: 1rem;
-    }
-
-    input:focus {
+    .input-field:focus {
+      border-color: rgba(251, 191, 36, 0.5);
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
       outline: none;
-      border-color: var(--gold-dark);
-      box-shadow: 0 0 0 2px var(--gold);
     }
-
-    button[type="submit"] {
+    .floating-shapes {
+      position: fixed;
       width: 100%;
-      padding: 0.75rem;
-      background: linear-gradient(90deg, var(--gold), #fffbe6);
-      color: #181818;
-      border: none;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      font-weight: 700;
-      cursor: pointer;
-      margin-top: 0.5rem;
+      height: 100%;
+      overflow: hidden;
+      z-index: 0;
+      pointer-events: none;
     }
-
-    button[type="submit"]:hover {
-      background: linear-gradient(90deg, #fffbe6, var(--gold));
+    .shape {
+      position: absolute;
+      opacity: 0.03;
+      animation: float 20s infinite ease-in-out;
     }
-
-    #error-message {
-      color: var(--error);
-      text-align: center;
-      margin-top: 10px;
-      min-height: 24px;
+    .shape-1 { top: 10%; left: 10%; width: 300px; height: 300px; animation-delay: 0s; }
+    .shape-2 { top: 60%; right: 15%; width: 250px; height: 250px; animation-delay: 5s; }
+    .shape-3 { bottom: 10%; left: 30%; width: 200px; height: 200px; animation-delay: 10s; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-30px) rotate(180deg); }
     }
-
-    .signup-link {
-      text-align: center;
-      margin-top: 1.5rem;
-      font-size: 0.95rem;
-      color: #ccc;
-    }
-
-    .signup-link a {
-      color: var(--gold);
-      text-decoration: underline;
-    }
-
-    @media (max-width: 480px) {
-      .login-container {
-        padding: 1.5rem 1rem;
-      }
-
-      h2 {
-        font-size: 1.5rem;
-      }
+    .logo-glow {
+      filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.3));
     }
   </style>
 </head>
-<body>
-  <div class="login-container">
-    <h2>Login</h2>
-    <div class="gold-line"></div>
-    <form id="login-form">
-      <div class="form-group">
-        <label for="email">Email:</label>
-        <input type="email" id="email" required>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+  <!-- Floating Background Shapes -->
+  <div class="floating-shapes">
+    <div class="shape shape-1 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-full blur-3xl"></div>
+    <div class="shape shape-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full blur-3xl"></div>
+    <div class="shape shape-3 bg-gradient-to-br from-yellow-600 to-amber-700 rounded-full blur-3xl"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="relative z-10 w-full max-w-md" data-aos="fade-up">
+    <!-- Logo & Brand -->
+    <div class="text-center mb-8">
+      <div class="inline-block logo-glow mb-4">
+        <img src="images/logo.png" alt="Logo" class="h-16 w-16 mx-auto" style="object-fit: contain;">
       </div>
-      <div class="form-group">
-        <label for="password">Password:</label>
-        <input type="password" id="password" required>
+      <h1 class="text-3xl font-bold gradient-text mb-2">The Great Spring Tip Off</h1>
+      <p class="text-gray-400 text-sm">by The Mock Sports</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="card rounded-2xl shadow-2xl p-8 relative overflow-hidden">
+      <!-- Subtle gradient overlay -->
+      <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/5 to-transparent rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-600/5 to-transparent rounded-full blur-3xl"></div>
+      
+      <div class="relative z-10">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold text-gray-100 mb-2">Welcome Back</h2>
+          <p class="text-gray-400 text-sm">Sign in to continue to your account</p>
+        </div>
+
+        <form id="login-form" class="space-y-5">
+          <!-- Email Input -->
+          <div>
+            <label for="email" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+              <i data-feather="mail" class="h-4 w-4 text-yellow-400"></i>
+              Email Address
+            </label>
+            <input 
+              type="email" 
+              id="email" 
+              required 
+              class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500"
+              placeholder="you@example.com"
+            >
+          </div>
+
+          <!-- Password Input -->
+          <div>
+            <label for="password" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+              <i data-feather="lock" class="h-4 w-4 text-yellow-400"></i>
+              Password
+            </label>
+            <input 
+              type="password" 
+              id="password" 
+              required 
+              class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500"
+              placeholder="••••••••"
+            >
+          </div>
+
+          <!-- Forgot Password -->
+          <div class="flex justify-end">
+            <a href="#" id="forgot-password" class="text-sm text-yellow-400 hover:text-yellow-300 transition font-medium flex items-center gap-1">
+              <i data-feather="help-circle" class="h-3 w-3"></i>
+              Forgot password?
+            </a>
+          </div>
+
+          <!-- Submit Button -->
+          <button 
+            type="submit" 
+            class="w-full py-3 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-bold hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 shadow-lg shadow-yellow-900/30 flex items-center justify-center gap-2"
+          >
+            <i data-feather="log-in" class="h-5 w-5"></i>
+            Sign In
+          </button>
+
+          <!-- Error Message -->
+          <div id="error-message" class="text-center text-sm min-h-[24px]"></div>
+        </form>
+
+        <!-- Divider -->
+        <div class="relative my-6">
+          <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-gray-700"></div>
+          </div>
+          <div class="relative flex justify-center text-sm">
+            <span class="px-4 bg-gray-800 text-gray-400">or</span>
+          </div>
+        </div>
+
+        <!-- Sign Up Link -->
+        <div class="text-center">
+          <p class="text-gray-400 text-sm mb-3">Don't have an account?</p>
+          <a 
+            href="signup.html" 
+            class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-2 border-yellow-500 text-yellow-400 font-semibold hover:bg-yellow-500 hover:text-gray-900 transition-all"
+          >
+            <i data-feather="user-plus" class="h-4 w-4"></i>
+            Create Account
+          </a>
+        </div>
       </div>
-      <div class="forgot-password-link" style="text-align:right; margin-bottom:0.5rem;">
-        <a href="#" id="forgot-password" style="color:var(--gold);font-size:0.95rem;text-decoration:underline;cursor:pointer;">Forgot password?</a>
+    </div>
+
+    <!-- Footer Links -->
+    <div class="mt-8 text-center space-y-3">
+      <div class="flex justify-center gap-6 text-sm">
+        <a href="faq.html" class="text-gray-400 hover:text-yellow-400 transition flex items-center gap-1">
+          <i data-feather="help-circle" class="h-4 w-4"></i>
+          Help
+        </a>
+        <a href="prizesdark.html" class="text-gray-400 hover:text-yellow-400 transition flex items-center gap-1">
+          <i data-feather="award" class="h-4 w-4"></i>
+          Prizes
+        </a>
       </div>
-      <button type="submit">Login</button>
-      <div id="error-message"></div>
-    </form>
-    <div class="signup-link">
-      Don't have an account? <a href="signup.html">Sign up</a>
+      <p class="text-gray-500 text-xs">&copy; 2026 The Mock Sports. All rights reserved.</p>
     </div>
   </div>
 
@@ -193,14 +208,18 @@
 
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      errorMessage.textContent = '';
+      errorMessage.className = 'text-center text-sm min-h-[24px]';
+      
       const email = loginForm['email'].value;
       const password = loginForm['password'].value;
 
       try {
         await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = 'index.html';
+        window.location.href = 'dark.html';
       } catch (error) {
         console.error('Login error:', error.code, error.message);
+        errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
         errorMessage.textContent = "Invalid email or password.";
       }
     });
@@ -208,17 +227,24 @@
     forgotPasswordLink.addEventListener('click', async (e) => {
       e.preventDefault();
       errorMessage.textContent = '';
+      errorMessage.className = 'text-center text-sm min-h-[24px]';
+      
       const email = prompt("Enter your email address to reset your password:");
       if (!email) return;
+      
       try {
         await sendPasswordResetEmail(auth, email);
-        errorMessage.style.color = "var(--gold)";
-        errorMessage.textContent = "Password reset email sent. Please check your inbox.";
+        errorMessage.className = 'text-center text-sm min-h-[24px] text-green-400 font-medium';
+        errorMessage.textContent = "✓ Password reset email sent. Please check your inbox.";
       } catch (error) {
-        errorMessage.style.color = "var(--error)";
+        errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
         errorMessage.textContent = "Failed to send reset email. Please check your email address.";
       }
     });
+
+    // Initialize AOS and Feather
+    AOS.init({ duration: 800, once: true });
+    feather.replace();
   </script>
 </body>
 </html>
