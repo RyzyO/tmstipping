@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Great Spring Tip Off - By The Mock Sports</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#fbbf24">
+
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <style>
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+      border-color: rgba(251, 191, 36, 0.3);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #1a1a1a;
+      padding: 14px 32px;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 6px -1px rgba(251, 191, 36, 0.3);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(251, 191, 36, 0.4);
+    }
+    .btn-secondary {
+      background: rgba(31, 41, 55, 0.9);
+      color: #e5e7eb;
+      padding: 14px 32px;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.1rem;
+    }
+    .btn-secondary:hover {
+      border-color: rgba(251, 191, 36, 0.6);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+    .hero-glow {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(251, 191, 36, 0.15) 0%, transparent 70%);
+      filter: blur(60px);
+      pointer-events: none;
+    }
+    .feature-icon {
+      width: 64px;
+      height: 64px;
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(217, 119, 6, 0.2));
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 glass-effect">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit: contain;" />
+          <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <!-- Mobile menu button -->
+          <button class="md:hidden" onclick="toggleMenu()">
+            <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
+          </button>
+          <!-- Desktop menu -->
+          <div class="hidden md:flex items-center space-x-6">
+            <a href="#features" class="text-gray-300 hover:text-yellow-400 transition">Features</a>
+            <a href="#how-it-works" class="text-gray-300 hover:text-yellow-400 transition">How It Works</a>
+            <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+            <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+            <a href="logindark.html" class="text-gray-300 hover:text-yellow-400 transition font-semibold">Sign In</a>
+            <a href="signup.html" class="btn-primary text-sm px-6 py-2">Sign Up</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
+      <a href="#features" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Features</a>
+      <a href="#how-it-works" class="block py-2 text-gray-300 hover:text-yellow-400 transition">How It Works</a>
+      <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+      <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+      <a href="logindark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Sign In</a>
+      <a href="signup.html" class="block py-2 text-yellow-400 hover:text-yellow-300 transition font-semibold">Sign Up</a>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="relative flex-grow">
+    <!-- Hero Section -->
+    <section class="relative overflow-hidden py-20 md:py-32">
+      <div class="hero-glow" style="top: -200px; left: 50%; transform: translateX(-50%);"></div>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="text-center" data-aos="fade-up">
+          <div class="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-500/20 to-amber-600/20 border border-yellow-500/30 rounded-full px-4 py-2 mb-6">
+            <i data-feather="zap" class="h-4 w-4 text-yellow-400"></i>
+            <span class="text-sm font-semibold text-yellow-400">Spring Racing Tipping Competition</span>
+          </div>
+          <h1 class="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
+            <span class="gradient-text">The Great Spring Tip Off</span>
+          </h1>
+          <p class="text-xl md:text-2xl text-gray-300 mb-10 max-w-3xl mx-auto">
+            Compete with friends and racing fans. Pick your winners, climb the leaderboard, and win amazing prizes!
+          </p>
+          <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <a href="signup.html" class="btn-primary">
+              Get Started Free
+              <i data-feather="arrow-right" class="h-5 w-5"></i>
+            </a>
+            <a href="logindark.html" class="btn-secondary">
+              Sign In
+              <i data-feather="log-in" class="h-5 w-5"></i>
+            </a>
+          </div>
+        
+        </div>
+
+        <!-- Hero Image/Visual -->
+        <div class="mt-16 relative" data-aos="fade-up" data-aos-delay="200">
+          <div class="card rounded-2xl shadow-2xl overflow-hidden p-8 relative">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+            <div class="relative z-10 text-center">
+              <img src="images/logo.png" alt="Racing" class="h-32 w-32 mx-auto mb-4 opacity-80">
+              <p class="text-gray-400 text-lg">Pick winners • Track your progress • Win prizes</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-20 bg-gray-950/50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+          <h2 class="text-3xl md:text-5xl font-bold mb-4">
+            <span class="gradient-text">Why Join?</span>
+          </h2>
+          <p class="text-xl text-gray-400">Everything you need for an exciting tipping competition</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="card rounded-2xl p-8 text-center" data-aos="fade-up">
+            <div class="feature-icon mx-auto">
+              <i data-feather="trophy" class="h-8 w-8 text-yellow-400"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-3 text-gray-100">Compete & Win</h3>
+            <p class="text-gray-400">Compete with other racing fans and climb the leaderboard for amazing prizes and bragging rights.</p>
+          </div>
+
+          <div class="card rounded-2xl p-8 text-center" data-aos="fade-up" data-aos-delay="100">
+            <div class="feature-icon mx-auto">
+              <i data-feather="trending-up" class="h-8 w-8 text-yellow-400"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-3 text-gray-100">Track Progress</h3>
+            <p class="text-gray-400">See your stats, track your wins, and monitor your position in real-time on the leaderboard.</p>
+          </div>
+
+          <div class="card rounded-2xl p-8 text-center" data-aos="fade-up" data-aos-delay="200">
+            <div class="feature-icon mx-auto">
+              <i data-feather="star" class="h-8 w-8 text-yellow-400"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-3 text-gray-100">Joker System</h3>
+            <p class="text-gray-400">Use your jokers strategically to double your points on races you're confident about.</p>
+          </div>
+
+          <div class="card rounded-2xl p-8 text-center" data-aos="fade-up" data-aos-delay="300">
+            <div class="feature-icon mx-auto">
+              <i data-feather="users" class="h-8 w-8 text-yellow-400"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-3 text-gray-100">Social Competition</h3>
+            <p class="text-gray-400">See how your friends are doing, compare tips, and build your racing community.</p>
+          </div>
+
+          <div class="card rounded-2xl p-8 text-center" data-aos="fade-up" data-aos-delay="400">
+            <div class="feature-icon mx-auto">
+              <i data-feather="smartphone" class="h-8 w-8 text-yellow-400"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-3 text-gray-100">Mobile Friendly</h3>
+            <p class="text-gray-400">Make your picks on the go with our fully responsive v2.0 mobile-optimized interface.</p>
+          </div>
+
+          <div class="card rounded-2xl p-8 text-center" data-aos="fade-up" data-aos-delay="500">
+            <div class="feature-icon mx-auto">
+              <i data-feather="award" class="h-8 w-8 text-yellow-400"></i>
+            </div>
+            <h3 class="text-xl font-bold mb-3 text-gray-100">Amazing Prizes</h3>
+            <p class="text-gray-400">Win incredible prizes throughout the competition with multiple chances to take home rewards.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="py-20">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+          <h2 class="text-3xl md:text-5xl font-bold mb-4">
+            <span class="gradient-text">How It Works</span>
+          </h2>
+          <p class="text-xl text-gray-400">Get started in three simple steps</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+          <div class="text-center" data-aos="fade-up">
+            <div class="card rounded-2xl p-8 mb-6">
+              <div class="w-16 h-16 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 border-2 border-yellow-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span class="text-3xl font-bold text-yellow-400">1</span>
+              </div>
+              <h3 class="text-2xl font-bold mb-3 text-gray-100">Sign Up</h3>
+              <p class="text-gray-400">Create your account and choose your team name. It only takes a minute!</p>
+            </div>
+          </div>
+
+          <div class="text-center" data-aos="fade-up" data-aos-delay="100">
+            <div class="card rounded-2xl p-8 mb-6">
+              <div class="w-16 h-16 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 border-2 border-yellow-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span class="text-3xl font-bold text-yellow-400">2</span>
+              </div>
+              <h3 class="text-2xl font-bold mb-3 text-gray-100">Make Your Tips</h3>
+              <p class="text-gray-400">Pick your winners for each race. Use your jokers wisely for double points!</p>
+            </div>
+          </div>
+
+          <div class="text-center" data-aos="fade-up" data-aos-delay="200">
+            <div class="card rounded-2xl p-8 mb-6">
+              <div class="w-16 h-16 bg-gradient-to-br from-yellow-500/20 to-amber-600/20 border-2 border-yellow-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                <span class="text-3xl font-bold text-yellow-400">3</span>
+              </div>
+              <h3 class="text-2xl font-bold mb-3 text-gray-100">Win Prizes</h3>
+              <p class="text-gray-400">Watch the races, earn points, and climb the leaderboard to win amazing prizes!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-20 bg-gray-950/50">
+      <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center" data-aos="fade-up">
+        <div class="card rounded-2xl shadow-2xl p-12 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+          <div class="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+          <div class="relative z-10">
+            <h2 class="text-3xl md:text-5xl font-bold mb-6">
+              Ready to <span class="gradient-text">Start Tipping?</span>
+            </h2>
+            <p class="text-xl text-gray-300 mb-10">
+              Join hundreds of racing fans competing for prizes. Sign up now and make your first picks!
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <a href="signup.html" class="btn-primary">
+                Create Account
+                <i data-feather="arrow-right" class="h-5 w-5"></i>
+              </a>
+              <a href="faqdark.html" class="btn-secondary">
+                Learn More
+                <i data-feather="help-circle" class="h-5 w-5"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-950 border-t border-gray-800 text-gray-400 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex flex-col items-center md:items-start">
+          <div class="flex items-center mb-2">
+            <img src="images/logo.png" alt="Logo" class="h-6 w-6 mr-2" style="object-fit: contain;" />
+            <span class="font-semibold text-gray-300">The Mock Sports</span>
+          </div>
+          <p class="text-sm text-gray-500">&copy; 2026 All rights reserved.</p>
+        </div>
+        <div class="flex space-x-6">
+          <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on X">
+            <i data-feather="twitter" class="h-5 w-5"></i>
+          </a>
+          <a href="https://facebook.com/TheMockSports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Facebook">
+            <i data-feather="facebook" class="h-5 w-5"></i>
+          </a>
+          <a href="https://instagram.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Instagram">
+            <i data-feather="instagram" class="h-5 w-5"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.location.href = "dark.html";
+      }
+    });
+  </script>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById("mobileMenu");
+      menu.classList.toggle("hidden");
+    }
+
+    // Smooth scrolling for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Close mobile menu if open
+          const menu = document.getElementById("mobileMenu");
+          if (!menu.classList.contains("hidden")) {
+            menu.classList.add("hidden");
+          }
+        }
+      });
+    });
+
+    // Initialize AOS
+    AOS.init({
+      duration: 1000,
+      once: true,
+      offset: 100
+    });
+
+    // Initialize Feather icons
+    feather.replace();
+  </script>
+</body>
+</html>

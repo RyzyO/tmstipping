@@ -194,6 +194,7 @@
             <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
             <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
             <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
+            <button onclick="signOut()" class="text-gray-300 hover:text-red-400 transition font-semibold">Sign Out</button>
           </div>
         </div>
       </div>
@@ -207,6 +208,7 @@
       <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
       <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
       <a href="profiledark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Profile</a>
+      <button onclick="signOut()" class="block w-full text-left py-2 text-red-400 hover:text-red-300 transition font-semibold">Sign Out</button>
     </div>
   </nav>
 
@@ -300,7 +302,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const { DateTime } = luxon;
 
@@ -338,6 +340,16 @@
     let searchTimeout;
     let currentUserId = null;
     const LEADERBOARD_CACHE_KEY = "tmstipping:leaderboardCache";
+
+    function signOut() {
+      firebaseSignOut(auth).then(() => {
+        window.location.href = "landing.html";
+      }).catch((error) => {
+        console.error('Sign out error:', error);
+        alert('Error signing out. Please try again.');
+      });
+    }
+    window.signOut = signOut;
 
     function showLoading() {
       document.getElementById("loading-overlay").classList.remove("hidden");
