@@ -192,7 +192,7 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div class="card rounded-2xl p-8 text-center" data-aos="fade-up">
             <div class="feature-icon mx-auto">
-              <i data-feather="trophy" class="h-8 w-8 text-yellow-400"></i>
+              <i data-feather="award" class="h-8 w-8 text-yellow-400"></i>
             </div>
             <h3 class="text-xl font-bold mb-3 text-gray-100">Compete & Win</h3>
             <p class="text-gray-400">Compete with other racing fans and climb the leaderboard for amazing prizes and bragging rights.</p>
@@ -392,8 +392,8 @@
       offset: 100
     });
 
-    // Initialize Feather icons
-    feather.replace();
+    // Initialize Feather icons with a small delay to ensure DOM is ready
+    setTimeout(() => feather.replace(), 100);
   </script>
 </body>
 </html>
