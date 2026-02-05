@@ -293,9 +293,12 @@
             document.getElementById("scrapeBtnLoader").style.display = "inline-block";
 
             try {
-                // Fetch the RacingNSW page
+                // Fetch the RacingNSW page via CORS proxy
                 console.log("Fetching RacingNSW acceptances page...");
-                const response = await fetch(url);
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                console.log("Using proxy URL:", proxyUrl);
+                
+                const response = await fetch(proxyUrl);
                 console.log("Fetch response status:", response.status);
                 
                 const html = await response.text();
@@ -417,7 +420,11 @@
             console.log("[extractSilkIdFromRunner] Full URL:", fullUrl);
             
             try {
-                const response = await fetch(fullUrl);
+                // Use CORS proxy to fetch runner page
+                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fullUrl)}`;
+                console.log("[extractSilkIdFromRunner] Proxy URL:", proxyUrl);
+                
+                const response = await fetch(proxyUrl);
                 console.log("[extractSilkIdFromRunner] Fetch status:", response.status);
                 
                 const html = await response.text();
