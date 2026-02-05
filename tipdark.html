@@ -58,9 +58,11 @@
       border: 2px solid rgba(75, 85, 99, 0.4);
       transition: all 0.2s ease;
     }
-    .horse-row:hover {
-      border-color: rgba(251, 191, 36, 0.5);
-      background: linear-gradient(145deg, rgba(55, 65, 81, 1), rgba(31, 41, 55, 1));
+    @media (hover: hover) and (pointer: fine) {
+      .horse-row:hover {
+        border-color: rgba(251, 191, 36, 0.5);
+        background: linear-gradient(145deg, rgba(55, 65, 81, 1), rgba(31, 41, 55, 1));
+      }
     }
     .horse-row.selected {
       border-color: rgba(251, 191, 36, 0.8);
