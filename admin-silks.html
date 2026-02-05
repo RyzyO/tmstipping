@@ -295,7 +295,7 @@
             try {
                 // Fetch the RacingNSW page via CORS proxy
                 console.log("Fetching RacingNSW acceptances page...");
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
                 console.log("Using proxy URL:", proxyUrl);
                 
                 const response = await fetch(proxyUrl);
@@ -421,7 +421,7 @@
             
             try {
                 // Use CORS proxy to fetch runner page
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fullUrl)}`;
+                const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(fullUrl)}`;
                 console.log("[extractSilkIdFromRunner] Proxy URL:", proxyUrl);
                 
                 const response = await fetch(proxyUrl);
