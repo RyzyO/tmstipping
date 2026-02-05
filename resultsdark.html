@@ -193,7 +193,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    let user=null, allResults=[];
+    let user=null, allResults=[], countdownTimer=null;
     const RESULTS_CACHE_KEY = "tmstipping:resultsCache";
 
     function getCachedResults() {
@@ -235,6 +235,31 @@
       user=_user; await loadAllResults();
     });
 
+    function formatCountdown(targetMillis) {
+      const diff = targetMillis - DateTime.now().toMillis();
+      if (diff <= 0) return "Jumped";
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor(diff / 3600000) % 24;
+      const m = Math.floor(diff / 60000) % 60;
+      const s = Math.floor(diff / 1000) % 60;
+      let text = "Jumps in: ";
+      if (d > 0) text += `${d}d `;
+      if (h > 0 || d > 0) text += `${h}h `;
+      text += `${m}m ${s}s`;
+      return text;
+    }
+
+    function startCountdownRefresh() {
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        document.querySelectorAll("[data-jump-millis]").forEach((el) => {
+          const target = Number(el.getAttribute("data-jump-millis"));
+          if (Number.isNaN(target)) return;
+          el.textContent = formatCountdown(target);
+        });
+      }, 1000);
+    }
+
     async function loadAllResults() {
       if (!hasInitialCache) showLoading();
       try {
@@ -254,13 +279,17 @@
         for(const docSnap of racesSnap.docs){
           const race={id:docSnap.id,...docSnap.data()};
           const rd=resultsMap[race.id];
-          if(!rd) continue;
-
-          const winnerPoints=parseFloat(rd.points)||0;
-          const place1Points=parseFloat(rd.place1Points)||0;
-          const place2Points=parseFloat(rd.place2Points)||0;
-
           const tip=userTips[race.id];
+          if (!rd && !tip) continue;
+
+          const dt = race.date && race.time
+            ? DateTime.fromISO(`${race.date}T${race.time}`, { zone: "Australia/Sydney" })
+            : race.date
+              ? DateTime.fromISO(race.date)
+              : null;
+          const dtStr = dt ? dt.toFormat("dd/LL/yyyy") : "";
+          const dtMillis = dt ? dt.toMillis() : 0;
+
           let horseId=tip?tip.horseId:null;
           let joker=tip?tip.joker===true:false;
           if(tip && race.horses && horseId && race.horses[horseId]?.scratched){
@@ -270,24 +299,39 @@
 
           const tippedHorse=horseId?race.horses?.[horseId]:null;
           const tippedName=tippedHorse?.name||"";
-          const winnerHorse=race.horses?.[rd.winningHorseId];
-          const place1Horse=race.horses?.[rd.place1HorseId];
-          const place2Horse=race.horses?.[rd.place2HorseId];
-          const winnerName=winnerHorse?.name||"";
-          const place1Name=place1Horse?.name||"";
-          const place2Name=place2Horse?.name||"";
 
           let correct=false, pts=0;
-          if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints;}
-          else if(horseId===rd.place1HorseId){correct=true; pts=place1Points;}
-          else if(horseId===rd.place2HorseId){correct=true; pts=place2Points;}
-          if(correct && joker && pts>0) pts*=2;
+          let winnerName="", place1Name="", place2Name="";
+          if (rd) {
+            const winnerPoints=parseFloat(rd.points)||0;
+            const place1Points=parseFloat(rd.place1Points)||0;
+            const place2Points=parseFloat(rd.place2Points)||0;
+            const winnerHorse=race.horses?.[rd.winningHorseId];
+            const place1Horse=race.horses?.[rd.place1HorseId];
+            const place2Horse=race.horses?.[rd.place2HorseId];
+            winnerName=winnerHorse?.name||"";
+            place1Name=place1Horse?.name||"";
+            place2Name=place2Horse?.name||"";
 
-          const dt= race.date ? DateTime.fromISO(race.date) : null;
-          const dtStr=dt?dt.toFormat("dd/LL/yyyy"):"";
-          const dtMillis=dt?dt.toMillis():0;
+            if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints;}
+            else if(horseId===rd.place1HorseId){correct=true; pts=place1Points;}
+            else if(horseId===rd.place2HorseId){correct=true; pts=place2Points;}
+            if(correct && joker && pts>0) pts*=2;
+          }
 
-          allResults.push({race, rd, correct, pts, joker, tippedName, winnerName, place1Name, place2Name, dtStr, dtMillis});
+          allResults.push({
+            race,
+            rd,
+            correct,
+            pts,
+            joker,
+            tippedName,
+            winnerName,
+            place1Name,
+            place2Name,
+            dtStr,
+            dtMillis
+          });
         }
         renderResults();
         saveCachedResults(allResults);
@@ -306,7 +350,7 @@
       // Apply filters
       const winFilter=document.getElementById("filter-win").value;
       if(winFilter==="wins") results=results.filter(r=>r.correct);
-      if(winFilter==="losses") results=results.filter(r=>!r.correct);
+      if(winFilter==="losses") results=results.filter(r=>r.rd && !r.correct);
 
       const venueFilter=document.getElementById("filter-venue").value;
       if(venueFilter!=="all") results=results.filter(r=>r.race.name?.toLowerCase().includes(venueFilter));
@@ -340,13 +384,21 @@
       // Render
       results.forEach(({race,rd,correct,pts,joker,tippedName,winnerName,place1Name,place2Name,dtStr})=>{
         const card=document.createElement("div");
-        card.className=`p-6 rounded-xl shadow-lg result-card ${correct?"correct":"incorrect"}`;
+        const cardStateClass = rd ? (correct?"correct":"incorrect") : "";
+        card.className=`p-6 rounded-xl shadow-lg result-card ${cardStateClass}`;
+        const jumpMillis = race.date && race.time
+          ? DateTime.fromISO(`${race.date}T${race.time}`, { zone: "Australia/Sydney" }).toMillis()
+          : null;
+        const countdownHtml = jumpMillis
+          ? `<p class="text-sm text-yellow-400 font-semibold" data-jump-millis="${jumpMillis}">${formatCountdown(jumpMillis)}</p>`
+          : "";
         card.innerHTML=`
           <h3 class="text-xl font-bold mb-1">${race.name}</h3>
           <p class="text-sm text-gray-400 mb-2">${dtStr}</p>
           <p class="text-gray-300">
-            ${correct?`You earned <span class="text-green-500 font-bold">+${pts.toFixed(2)}</span>`:"No points earned"}
+            ${rd ? (correct?`You earned <span class="text-green-500 font-bold">+${pts.toFixed(2)}</span>`:"No points earned") : (tippedName ? `Tip placed: <span class="text-gray-100 font-semibold">${tippedName}</span>` : "Tip placed")}
           </p>
+          ${rd ? "" : countdownHtml}
         `;
         card.onclick=()=>{
           const modalContent = `
@@ -355,30 +407,39 @@
                 <p class="text-xs text-blue-300 mb-1">Your Tip</p>
                 <p class="text-xl font-bold text-blue-200">${tippedName||"No tip placed"}</p>
               </div>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div class="bg-black/30 rounded-lg p-3 ${tippedName===winnerName?'border-2 border-green-500/50 bg-green-600/10':''}">
-                  <p class="text-xs text-gray-400 mb-1">🥇 1st Place</p>
-                  <p class="font-semibold text-gray-200">${winnerName}</p>
+              ${rd ? `
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="bg-black/30 rounded-lg p-3 ${tippedName===winnerName?'border-2 border-green-500/50 bg-green-600/10':''}">
+                    <p class="text-xs text-gray-400 mb-1">🥇 1st Place</p>
+                    <p class="font-semibold text-gray-200">${winnerName}</p>
+                  </div>
+                  <div class="bg-black/30 rounded-lg p-3 ${tippedName===place1Name?'border-2 border-green-500/50 bg-green-600/10':''}">
+                    <p class="text-xs text-gray-400 mb-1">🥈 2nd Place</p>
+                    <p class="font-semibold text-gray-200">${place1Name}</p>
+                  </div>
+                  <div class="bg-black/30 rounded-lg p-3 ${tippedName===place2Name?'border-2 border-green-500/50 bg-green-600/10':''}">
+                    <p class="text-xs text-gray-400 mb-1">🥉 3rd Place</p>
+                    <p class="font-semibold text-gray-200">${place2Name}</p>
+                  </div>
                 </div>
-                <div class="bg-black/30 rounded-lg p-3 ${tippedName===place1Name?'border-2 border-green-500/50 bg-green-600/10':''}">
-                  <p class="text-xs text-gray-400 mb-1">🥈 2nd Place</p>
-                  <p class="font-semibold text-gray-200">${place1Name}</p>
+                <div class="pt-4 border-t border-gray-700/50">
+                  ${correct?`<p class="text-3xl font-bold text-green-400">✓ +${pts.toFixed(2)}</p>`:`<p class="text-lg font-semibold text-red-400">✗ No points</p>`}
                 </div>
-                <div class="bg-black/30 rounded-lg p-3 ${tippedName===place2Name?'border-2 border-green-500/50 bg-green-600/10':''}">
-                  <p class="text-xs text-gray-400 mb-1">🥉 3rd Place</p>
-                  <p class="font-semibold text-gray-200">${place2Name}</p>
+                ${joker && correct?`<p class="mt-2 bg-purple-600/30 text-purple-300 px-3 py-2 rounded border border-purple-500/30 text-sm font-semibold">🔥 JOKER BONUS - Points Doubled!</p>`:``}
+              ` : `
+                <div class="bg-gray-800/60 rounded-lg p-4 border border-gray-700">
+                  <p class="text-xs text-gray-400 mb-2">Countdown to jump</p>
+                  ${jumpMillis ? `<p class="text-lg font-semibold text-yellow-400" data-jump-millis="${jumpMillis}">${formatCountdown(jumpMillis)}</p>` : `<p class="text-sm text-gray-400">Jump time unavailable</p>`}
                 </div>
-              </div>
-              <div class="pt-4 border-t border-gray-700/50">
-                ${correct?`<p class="text-3xl font-bold text-green-400">✓ +${pts.toFixed(2)}</p>`:`<p class="text-lg font-semibold text-red-400">✗ No points</p>`}
-              </div>
-              ${joker && correct?`<p class="mt-2 bg-purple-600/30 text-purple-300 px-3 py-2 rounded border border-purple-500/30 text-sm font-semibold">🔥 JOKER BONUS - Points Doubled!</p>`:``}
+              `}
             </div>
           `;
           openModal(race, modalContent);
+          startCountdownRefresh();
         };
         container.appendChild(card);
       });
+      startCountdownRefresh();
     }
 
     // Hook up filter controls
