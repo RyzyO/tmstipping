@@ -459,6 +459,8 @@
     function renderHorsesRadioList(race,tippedHorseId){
       const list=document.getElementById("horses-radio-list");
       list.innerHTML="";
+      // Ensure tippedHorseId is a string for proper comparison
+      const tippedId = tippedHorseId ? String(tippedHorseId) : null;
       Object.entries(race.horses||{}).filter(([_,h])=>!h.scratched).sort((a,b)=>a[1].number-b[1].number).forEach(([id,h])=>{
         const d=document.createElement("div");
         d.className="horse-row rounded-lg p-4 cursor-pointer";
@@ -498,7 +500,9 @@
           </div>
         `;
         
-        if(id===tippedHorseId)d.classList.add("selected");
+        if(tippedId && id === tippedId) {
+          d.classList.add("selected");
+        }
         d.onclick=()=>{
           document.querySelectorAll(".horse-row").forEach(e=>e.classList.remove("selected"));
           d.classList.add("selected");
