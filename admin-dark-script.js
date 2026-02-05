@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, writeBatch, query, where } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, writeBatch, query, where, addDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
 
 // Initialize Firebase
@@ -326,6 +326,10 @@ function showNewRaceForm() {
   document.getElementById('race-form').reset();
   document.getElementById('horses-list').innerHTML = '';
   document.getElementById('paste-table').value = '';
+  const silksUrlInput = document.getElementById('race-silks-url');
+  if (silksUrlInput) {
+    silksUrlInput.value = '';
+  }
   addManualHorse(); // Add one empty horse row
 }
 
@@ -346,7 +350,7 @@ function addManualHorse() {
     <input type="text" placeholder="Jockey" class="horse-jockey" style="width: 120px;">
     <input type="number" placeholder="Barrier" class="horse-barrier" style="width: 80px;">
     <input type="text" placeholder="Weight" class="horse-weight" style="width: 80px;">
-    <input type="text" placeholder="Silk Desc" class="horse-silk-desc" style="width: 100px;">
+    <input type="text" placeholder="Silk ID" class="horse-silk-id" style="width: 100px;" readonly>
     <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
   `;
   horsesList.appendChild(horseRow);
@@ -397,7 +401,7 @@ async function scrapeHorsesFromUrl() {
         <input type="text" placeholder="Jockey" class="horse-jockey" value="${horse.jockey}" style="width: 120px;">
         <input type="number" placeholder="Barrier" class="horse-barrier" value="${horse.barrier}" style="width: 80px;">
         <input type="text" placeholder="Weight" class="horse-weight" value="${horse.weight}" style="width: 80px;">
-        <input type="text" placeholder="Silk Desc" class="horse-silk-desc" value="${horse.silk}" style="width: 100px;">
+        <input type="text" placeholder="Silk ID" class="horse-silk-id" value="" style="width: 100px;" readonly>
         <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
       `;
       horsesList.appendChild(horseRow);
@@ -412,6 +416,190 @@ async function scrapeHorsesFromUrl() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i data-feather="download" class="h-4 w-4"></i> Scrape';
+    feather.replace();
+  }
+}
+
+function normalizeHorseName(value) {
+  return (value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .trim();
+}
+
+function normalizeHorseNumber(value) {
+  const match = (value || '').toString().trim().match(/^(\d+)([a-z])?/i);
+  if (!match) {
+    return '';
+  }
+  return `${match[1]}${match[2] ? match[2].toLowerCase() : ''}`;
+}
+
+function buildHorseRowIndex() {
+  const rows = Array.from(document.querySelectorAll('#horses-list .horse-row'));
+  const byNumber = new Map();
+  const byName = new Map();
+
+  rows.forEach(row => {
+    const numberValue = normalizeHorseNumber(row.querySelector('.horse-no')?.value || '');
+    const nameValue = normalizeHorseName(row.querySelector('.horse-name')?.value || '');
+    if (numberValue) {
+      byNumber.set(numberValue, row);
+    }
+    if (nameValue) {
+      byName.set(nameValue, row);
+    }
+  });
+
+  return { byNumber, byName };
+}
+
+function extractHorseNumberFromRow(row) {
+  if (!row) {
+    return '';
+  }
+  const firstCell = row.querySelector('td');
+  if (!firstCell) {
+    return '';
+  }
+  return normalizeHorseNumber(firstCell.textContent || '');
+}
+
+async function scrapeSilksFromUrl() {
+  console.log('[scrapeSilksFromUrl] Starting...');
+  const url = document.getElementById('race-silks-url').value;
+  console.log('[scrapeSilksFromUrl] URL input:', url);
+  
+  if (!url) {
+    console.warn('[scrapeSilksFromUrl] No URL provided');
+    showNotification('Please enter a RacingNSW URL', 'error', 'form-notifications');
+    return;
+  }
+
+  const horseRows = document.querySelectorAll('#horses-list .horse-row');
+  console.log('[scrapeSilksFromUrl] Found', horseRows.length, 'horse rows');
+  
+  if (horseRows.length === 0) {
+    console.warn('[scrapeSilksFromUrl] No horse rows found');
+    showNotification('Add horses first, then import silks.', 'error', 'form-notifications');
+    return;
+  }
+
+  const btn = document.getElementById('scrape-silks-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
+
+  try {
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+    console.log('[scrapeSilksFromUrl] Proxy URL:', proxyUrl);
+    
+    const response = await fetch(proxyUrl);
+    console.log('[scrapeSilksFromUrl] Fetch response status:', response.status);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch RacingNSW URL');
+    }
+
+    const html = await response.text();
+    console.log('[scrapeSilksFromUrl] HTML length:', html.length);
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    console.log('[scrapeSilksFromUrl] HTML parsed');
+
+    const runnerLinks = Array.from(doc.querySelectorAll("a[onclick*='HorseFullForm.aspx']"));
+    console.log('[scrapeSilksFromUrl] Found', runnerLinks.length, 'runner links');
+    
+    const runnerEntries = runnerLinks.map(link => {
+      const row = link.closest('tr');
+      const number = extractHorseNumberFromRow(row);
+      const name = (link.textContent || '').trim();
+      const onclick = link.getAttribute('onclick') || '';
+      const match = onclick.match(/newPopup\('([^']*HorseFullForm\.aspx[^']*)'\)/i);
+      const path = match ? match[1] : '';
+      console.log('[scrapeSilksFromUrl] Runner - Name:', name, 'Number:', number, 'Path found:', !!path);
+      return { name, number, path };
+    }).filter(entry => entry.path);
+
+    console.log('[scrapeSilksFromUrl] Filtered to', runnerEntries.length, 'runners with paths');
+
+    if (runnerEntries.length === 0) {
+      console.warn('[scrapeSilksFromUrl] No valid runner entries found');
+      showNotification('No runner links found on this page.', 'error', 'form-notifications');
+      return;
+    }
+
+    const { byNumber, byName } = buildHorseRowIndex();
+    console.log('[scrapeSilksFromUrl] Built horse index - by number:', byNumber.size, 'by name:', byName.size);
+    
+    let updated = 0;
+    let missing = 0;
+
+    for (const entry of runnerEntries) {
+      console.log('[scrapeSilksFromUrl] Processing runner:', entry.name);
+      
+      const fullUrl = new URL(entry.path, 'https://racing.racingnsw.com.au').href;
+      console.log('[scrapeSilksFromUrl] Full URL:', fullUrl);
+      
+      const runnerProxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(fullUrl)}`;
+
+      const runnerResponse = await fetch(runnerProxyUrl);
+      console.log('[scrapeSilksFromUrl] Runner page fetch status:', runnerResponse.status);
+      
+      if (!runnerResponse.ok) {
+        console.warn('[scrapeSilksFromUrl] Failed to fetch runner page for:', entry.name);
+        missing += 1;
+        continue;
+      }
+
+      const runnerHtml = await runnerResponse.text();
+      console.log('[scrapeSilksFromUrl] Runner HTML length:', runnerHtml.length);
+      
+      const silkMatch = runnerHtml.match(/JockeySilks\/(\d+)\.png/i);
+      console.log('[scrapeSilksFromUrl] Silk ID found:', silkMatch ? silkMatch[1] : 'null');
+      
+      if (!silkMatch) {
+        console.warn('[scrapeSilksFromUrl] No silk ID found for:', entry.name);
+        missing += 1;
+        continue;
+      }
+
+      const silksId = silkMatch[1];
+      const normalizedName = normalizeHorseName(entry.name);
+      console.log('[scrapeSilksFromUrl] Looking for horse with normalized name:', normalizedName);
+      
+      const row = normalizedName && byName.get(normalizedName);
+      console.log('[scrapeSilksFromUrl] Horse row found:', !!row);
+
+      if (!row) {
+        console.warn('[scrapeSilksFromUrl] No matching horse row for:', entry.name);
+        missing += 1;
+        continue;
+      }
+
+      const silkIdInput = row.querySelector('.horse-silk-id');
+      console.log('[scrapeSilksFromUrl] Silk ID input element found:', !!silkIdInput);
+      
+      if (silkIdInput) {
+        silkIdInput.value = silksId;
+        console.log('[scrapeSilksFromUrl] Set silksId:', silksId, 'for horse:', entry.name);
+        showNotification(`Silk found: ${entry.name} (ID: ${silksId})`, 'success', 'form-notifications');
+        updated += 1;
+      } else {
+        console.warn('[scrapeSilksFromUrl] No silk ID input element for:', entry.name);
+        missing += 1;
+      }
+    }
+
+    console.log('[scrapeSilksFromUrl] Complete - Updated:', updated, 'Missing:', missing);
+    document.getElementById('race-silks-url').value = '';
+    showNotification(`Silks updated: ${updated}. Missing: ${missing}.`, 'success', 'form-notifications');
+  } catch (error) {
+    console.error('[scrapeSilksFromUrl] Fatal error:', error);
+    showNotification('Error scraping silks: ' + error.message, 'error', 'form-notifications');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-feather="download" class="h-4 w-4"></i> Scrape Silks';
     feather.replace();
   }
 }
@@ -603,7 +791,7 @@ function parseHorseTable() {
         <input type="text" placeholder="Jockey" class="horse-jockey" value="${cols[3].trim()}" style="width: 120px;">
         <input type="number" placeholder="Barrier" class="horse-barrier" value="${cols[4].trim()}" style="width: 80px;">
         <input type="text" placeholder="Weight" class="horse-weight" value="${cols[5].trim()}" style="width: 80px;">
-        <input type="text" placeholder="Silk Desc" class="horse-silk-desc" style="width: 100px;">
+        <input type="text" placeholder="Silk ID" class="horse-silk-id" style="width: 100px;" readonly>
         <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
       `;
       horsesList.appendChild(horseRow);
@@ -633,7 +821,7 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
     const jockey = row.querySelector('.horse-jockey').value;
     const barrier = row.querySelector('.horse-barrier').value;
     const weight = row.querySelector('.horse-weight').value;
-    const silkDesc = row.querySelector('.horse-silk-desc').value;
+    const silksId = row.querySelector('.horse-silk-id')?.value || '';
 
     if (horseName) {
       horses[idx] = {
@@ -643,7 +831,7 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
         jockey,
         barrier,
         weight,
-        silkDesc: silkDesc || ''
+        silksId
       };
     }
   });
@@ -988,6 +1176,25 @@ function switchTab(tabName) {
     loadResultsForm();
   }
 }
+
+// Expose global functions for onclick handlers
+window.scrapeSilksFromUrl = scrapeSilksFromUrl;
+window.scrapeHorsesFromUrl = scrapeHorsesFromUrl;
+window.addManualHorse = addManualHorse;
+window.parseHorseTable = parseHorseTable;
+window.cancelForm = cancelForm;
+window.selectRace = selectRace;
+window.showNewRaceForm = showNewRaceForm;
+window.updateRaceDate = updateRaceDate;
+window.updateRaceTime = updateRaceTime;
+window.updateRaceDistance = updateRaceDistance;
+window.updateRacePreview = updateRacePreview;
+window.saveHorseChange = saveHorseChange;
+window.addHorseToRace = addHorseToRace;
+window.saveResults = saveResults;
+window.switchTab = switchTab;
+window.toggleMobileNav = toggleMobileNav;
+window.toggleMobileSidebar = toggleMobileSidebar;
 
 // ============ UTILITIES ============
 function showNotification(message, type, containerId) {

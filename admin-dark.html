@@ -574,6 +574,21 @@
 
               <div class="border-t border-gray-700 pt-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <i data-feather="image" class="h-5 w-5 text-yellow-400"></i>
+                  Import Silks from RacingNSW
+                </h3>
+                <p class="text-gray-400 text-sm mb-3">Paste a RacingNSW acceptances URL to attach silks to the horses above.</p>
+                <div class="flex gap-2 mb-4">
+                  <input type="url" id="race-silks-url" class="form-group flex-1" placeholder="https://racing.racingnsw.com.au/FreeFields/Acceptances.aspx?Key=YYYYMmmDD,NSW,Venue">
+                  <button type="button" onclick="scrapeSilksFromUrl()" class="btn-secondary" id="scrape-silks-btn">
+                    <i data-feather="download" class="h-4 w-4"></i>
+                    Scrape Silks
+                  </button>
+                </div>
+              </div>
+
+              <div class="border-t border-gray-700 pt-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
                   <i data-feather="copy" class="h-5 w-5 text-yellow-400"></i>
                   Import Horses from Table
                 </h3>
@@ -679,7 +694,7 @@
                       <th>Jockey</th>
                       <th>Barrier</th>
                       <th>Weight</th>
-                      <th>Silk Desc</th>
+                      <th>Silk ID</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
