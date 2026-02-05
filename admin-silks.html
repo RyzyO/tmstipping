@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Silks Manager</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0f14;
+            --bg-2: #0f172a;
+            --panel: rgba(17, 24, 39, 0.92);
+            --panel-2: rgba(30, 41, 59, 0.7);
+            --border: rgba(148, 163, 184, 0.18);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #fbbf24;
+            --accent-2: #f97316;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Space Grotesk", "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 600px at 15% 10%, rgba(249, 115, 22, 0.18), transparent 60%),
+                radial-gradient(900px 500px at 85% 15%, rgba(59, 130, 246, 0.18), transparent 55%),
+                linear-gradient(180deg, var(--bg), var(--bg-2));
+            min-height: 100vh;
+        }
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2.5rem 1.25rem 3rem;
+        }
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .back-link {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .back-link:hover { color: var(--accent); }
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-size: 0.7rem;
+            color: var(--muted);
+            margin: 0;
+        }
+        .page-title {
+            font-size: clamp(2rem, 3vw, 3rem);
+            margin: 0.2rem 0;
+            font-weight: 700;
+        }
+        .subtitle {
+            color: var(--muted);
+            margin: 0;
+            max-width: 520px;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
+            animation: float-in 0.6s ease;
+            margin-bottom: 1.5rem;
+        }
+        .panel-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        .panel-header h4 { margin: 0; font-weight: 600; }
+        .panel-hint {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-control, .form-select {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 0.6rem 0.9rem;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: rgba(251, 191, 36, 0.6);
+            box-shadow: 0 0 0 0.2rem rgba(251, 191, 36, 0.15);
+            background: rgba(15, 23, 42, 0.95);
+            color: var(--text);
+        }
+        .btn {
+            border-radius: 10px;
+            padding: 0.6rem 1.2rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg);
+        }
+        .btn-primary:hover {
+            background: #f59e0b;
+            transform: translateY(-2px);
+        }
+        .btn-secondary {
+            background: rgba(148, 163, 184, 0.2);
+            color: var(--text);
+        }
+        .btn-secondary:hover {
+            background: rgba(148, 163, 184, 0.3);
+        }
+        .table {
+            color: var(--text);
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        .table thead th {
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-size: 0.7rem;
+            color: var(--muted);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 0.9rem 1rem;
+        }
+        .table tbody td {
+            border-color: rgba(148, 163, 184, 0.12);
+            padding: 0.85rem 1rem;
+        }
+        .table tbody tr:hover {
+            background: rgba(148, 163, 184, 0.08);
+        }
+        .silk-img {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            object-fit: contain;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .status-success {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+        .status-pending {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--accent);
+        }
+        .status-error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(251, 191, 36, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes float-in {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 991px) {
+            .page { padding-top: 2rem; }
+            .panel { padding: 1.25rem; }
+            .table { font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="page-header">
+            <a href="admin-dark.html" class="back-link">&larr; Back to Admin</a>
+            <div>
+                <p class="eyebrow">Admin Console</p>
+                <h1 class="page-title">Silks Manager</h1>
+                <p class="subtitle">Scrape and save horse silk images from RacingNSW.</p>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h4>Scrape RacingNSW Acceptances</h4>
+                <span class="panel-hint">Provide a RacingNSW acceptances URL and we'll extract silk IDs for each runner.</span>
+            </div>
+            <div class="form-group">
+                <label for="racingNswUrl" style="margin-bottom: 0.5rem;">RacingNSW Acceptances URL</label>
+                <input type="text" id="racingNswUrl" class="form-control" placeholder="e.g., https://racing.racingnsw.com.au/FreeFields/Acceptances.aspx?Key=2026Feb07,NSW,Royal%20Randwick">
+            </div>
+            <button id="scrapeBtn" class="btn btn-primary">
+                <span id="scrapeBtnText">Scrape & Save Silks</span>
+                <span id="scrapeBtnLoader" class="loading-spinner" style="display: none; margin-left: 0.5rem;"></span>
+            </button>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <h4>Recent Scrape Results</h4>
+                <span class="panel-hint">Last 50 horses updated.</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Horse</th>
+                            <th>Number</th>
+                            <th>Venue</th>
+                            <th>Silk</th>
+                            <th>Silk ID</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        <tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--muted);">No scrapes yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+        const firebaseConfig = {…};
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let user = null;
+        let scrapeResults = [];
+
+        onAuthStateChanged(auth, (_user) => {
+            user = _user;
+            if (!user) window.location.href = "login.html";
+        });
+
+        document.getElementById("scrapeBtn").addEventListener("click", scrapeAndSave);
+
+        async function scrapeAndSave() {
+            console.log("========== SCRAPE & SAVE SILKS STARTED ==========");
+            const url = document.getElementById("racingNswUrl").value.trim();
+            console.log("Input URL:", url);
+            
+            if (!url) {
+                console.warn("No URL provided");
+                alert("Please enter a RacingNSW URL.");
+                return;
+            }
+
+            const btn = document.getElementById("scrapeBtn");
+            btn.disabled = true;
+            document.getElementById("scrapeBtnText").style.display = "none";
+            document.getElementById("scrapeBtnLoader").style.display = "inline-block";
+
+            try {
+                // Fetch the RacingNSW page
+                console.log("Fetching RacingNSW acceptances page...");
+                const response = await fetch(url);
+                console.log("Fetch response status:", response.status);
+                
+                const html = await response.text();
+                console.log("HTML length received:", html.length);
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                console.log("HTML parsed successfully");
+
+                // Extract venue & race date from URL
+                console.log("Extracting venue & race info from URL...");
+                const urlParams = new URLSearchParams(url.split("?")[1]);
+                const key = urlParams.get("Key"); // e.g., "2026Feb07,NSW,Royal%20Randwick"
+                console.log("URL Key parameter:", key);
+                
+                const [dateStr, state, venueName] = key.split(",");
+                const decodedVenue = decodeURIComponent(venueName);
+                console.log("Extracted - Date:", dateStr, "| State:", state, "| Venue:", decodedVenue);
+
+                scrapeResults = [];
+
+                // Find all runner links and extract silk info
+                console.log("Searching for runner links...");
+                const runnerLinks = doc.querySelectorAll("a[href*='Runner.aspx']");
+                console.log("Found", runnerLinks.length, "runner links");
+                
+                let successCount = 0;
+                let errorCount = 0;
+                
+                for (let i = 0; i < runnerLinks.length; i++) {
+                    const link = runnerLinks[i];
+                    const runnerUrl = link.getAttribute("href");
+                    console.log(`[Runner ${i + 1}/${runnerLinks.length}] URL:`, runnerUrl);
+                    
+                    if (!runnerUrl) {
+                        console.warn(`[Runner ${i + 1}] No href attribute found, skipping`);
+                        continue;
+                    }
+
+                    const horseNumber = extractHorseNumber(link);
+                    const horseName = link.textContent.trim();
+                    console.log(`[Runner ${i + 1}] Number:`, horseNumber, "| Name:", horseName);
+
+                    try {
+                        console.log(`[Runner ${i + 1}] Extracting silk ID...`);
+                        const silkId = await extractSilkIdFromRunner(runnerUrl);
+                        console.log(`[Runner ${i + 1}] Silk ID extracted:`, silkId);
+                        
+                        if (silkId) {
+                            console.log(`[Runner ${i + 1}] Saving to Firestore...`);
+                            await saveSilkToFirestore(horseNumber, horseName, decodedVenue, silkId);
+                            console.log(`[Runner ${i + 1}] Successfully saved to Firestore`);
+                            
+                            scrapeResults.push({
+                                horse: horseName,
+                                number: horseNumber,
+                                venue: decodedVenue,
+                                silkId,
+                                status: "success"
+                            });
+                            successCount++;
+                        } else {
+                            console.warn(`[Runner ${i + 1}] No silk ID found`);
+                            scrapeResults.push({
+                                horse: horseName,
+                                number: horseNumber,
+                                venue: decodedVenue,
+                                silkId: "N/A",
+                                status: "error"
+                            });
+                            errorCount++;
+                        }
+                    } catch (err) {
+                        console.error(`[Runner ${i + 1}] Error:`, err);
+                        scrapeResults.push({
+                            horse: horseName,
+                            number: horseNumber,
+                            venue: decodedVenue,
+                            silkId: "N/A",
+                            status: "error"
+                        });
+                        errorCount++;
+                    }
+                }
+
+                console.log("========== SCRAPE COMPLETE ==========");
+                console.log("Success:", successCount, "| Errors:", errorCount);
+                console.log("All results:", scrapeResults);
+                
+                renderResults();
+                alert(`Scrape complete! ${successCount} silks saved, ${errorCount} errors.`);
+            } catch (error) {
+                console.error("========== SCRAPE FAILED ==========");
+                console.error("Fatal error:", error);
+                alert("Error scraping page: " + error.message);
+            } finally {
+                btn.disabled = false;
+                document.getElementById("scrapeBtnText").style.display = "inline";
+                document.getElementById("scrapeBtnLoader").style.display = "none";
+            }
+        }
+
+        function extractHorseNumber(linkEl) {
+            console.log("[extractHorseNumber] Input element:", linkEl);
+            // Assumes structure like: "1. Horse Name" or just extracts from parent text
+            const parent = linkEl.closest("tr") || linkEl.closest("li");
+            const text = parent?.textContent || linkEl.textContent;
+            console.log("[extractHorseNumber] Text to parse:", text);
+            
+            const match = text.match(/^(\d+)\./);
+            const result = match ? match[1] : "?";
+            console.log("[extractHorseNumber] Extracted number:", result);
+            return result;
+        }
+
+        async function extractSilkIdFromRunner(runnerUrl) {
+            console.log("[extractSilkIdFromRunner] Starting with URL:", runnerUrl);
+            const fullUrl = new URL(runnerUrl, "https://racing.racingnsw.com.au").href;
+            console.log("[extractSilkIdFromRunner] Full URL:", fullUrl);
+            
+            try {
+                const response = await fetch(fullUrl);
+                console.log("[extractSilkIdFromRunner] Fetch status:", response.status);
+                
+                const html = await response.text();
+                console.log("[extractSilkIdFromRunner] HTML length:", html.length);
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, "text/html");
+                console.log("[extractSilkIdFromRunner] HTML parsed");
+
+                // Look for silk image: typically <img src="...silks/xxxxx.png">
+                console.log("[extractSilkIdFromRunner] Searching for silk image...");
+            console.log("[saveSilkToFirestore] Saving - Number:", horseNumber, "| Name:", horseName, "| Venue:", venue, "| Silk ID:", silkId);
+            
+            // Query races by venue to find matching race document
+            console.log("[saveSilkToFirestore] Querying Firestore for races at venue:", venue);
+            const racesRef = collection(db, "races");
+            const q = query(racesRef, where("venue", "==", venue));
+            const snapshot = await getDocs(q);
+
+            console.log("[saveSilkToFirestore] Found", snapshot.size, "races at venue:", venue);
+
+            if (snapshot.empty) {
+                console.warn(`[saveSilkToFirestore] No races found for venue: ${venue}`);
+                return;
+            }
+
+            // For each race at this venue, try to save silk ID to the horse entry
+            let updateCount = 0;
+            for (const raceDoc of snapshot.docs) {
+                console.log("[saveSilkToFirestore] Processing race document:", raceDoc.id);
+                const raceData = raceDoc.data();
+                console.log("[saveSilkToFirestore] Race data:", raceData);
+                
+                if (raceData.horses && Array.isArray(raceData.horses)) {
+                    console.log("[saveSilkToFirestore] Race has", raceData.horses.length, "horses");
+                    
+                    // Find horse by number or name
+                    const horseIndex = raceData.horses.findIndex(h => 
+                        h.number === horseNumber || h.name === horseName
+                    );
+                    console.log("[saveSilkToFirestore] Horse found at index:', horseIndex);
+                    
+                    if (horseIndex !== -1) {
+                        console.log("[saveSilkToFirestore] Updating horse at index:', horseIndex, "with silk ID:", silkId);
+                        raceData.horses[horseIndex].silksId = silkId;
+                        await setDoc(raceDoc.ref, raceData);
+                        console.log("[saveSilkToFirestore] Successfully updated race document:", raceDoc.id);
+                        updateCount++;
+                    } else {
+                        console.warn("[saveSilkToFirestore] Horse not found in race:", horseNumber, horseName);
+                    }
+                } else {
+                    console.warn("[saveSilkToFirestore] Race document has no horses array");
+                }
+            }
+            console.log("[saveSilkToFirestore] Completed - Updated', updateCount, 'race(s)"); function saveSilkToFirestore(horseNumber, horseName, venue, silkId) {
+            // Query races by venue to find matching race document
+            const racesRef = collection(db, "races");
+            const q = query(racesRef, where("venue", "==", venue));
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                console.warn(`No races found for venue: ${venue}`);
+                return;
+            }
+
+            // For each race at this venue, try to save silk ID to the horse entry
+            for (const raceDoc of snapshot.docs) {
+                const raceData = raceDoc.data();
+                if (raceData.horses && Array.isArray(raceData.horses)) {
+                    // Find horse by number or name
+                    const horseIndex = raceData.horses.findIndex(h => 
+                        h.number === horseNumber || h.name === horseName
+                    );
+                    if (horseIndex !== -1) {
+                        raceData.horses[horseIndex].silksId = silkId;
+                        await setDoc(raceDoc.ref, raceData);
+                    }
+                }
+            }
+        }
+
+        function renderResults() {
+            const tbody = document.getElementById("resultsBody");
+            if (scrapeResults.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--muted);">No results yet.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = scrapeResults.map(r => `
+                <tr>
+                    <td>${r.horse}</td>
+                    <td>${r.number}</td>
+                    <td>${r.venue}</td>
+                    <td>
+                        ${r.silkId !== "N/A" ? `<img src="https://www.racingaustralia.horse/JockeySilks/${r.silkId}.png" class="silk-img" alt="Silk" onerror="this.style.display='none'">` : "—"}
+                    </td>
+                    <td><code style="font-size: 0.8rem; color: var(--muted);">${r.silkId}</code></td>
+                    <td><span class="status-badge status-${r.status}">${r.status.toUpperCase()}</span></td>
+                </tr>
+            `).join("");
+        }
+    </script>
+</body>
+</html>
