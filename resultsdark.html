@@ -108,6 +108,21 @@
       </div>
     </section>
 
+    <!-- Week Navigation -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-6" data-aos="fade-up">
+      <div class="card rounded-xl px-4 py-3 flex items-center gap-3">
+        <button id="week-prev" class="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-yellow-400 hover:bg-gray-700 transition" aria-label="Previous week">
+          <i data-feather="chevron-left" class="h-4 w-4"></i>
+        </button>
+        <div class="text-sm text-gray-300">
+          <span id="week-label" class="font-semibold text-gray-100">Week</span>
+        </div>
+        <button id="week-next" class="px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-yellow-400 hover:bg-gray-700 transition" aria-label="Next week">
+          <i data-feather="chevron-right" class="h-4 w-4"></i>
+        </button>
+      </div>
+    </div>
+
     <!-- Filter & Sort controls -->
     <div class="flex flex-col sm:flex-row gap-3 mb-8" data-aos="fade-up">
       <select id="sort-date" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 flex-1">
@@ -194,6 +209,7 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
     let user=null, allResults=[], countdownTimer=null;
+    let weekStarts=[], currentWeekIndex=0;
     const RESULTS_CACHE_KEY = "tmstipping:resultsCache";
 
     function getCachedResults() {
@@ -335,6 +351,7 @@
         }
         renderResults();
         saveCachedResults(allResults);
+        setupWeekNavigation(allResults);
       } catch (error) {
         console.error('Error loading results:', error);
       } finally {
@@ -346,6 +363,12 @@
       const container=document.getElementById("results-container");
       container.innerHTML="";
       let results=[...allResults];
+
+      if (weekStarts.length > 0) {
+        const weekStartMillis = weekStarts[currentWeekIndex];
+        const weekEndMillis = DateTime.fromMillis(weekStartMillis).plus({ days: 7 }).toMillis();
+        results = results.filter((r) => r.dtMillis >= weekStartMillis && r.dtMillis < weekEndMillis);
+      }
 
       // Apply filters
       const winFilter=document.getElementById("filter-win").value;
@@ -440,6 +463,55 @@
         container.appendChild(card);
       });
       startCountdownRefresh();
+    }
+
+    function setupWeekNavigation(entries) {
+      const starts = new Set();
+      entries.forEach((entry) => {
+        if (!entry.dtMillis) return;
+        const weekStart = DateTime.fromMillis(entry.dtMillis).startOf("week").toMillis();
+        starts.add(weekStart);
+      });
+      weekStarts = Array.from(starts).sort((a, b) => a - b);
+      currentWeekIndex = Math.max(weekStarts.length - 1, 0);
+      updateWeekLabel();
+      bindWeekButtons();
+      renderResults();
+    }
+
+    function updateWeekLabel() {
+      const labelEl = document.getElementById("week-label");
+      if (!weekStarts.length) {
+        labelEl.textContent = "No dated races";
+        return;
+      }
+      const start = DateTime.fromMillis(weekStarts[currentWeekIndex]);
+      const end = start.plus({ days: 6 });
+      labelEl.textContent = `${start.toFormat("LLL d")} - ${end.toFormat("LLL d")}`;
+
+      document.getElementById("week-prev").disabled = currentWeekIndex === 0;
+      document.getElementById("week-next").disabled = currentWeekIndex === weekStarts.length - 1;
+      document.getElementById("week-prev").classList.toggle("opacity-40", currentWeekIndex === 0);
+      document.getElementById("week-next").classList.toggle("opacity-40", currentWeekIndex === weekStarts.length - 1);
+    }
+
+    function bindWeekButtons() {
+      const prevBtn = document.getElementById("week-prev");
+      const nextBtn = document.getElementById("week-next");
+
+      prevBtn.onclick = () => {
+        if (currentWeekIndex === 0) return;
+        currentWeekIndex -= 1;
+        updateWeekLabel();
+        renderResults();
+      };
+
+      nextBtn.onclick = () => {
+        if (currentWeekIndex >= weekStarts.length - 1) return;
+        currentWeekIndex += 1;
+        updateWeekLabel();
+        renderResults();
+      };
     }
 
     // Hook up filter controls
