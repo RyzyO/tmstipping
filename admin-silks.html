@@ -429,6 +429,30 @@
 
                 // Look for silk image: typically <img src="...silks/xxxxx.png">
                 console.log("[extractSilkIdFromRunner] Searching for silk image...");
+                const silkImg = doc.querySelector("img[src*='silks']");
+                console.log("[extractSilkIdFromRunner] Silk image found:", !!silkImg);
+                
+                if (silkImg) {
+                    const src = silkImg.getAttribute("src");
+                    console.log("[extractSilkIdFromRunner] Image src:", src);
+                    
+                    const match = src.match(/silks\/(\w+)\.png/i);
+                    console.log("[extractSilkIdFromRunner] Silk ID regex match:", match);
+                    
+                    if (match) {
+                        console.log("[extractSilkIdFromRunner] Extracted silk ID:", match[1]);
+                        return match[1];
+                    }
+                }
+                console.warn("[extractSilkIdFromRunner] No silk image or ID found");
+                return null;
+            } catch (err) {
+                console.error("[extractSilkIdFromRunner] Error fetching runner page:", err);
+                return null;
+            }
+        }
+
+        async function saveSilkToFirestore(horseNumber, horseName, venue, silkId) {
             console.log("[saveSilkToFirestore] Saving - Number:", horseNumber, "| Name:", horseName, "| Venue:", venue, "| Silk ID:", silkId);
             
             // Query races by venue to find matching race document
@@ -458,10 +482,10 @@
                     const horseIndex = raceData.horses.findIndex(h => 
                         h.number === horseNumber || h.name === horseName
                     );
-                    console.log("[saveSilkToFirestore] Horse found at index:', horseIndex);
+                    console.log("[saveSilkToFirestore] Horse found at index:", horseIndex);
                     
                     if (horseIndex !== -1) {
-                        console.log("[saveSilkToFirestore] Updating horse at index:', horseIndex, "with silk ID:", silkId);
+                        console.log("[saveSilkToFirestore] Updating horse at index:", horseIndex, "with silk ID:", silkId);
                         raceData.horses[horseIndex].silksId = silkId;
                         await setDoc(raceDoc.ref, raceData);
                         console.log("[saveSilkToFirestore] Successfully updated race document:", raceDoc.id);
@@ -473,31 +497,8 @@
                     console.warn("[saveSilkToFirestore] Race document has no horses array");
                 }
             }
-            console.log("[saveSilkToFirestore] Completed - Updated', updateCount, 'race(s)"); function saveSilkToFirestore(horseNumber, horseName, venue, silkId) {
-            // Query races by venue to find matching race document
-            const racesRef = collection(db, "races");
-            const q = query(racesRef, where("venue", "==", venue));
-            const snapshot = await getDocs(q);
-
-            if (snapshot.empty) {
-                console.warn(`No races found for venue: ${venue}`);
-                return;
-            }
-
-            // For each race at this venue, try to save silk ID to the horse entry
-            for (const raceDoc of snapshot.docs) {
-                const raceData = raceDoc.data();
-                if (raceData.horses && Array.isArray(raceData.horses)) {
-                    // Find horse by number or name
-                    const horseIndex = raceData.horses.findIndex(h => 
-                        h.number === horseNumber || h.name === horseName
-                    );
-                    if (horseIndex !== -1) {
-                        raceData.horses[horseIndex].silksId = silkId;
-                        await setDoc(raceDoc.ref, raceData);
-                    }
-                }
-            }
+            console.log("[saveSilkToFirestore] Completed - Updated", updateCount, "race(s)");
+        }
         }
 
         function renderResults() {
