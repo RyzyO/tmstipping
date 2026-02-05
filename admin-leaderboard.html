@@ -1,44 +1,189 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Leaderboard</title>
     <link rel="stylesheet" href="css/bootstrap.min.css">
-    <link rel="stylesheet" href="navbar.css">
-    <link rel="stylesheet" href="fontawesome.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background: #f8f9fa; }
-        .leaderboard-table { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .dropdown-week { max-width: 200px; margin-bottom: 20px; }
+        :root {
+            --bg: #0b0f14;
+            --bg-2: #0f172a;
+            --panel: rgba(17, 24, 39, 0.92);
+            --panel-2: rgba(30, 41, 59, 0.7);
+            --border: rgba(148, 163, 184, 0.18);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #fbbf24;
+            --accent-2: #f97316;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Space Grotesk", "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 600px at 15% 10%, rgba(249, 115, 22, 0.18), transparent 60%),
+                radial-gradient(900px 500px at 85% 15%, rgba(59, 130, 246, 0.18), transparent 55%),
+                linear-gradient(180deg, var(--bg), var(--bg-2));
+            min-height: 100vh;
+        }
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 2.5rem 1.25rem 3rem;
+        }
+        .page-header {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .back-link {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .back-link:hover { color: var(--accent); }
+        .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-size: 0.7rem;
+            color: var(--muted);
+            margin: 0;
+        }
+        .page-title {
+            font-size: clamp(2rem, 3vw, 3rem);
+            margin: 0.2rem 0;
+            font-weight: 700;
+        }
+        .subtitle {
+            color: var(--muted);
+            margin: 0;
+            max-width: 520px;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
+            animation: float-in 0.6s ease;
+        }
+        .panel-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            margin-bottom: 1rem;
+        }
+        .panel-header h4 { margin: 0; font-weight: 600; }
+        .panel-hint {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+        .toolbar {
+            margin: 1.5rem 0 2rem;
+            background: var(--panel-2);
+        }
+        .form-select {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            color: var(--text);
+            border-radius: 10px;
+        }
+        .form-select:focus {
+            border-color: rgba(251, 191, 36, 0.6);
+            box-shadow: 0 0 0 0.2rem rgba(251, 191, 36, 0.15);
+            background: rgba(15, 23, 42, 0.95);
+            color: var(--text);
+        }
+        .table {
+            color: var(--text);
+            margin: 0;
+        }
+        .table thead th {
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-size: 0.7rem;
+            color: var(--muted);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 0.9rem 1rem;
+        }
+        .table tbody td {
+            border-color: rgba(148, 163, 184, 0.12);
+            padding: 0.85rem 1rem;
+        }
+        .table tbody tr:hover {
+            background: rgba(148, 163, 184, 0.08);
+        }
+        .rank-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: rgba(251, 191, 36, 0.18);
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .points {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        @keyframes float-in {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media (max-width: 991px) {
+            .page { padding-top: 2rem; }
+            .panel { padding: 1.25rem; }
+        }
     </style>
 </head>
 <body>
-    <div class="container my-3">
-        <a href="admin.html" class="btn btn-secondary">&larr; Back to Admin</a>
-    </div>
-    <div class="container py-5">
-        <h2 class="mb-4">Admin Leaderboard</h2>
-        <div class="dropdown-week">
-            <label for="weekSelect" class="form-label">Select Week:</label>
+    <div class="page">
+        <header class="page-header">
+            <a href="admin-dark.html" class="back-link">&larr; Back to Admin</a>
+            <div>
+                <p class="eyebrow">Admin Console</p>
+                <h1 class="page-title">Admin Leaderboard</h1>
+                <p class="subtitle">Track weekly performance and spot top performers at a glance.</p>
+            </div>
+        </header>
+
+        <section class="panel toolbar">
+            <div class="panel-header">
+                <h4>Week Filter</h4>
+                <span class="panel-hint">Select a week to view the standings.</span>
+            </div>
             <select id="weekSelect" class="form-select">
                 <!-- Weeks will be populated by JS -->
             </select>
-        </div>
-        <div class="table-responsive">
-            <table class="table leaderboard-table">
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>User</th>
-                        <th>Points</th>
-                    </tr>
-                </thead>
-                <tbody id="leaderboardBody">
-                    <!-- Leaderboard rows will be populated by JS -->
-                </tbody>
-            </table>
-        </div>
+        </section>
+
+        <section class="panel">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>User</th>
+                            <th>Points</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboardBody">
+                        <!-- Leaderboard rows will be populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
     <script src="js/jquery.min.js"></script>
     <script src="js/bootstrap.bundle.min.js"></script>

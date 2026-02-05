@@ -26,6 +26,8 @@ let currentTab = 'details';
 let racesByDateCache = {};
 let sortedDatesCache = [];
 
+const ADMIN_STATS_CACHE_KEY = 'tmstipping:adminStats';
+
 // Initialize Feather Icons
 feather.replace();
 
@@ -50,11 +52,44 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
+  applyCachedAdminStats();
+
   // User is authenticated and is admin - load dashboard
   await loadDashboardStats();
   await loadRacesList();
   AOS.init();
 });
+
+function applyCachedAdminStats() {
+  try {
+    const raw = localStorage.getItem(ADMIN_STATS_CACHE_KEY);
+    if (!raw) return;
+    const cached = JSON.parse(raw);
+    if (!cached) return;
+
+    if (cached.totalRaces !== undefined) {
+      document.getElementById('total-races').textContent = cached.totalRaces;
+    }
+    if (cached.upcoming !== undefined) {
+      document.getElementById('upcoming-races').textContent = cached.upcoming;
+    }
+    if (cached.fullyTipped !== undefined) {
+      document.getElementById('fully-tipped').textContent = cached.fullyTipped;
+    }
+    if (cached.paidUsers !== undefined) {
+      document.getElementById('paid-users').textContent = cached.paidUsers;
+    }
+  } catch (error) {
+    localStorage.removeItem(ADMIN_STATS_CACHE_KEY);
+  }
+}
+
+function saveAdminStatsToCache({ totalRaces, upcoming, fullyTipped, paidUsers }) {
+  localStorage.setItem(
+    ADMIN_STATS_CACHE_KEY,
+    JSON.stringify({ totalRaces, upcoming, fullyTipped, paidUsers, updatedAt: Date.now() })
+  );
+}
 
 // ============ DASHBOARD STATS ============
 async function loadDashboardStats() {
@@ -84,6 +119,13 @@ async function loadDashboardStats() {
     document.getElementById('upcoming-races').textContent = upcoming;
     document.getElementById('fully-tipped').textContent = fullyTipped;
     document.getElementById('paid-users').textContent = paidUsers;
+
+    saveAdminStatsToCache({
+      totalRaces: races.length,
+      upcoming,
+      fullyTipped,
+      paidUsers
+    });
   } catch (error) {
     console.error('Error loading dashboard stats:', error);
   }
@@ -118,9 +160,8 @@ async function loadRacesList() {
     racesByDateCache = racesByDate;
     sortedDatesCache = sortedDates;
 
-    // Render both desktop and mobile lists
+    // Render desktop list only - mobile is rendered on demand
     renderRaceListByDate(racesByDate, sortedDates, 'race-list');
-    renderRaceListByDate(racesByDate, sortedDates, 'race-list-mobile');
 
     if (currentRaceId) {
       updateRaceSelection();
@@ -758,19 +799,25 @@ function toggleMobileSidebar() {
   
   overlay.classList.toggle('show');
   
-  // Sync search values
+  // On first open, render the mobile list if empty
   if (overlay.classList.contains('show')) {
+    const mobileList = document.getElementById('race-list-mobile');
+    if (mobileList && mobileList.innerHTML === '') {
+      // Only render if list is empty
+      if (sortedDatesCache.length > 0) {
+        renderRaceListByDate(racesByDateCache, sortedDatesCache, 'race-list-mobile');
+      }
+    }
+
+    // Sync search values
     const desktopSearch = document.getElementById('race-search');
     const mobileSearch = document.getElementById('race-search-mobile');
     if (desktopSearch && mobileSearch) {
       mobileSearch.value = desktopSearch.value;
     }
 
-    // Ensure mobile list is grouped by date
-    if (sortedDatesCache.length > 0) {
-      renderRaceListByDate(racesByDateCache, sortedDatesCache, 'race-list-mobile');
-      updateRaceSelection();
-    }
+    // Update selection highlight on mobile list
+    updateRaceSelection();
   }
   
   feather.replace();

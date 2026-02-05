@@ -1,80 +1,374 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>User Admin - Mock Sports Tipping</title>
   <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    .user-admin-container { max-width: 1100px; margin: 2rem auto; }
-    .user-list { max-height: 400px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px; }
-    .user-list-item { cursor: pointer; padding: 0.5rem 1rem; border-bottom: 1px solid #f2f2f2; }
-    .user-list-item.selected { background: #f8f9fa; font-weight: bold; }
-    .user-edit-section { border: 1px solid #eee; border-radius: 8px; padding: 1.5rem; margin-top: 1rem; }
-    .tip-row { border-bottom: 1px solid #eee; padding: 0.5rem 0; }
-    .tip-row:last-child { border-bottom: none; }
-    .search-bar { margin-bottom: 1rem; }
-    .export-btn { float: right; }
-    .navbar-brand, .nav-link {
-      color: #FFD700 !important;
+    :root {
+      --bg: #0b0f14;
+      --bg-2: #0f172a;
+      --panel: rgba(17, 24, 39, 0.92);
+      --panel-2: rgba(30, 41, 59, 0.7);
+      --border: rgba(148, 163, 184, 0.18);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #fbbf24;
+      --accent-2: #f97316;
+      --success: #34d399;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 15% 10%, rgba(249, 115, 22, 0.18), transparent 60%),
+        radial-gradient(900px 500px at 85% 15%, rgba(59, 130, 246, 0.18), transparent 55%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+      min-height: 100vh;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 3rem;
+    }
+    .page-header {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .back-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.95rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .back-link:hover { color: var(--accent); }
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    .page-title {
+      font-size: clamp(2rem, 3vw, 3rem);
+      margin: 0.2rem 0;
+      font-weight: 700;
+    }
+    .subtitle {
+      color: var(--muted);
+      margin: 0;
+      max-width: 520px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
+      animation: float-in 0.6s ease;
+    }
+    .panel-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      margin-bottom: 1rem;
+    }
+    .panel-header h4,
+    .panel-header h5 {
+      margin: 0;
       font-weight: 600;
-      font-family: 'Outfit', sans-serif; /* match results.html */
+    }
+    .panel-hint {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .stat-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(15, 23, 42, 0.95));
+      border-color: rgba(251, 191, 36, 0.25);
+    }
+    .stat-title {
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+    .stat-value {
+      font-size: clamp(2.2rem, 4vw, 3.2rem);
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .stat-caption {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .toolbar {
+      margin: 1.5rem 0 2rem;
+      background: var(--panel-2);
+    }
+    .search-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .toolbar-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .form-control,
+    .form-select {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      color: var(--text);
+      border-radius: 10px;
+    }
+    .form-control:focus,
+    .form-select:focus {
+      border-color: rgba(251, 191, 36, 0.6);
+      box-shadow: 0 0 0 0.2rem rgba(251, 191, 36, 0.15);
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text);
+    }
+    .btn {
+      border-radius: 10px;
+      font-weight: 600;
+      padding: 0.55rem 1rem;
+    }
+    .btn-outline-secondary {
+      color: var(--text);
+      border-color: rgba(148, 163, 184, 0.4);
+      background: transparent;
+    }
+    .btn-outline-secondary:hover {
+      border-color: rgba(251, 191, 36, 0.6);
+      color: var(--accent);
+      background: rgba(251, 191, 36, 0.08);
+    }
+    .btn-success {
+      background: linear-gradient(135deg, rgba(52, 211, 153, 0.9), rgba(16, 185, 129, 0.9));
+      border: none;
+      color: #082f1d;
+    }
+    .btn-success:hover { filter: brightness(1.05); }
+    .user-list {
+      max-height: 380px;
+      overflow-y: auto;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.6);
+    }
+    .user-list-item {
+      cursor: pointer;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      color: var(--text);
+      transition: all 0.2s ease;
+    }
+    .user-list-item:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+    .user-list-item.selected {
+      background: rgba(251, 191, 36, 0.15);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .edit-form label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 0.35rem;
+    }
+    .form-check-label { color: var(--text); }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0.75rem 1rem;
+    }
+    .form-grid .mb-2 { margin-bottom: 0; }
+    .divider {
+      height: 1px;
+      background: rgba(148, 163, 184, 0.2);
+      margin: 1.5rem 0;
+    }
+    .tip-row {
+      padding: 1rem 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    .tip-row:last-child { border-bottom: none; }
+    .tip-row strong { color: var(--text); }
+    .tip-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .tip-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tip-meta {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .tip-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+      align-items: center;
+    }
+    .points-display {
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .points-display.positive {
+      color: #86efac;
+      border-color: rgba(52, 211, 153, 0.4);
+      background: rgba(16, 185, 129, 0.15);
+    }
+    .save-status {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .save-status.saving { color: #fcd34d; }
+    .save-status.success { color: #86efac; }
+    .save-status.error { color: #fca5a5; }
+    .user-save-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .save-tip-btn {
+      border-color: rgba(59, 130, 246, 0.4);
+      color: #bfdbfe;
+    }
+    .save-tip-btn:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.6);
+      color: #dbeafe;
+    }
+    @keyframes float-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 991px) {
+      .page { padding-top: 2rem; }
+      .panel { padding: 1.25rem; }
+      .tip-header { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
-<div class="container user-admin-container">
-  <a href="admin.html" class="btn btn-link mb-3">&larr; Back to Admin</a>
-  <h2>User Admin</h2>
-  <div class="mb-4 text-center">
-    <h1 id="fees-collected-counter" style="font-size:3rem;">$0</h1>
-    <div style="font-size:1.2rem;color:#555;">Fees Collected</div>
-  </div>
-  <div class="mb-3 d-flex" style="gap:0.5rem;">
-    <input type="text" id="user-search" class="form-control search-bar" placeholder="Search users by name, email, or team name...">
-    <button class="btn btn-outline-secondary export-btn" id="export-csv">Export CSV</button>
-    <button class="btn btn-outline-secondary export-btn" id="export-ladder-csv">Export Ladder</button>
-  </div>
-  <div class="row">
-    <div class="col-md-4">
-      <div class="user-list" id="user-list"></div>
-      <div style="margin-top:2rem;">
-        <h5>Unpaid Players</h5>
-        <div class="user-list" id="unpaid-user-list"></div>
+<div class="page">
+  <header class="page-header">
+    <a href="admin-dark.html" class="back-link">&larr; Back to Admin</a>
+    <div>
+      <p class="eyebrow">Admin Console</p>
+      <h1 class="page-title">User Admin</h1>
+      <p class="subtitle">Review payments, edit profiles, and manage tips without leaving the dashboard.</p>
+    </div>
+  </header>
+
+  <section class="panel stat-card">
+    <div class="stat-title">Fees Collected</div>
+    <div id="fees-collected-counter" class="stat-value">$0</div>
+    <div class="stat-caption">$30 per paid entry</div>
+  </section>
+
+  <section class="panel toolbar">
+    <div class="search-row">
+      <input type="text" id="user-search" class="form-control" placeholder="Search users by name, email, or team name...">
+      <div class="toolbar-actions">
+        <button class="btn btn-outline-secondary" id="export-csv">Export CSV</button>
+        <button class="btn btn-outline-secondary" id="export-ladder-csv">Export Ladder</button>
       </div>
     </div>
-    <div class="col-md-8">
-      <div id="user-edit-section" class="user-edit-section" style="display:none;">
-        <h4>Edit User</h4>
-        <form id="user-edit-form">
-          <div class="mb-2">
-            <label>Email:</label>
-            <input type="email" class="form-control" id="edit-email" required>
+  </section>
+
+  <div class="row g-4">
+    <div class="col-lg-4">
+      <section class="panel">
+        <div class="panel-header">
+          <h5>Paid Players</h5>
+          <span class="panel-hint">Select a player to edit their details.</span>
+        </div>
+        <div class="user-list" id="user-list"></div>
+      </section>
+      <section class="panel mt-4">
+        <div class="panel-header">
+          <h5>Unpaid Players</h5>
+          <span class="panel-hint">Not included in the leaderboard.</span>
+        </div>
+        <div class="user-list" id="unpaid-user-list"></div>
+      </section>
+    </div>
+    <div class="col-lg-8">
+      <section id="user-edit-section" class="panel user-edit-section" style="display:none;">
+        <div class="panel-header">
+          <h4>Edit User</h4>
+          <span class="panel-hint">Save changes when you are ready.</span>
+        </div>
+        <form id="user-edit-form" class="edit-form">
+          <div class="form-grid">
+            <div class="mb-2">
+              <label>Email:</label>
+              <input type="email" class="form-control" id="edit-email" required>
+            </div>
+            <div class="mb-2">
+              <label>Team Name:</label>
+              <input type="text" class="form-control" id="edit-teamName">
+            </div>
+            <div class="mb-2">
+              <label>First Name:</label>
+              <input type="text" class="form-control" id="edit-firstName">
+            </div>
+            <div class="mb-2">
+              <label>Last Name:</label>
+              <input type="text" class="form-control" id="edit-lastName">
+            </div>
+            <div class="mb-2">
+              <label>Jokers:</label>
+              <input type="number" class="form-control" id="edit-joker" min="0">
+            </div>
+            <div class="mb-2">
+              <label class="form-check-label" for="edit-paid">Paid</label>
+              <div>
+                <input type="checkbox" class="form-check-input" id="edit-paid">
+              </div>
+            </div>
           </div>
-          <div class="mb-2">
-            <label>First Name:</label>
-            <input type="text" class="form-control" id="edit-firstName">
+          <div class="user-save-row mt-3">
+            <button type="submit" class="btn btn-success" id="save-user-btn">Save User</button>
+            <span id="user-save-status" class="save-status"></span>
           </div>
-          <div class="mb-2">
-            <label>Last Name:</label>
-            <input type="text" class="form-control" id="edit-lastName">
-          </div>
-          <div class="mb-2">
-            <label>Team Name:</label>
-            <input type="text" class="form-control" id="edit-teamName">
-          </div>
-          <div class="mb-2">
-            <label>Jokers:</label>
-            <input type="number" class="form-control" id="edit-joker" min="0">
-          </div>
-          <div class="mb-2 form-check">
-            <input type="checkbox" class="form-check-input" id="edit-paid">
-            <label class="form-check-label" for="edit-paid">Paid</label>
-          </div>
-          <button type="submit" class="btn btn-success">Save User</button>
         </form>
-        <hr>
-        <h5>User Tips</h5>
+        <div class="divider"></div>
+        <div class="panel-header">
+          <h5>User Tips</h5>
+          <span class="panel-hint">Update picks and joker status per race.</span>
+        </div>
         <div id="user-tips-list"></div>
-      </div>
+      </section>
     </div>
   </div>
 </div>
@@ -103,12 +397,18 @@ const rtdb = getDatabase(app);
 
 let users = [];
 let selectedUserId = null;
+let selectedUserData = null;
 let races = {};
+let resultsCache = {};
+let resultsLoaded = false;
+let tipsByRace = {};
 
 const userListDiv = document.getElementById('user-list');
 const unpaidUserListDiv = document.getElementById('unpaid-user-list');
 const searchInput = document.getElementById('user-search');
 const feesCounter = document.getElementById('fees-collected-counter');
+const userSaveStatus = document.getElementById('user-save-status');
+const saveUserBtn = document.getElementById('save-user-btn');
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -139,22 +439,35 @@ async function loadRaces() {
   });
 }
 
+async function loadResultsCache() {
+  if (resultsLoaded) return;
+  resultsCache = {};
+  const resultsSnap = await getDocs(collection(db, "results"));
+  resultsSnap.forEach(docSnap => {
+    resultsCache[docSnap.id] = docSnap.data();
+  });
+  resultsLoaded = true;
+}
+
+function updateFeesCounter() {
+  const paidCount = users.filter(u => u.paid === true).length;
+  feesCounter.textContent = `$${paidCount * 30}`;
+}
+
 async function loadUsers() {
   userListDiv.innerHTML = '<div class="text-muted p-2">Loading users...</div>';
   unpaidUserListDiv.innerHTML = '<div class="text-muted p-2">Loading users...</div>';
 
   const usersSnap = await getDocs(collection(db, "users"));
   users = [];
-  let paidCount = 0;
 
   usersSnap.forEach(docSnap => {
     const userData = docSnap.data();
     users.push({ id: docSnap.id, ...userData });
-    if (userData.paid === true) paidCount++;
   });
 
   // Update fees collected counter ($30 per paid)
-  feesCounter.textContent = `$${paidCount * 30}`;
+  updateFeesCounter();
 
   filterAndRenderLists();
 }
@@ -201,13 +514,18 @@ searchInput.oninput = filterAndRenderLists;
 --------------------------------*/
 async function selectUser(userId) {
   selectedUserId = userId;
+  selectedUserData = null;
   // re-apply filters to refresh selected highlight
   filterAndRenderLists();
 
   document.getElementById('user-edit-section').style.display = '';
+  userSaveStatus.textContent = '';
+  userSaveStatus.className = 'save-status';
+  saveUserBtn.disabled = false;
 
   const userDoc = await getDoc(doc(db, "users", userId));
   const user = userDoc.exists() ? userDoc.data() : {};
+  selectedUserData = { id: userId, ...user };
 
   document.getElementById('edit-email').value = user.email || '';
   document.getElementById('edit-firstName').value = user.firstName || '';
@@ -231,19 +549,41 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
   const paid = document.getElementById('edit-paid').checked;
   const joker = Number(document.getElementById('edit-joker').value) || 0;
 
-  await updateDoc(doc(db, "users", selectedUserId), {
-    email, firstName, lastName, teamName, paid, joker
-  });
+  saveUserBtn.disabled = true;
+  userSaveStatus.textContent = 'Saving...';
+  userSaveStatus.className = 'save-status saving';
 
-  // keep leaderboard doc's teamName aligned if it exists
-  const leaderboardDocRef = doc(db, "leaderboard", selectedUserId);
-  const leaderboardDoc = await getDoc(leaderboardDocRef);
-  if (leaderboardDoc.exists()) {
-    await updateDoc(leaderboardDocRef, { teamName });
+  try {
+    await updateDoc(doc(db, "users", selectedUserId), {
+      email, firstName, lastName, teamName, paid, joker
+    });
+
+    // keep leaderboard doc's teamName aligned if it exists
+    const leaderboardDocRef = doc(db, "leaderboard", selectedUserId);
+    const leaderboardDoc = await getDoc(leaderboardDocRef);
+    if (leaderboardDoc.exists()) {
+      await updateDoc(leaderboardDocRef, { teamName });
+    }
+
+    const idx = users.findIndex(u => u.id === selectedUserId);
+    if (idx !== -1) {
+      users[idx] = { ...users[idx], email, firstName, lastName, teamName, paid, joker };
+    }
+    selectedUserData = { id: selectedUserId, email, firstName, lastName, teamName, paid, joker };
+    updateFeesCounter();
+    filterAndRenderLists();
+    userSaveStatus.textContent = 'Saved';
+    userSaveStatus.className = 'save-status success';
+  } catch (err) {
+    console.error(err);
+    userSaveStatus.textContent = 'Error saving';
+    userSaveStatus.className = 'save-status error';
+  } finally {
+    saveUserBtn.disabled = false;
+    setTimeout(() => {
+      if (userSaveStatus.textContent === 'Saved') userSaveStatus.textContent = '';
+    }, 2000);
   }
-
-  await loadUsers();
-  alert("User updated.");
 };
 
 /* -------------------------------
@@ -253,9 +593,14 @@ async function loadUserTips(userId) {
   const tipsDiv = document.getElementById('user-tips-list');
   tipsDiv.innerHTML = 'Loading tips...';
 
+  await loadResultsCache();
+
   const tipsSnap = await getDocs(query(collection(db, "tips"), where("userId", "==", userId)));
-  const tips = [];
-  tipsSnap.forEach(docSnap => tips.push({ id: docSnap.id, ...docSnap.data() }));
+  tipsByRace = {};
+  tipsSnap.forEach(docSnap => {
+    const data = docSnap.data();
+    tipsByRace[data.raceId] = { id: docSnap.id, ...data };
+  });
 
   const allRaceIds = Object.keys(races);
   allRaceIds.sort((a, b) => {
@@ -268,156 +613,157 @@ async function loadUserTips(userId) {
 
   for (const raceId of allRaceIds) {
     const race = races[raceId];
-    const tip = tips.find(t => t.raceId === raceId);
+    const tip = tipsByRace[raceId];
     const horseId = tip ? tip.horseId : '';
-    const horseName = horseId && race.horses && race.horses[horseId] ? race.horses[horseId].name : '';
     const jokerUsed = tip ? tip.joker === true : false;
-
-    // --- Calculate points for this tip based on results ---
-    let points = 0;
-    let matched = false;
-
-    const resultsSnap = await getDoc(doc(db, "results", raceId));
-    const results = resultsSnap.exists() ? resultsSnap.data() : null;
-
-    if (results && horseId) {
-      if (results.winningHorseId === horseId) {
-        points += Number(results.points) || 0; matched = true;
-      }
-      if (results.place1HorseId === horseId) {
-        points += Number(results.place1Points) || 0; matched = true;
-      }
-      if (results.place2HorseId === horseId) {
-        points += Number(results.place2Points) || 0; matched = true;
-      }
-      if (matched && jokerUsed && points > 0) {
-        points *= 2;
-      }
-    }
+    const points = calculatePoints(raceId, horseId, jokerUsed);
 
     const row = document.createElement('div');
     row.className = 'tip-row';
+    row.dataset.raceRow = raceId;
     row.innerHTML = `
-      <div>
-        <strong>${race.name} (${race.date} ${race.time})</strong>
-        <select class="form-select form-select-sm d-inline-block" style="width:auto;max-width:240px;" data-race-id="${raceId}">
-          <option value="">No Tip</option>
-          ${Object.entries(race.horses || {})
-            .filter(([_, h]) => !h.scratched)
-            .sort((a, b) => (a[1].number || 0) - (b[1].number || 0))
-            .map(([hId, h]) =>
-              `<option value="${hId}" ${hId === horseId ? 'selected' : ''}>#${h.number} ${h.name}</option>`
-            ).join('')}
-        </select>
-        <button class="btn btn-sm btn-outline-primary save-tip-btn" data-race-id="${raceId}">Save</button>
-        <label class="ms-2">
-          <input type="checkbox" class="form-check-input joker-checkbox" data-race-id="${raceId}" ${jokerUsed ? 'checked' : ''}>
-          Joker
-        </label>
-        <span class="ms-3" style="font-weight:bold;color:${points > 0 ? 'green' : '#888'};">
-          ${points > 0 ? `Points: ${points}` : 'No points'}
-        </span>
+      <div class="tip-card">
+        <div class="tip-header">
+          <div>
+            <strong>${race.name}</strong>
+            <div class="tip-meta">${race.date} ${race.time}</div>
+          </div>
+          <span class="points-display ${points > 0 ? 'positive' : ''}" data-points-for="${raceId}">
+            ${points > 0 ? `Points: ${points}` : 'No points'}
+          </span>
+        </div>
+        <div class="tip-controls">
+          <select class="form-select form-select-sm" style="width:auto;max-width:240px;" data-race-id="${raceId}">
+            <option value="">No Tip</option>
+            ${Object.entries(race.horses || {})
+              .filter(([_, h]) => !h.scratched)
+              .sort((a, b) => (a[1].number || 0) - (b[1].number || 0))
+              .map(([hId, h]) =>
+                `<option value="${hId}" ${hId === horseId ? 'selected' : ''}>#${h.number} ${h.name}</option>`
+              ).join('')}
+          </select>
+          <label>
+            <input type="checkbox" class="form-check-input joker-checkbox" data-race-id="${raceId}" ${jokerUsed ? 'checked' : ''}>
+            Joker
+          </label>
+          <button class="btn btn-sm btn-outline-primary save-tip-btn" data-race-id="${raceId}">Save</button>
+          <span class="save-status" data-status-for="${raceId}"></span>
+        </div>
       </div>
     `;
     tipsDiv.appendChild(row);
   }
 
-  // Save tip handler (writes tip, then recalculates leaderboard for this user)
-  tipsDiv.querySelectorAll('.save-tip-btn').forEach(btn => {
-    btn.onclick = async function() {
-      const raceId = btn.dataset.raceId;
-      const select = tipsDiv.querySelector(`select[data-race-id="${raceId}"]`);
-      const chosenHorseId = select.value;
-      const jokerCheckbox = tipsDiv.querySelector(`.joker-checkbox[data-race-id="${raceId}"]`);
-      const joker = jokerCheckbox && jokerCheckbox.checked ? true : false;
+  tipsDiv.onchange = async function(e) {
+    const target = e.target;
+    if (target.matches('select[data-race-id], .joker-checkbox[data-race-id]')) {
+      const raceId = target.dataset.raceId;
+      await saveTipForRace(raceId);
+    }
+  };
 
-      if (!raceId || !selectedUserId) return;
+  tipsDiv.onclick = async function(e) {
+    const btn = e.target.closest('.save-tip-btn');
+    if (!btn) return;
+    const raceId = btn.dataset.raceId;
+    await saveTipForRace(raceId);
+  };
+}
 
-      const tipDocId = `${selectedUserId}_${raceId}`;
-      await setDoc(doc(db, "tips", tipDocId), {
-        userId: selectedUserId,
-        raceId,
-        horseId: chosenHorseId || "",
-        timestamp: Date.now(),
-        joker
-      });
+function calculatePoints(raceId, horseId, jokerUsed) {
+  let points = 0;
+  let matched = false;
+  const results = resultsCache[raceId] || null;
+  if (results && horseId) {
+    if (results.winningHorseId === horseId) {
+      points += Number(results.points) || 0; matched = true;
+    }
+    if (results.place1HorseId === horseId) {
+      points += Number(results.place1Points) || 0; matched = true;
+    }
+    if (results.place2HorseId === horseId) {
+      points += Number(results.place2Points) || 0; matched = true;
+    }
+    if (matched && jokerUsed && points > 0) {
+      points *= 2;
+    }
+  }
+  return points;
+}
 
-      // Recalculate only this user's leaderboard now
-      await recalculateLeaderboardForUser(selectedUserId);
+async function saveTipForRace(raceId) {
+  if (!raceId || !selectedUserId) return;
+  const tipsDiv = document.getElementById('user-tips-list');
+  const row = tipsDiv.querySelector(`[data-race-row="${raceId}"]`);
+  if (!row) return;
+  const select = row.querySelector(`select[data-race-id="${raceId}"]`);
+  const jokerCheckbox = row.querySelector(`.joker-checkbox[data-race-id="${raceId}"]`);
+  const status = row.querySelector(`[data-status-for="${raceId}"]`);
+  const pointsEl = row.querySelector(`[data-points-for="${raceId}"]`);
 
-      alert("Tip updated.");
-      loadUserTips(selectedUserId);
-    };
-  });
+  const chosenHorseId = select ? select.value : '';
+  const joker = jokerCheckbox ? jokerCheckbox.checked : false;
 
-  // Joker checkbox handler (instant update + recalc leaderboard)
-  tipsDiv.querySelectorAll('.joker-checkbox').forEach(box => {
-    box.onchange = async function() {
-      const raceId = box.dataset.raceId;
-      const tipDocId = `${selectedUserId}_${raceId}`;
-      const tipDoc = await getDoc(doc(db, "tips", tipDocId));
-      if (!tipDoc.exists()) {
-        // if there's no tip yet, create a shell tip with no horse but joker state
-        await setDoc(doc(db, "tips", tipDocId), {
-          userId: selectedUserId,
-          raceId,
-          horseId: "",
-          timestamp: Date.now(),
-          joker: box.checked
-        });
-      } else {
-        const tipData = tipDoc.data();
-        await setDoc(doc(db, "tips", tipDocId), { ...tipData, joker: box.checked });
-      }
+  status.textContent = 'Saving...';
+  status.className = 'save-status saving';
 
-      await recalculateLeaderboardForUser(selectedUserId);
-    };
-  });
+  const tipDocId = `${selectedUserId}_${raceId}`;
+  try {
+    await setDoc(doc(db, "tips", tipDocId), {
+      userId: selectedUserId,
+      raceId,
+      horseId: chosenHorseId || "",
+      timestamp: Date.now(),
+      joker
+    });
+
+    tipsByRace[raceId] = { userId: selectedUserId, raceId, horseId: chosenHorseId || "", joker };
+    await recalculateLeaderboardForUser(selectedUserId, tipsByRace);
+
+    const points = calculatePoints(raceId, chosenHorseId, joker);
+    if (pointsEl) {
+      pointsEl.textContent = points > 0 ? `Points: ${points}` : 'No points';
+      pointsEl.classList.toggle('positive', points > 0);
+    }
+    status.textContent = 'Saved';
+    status.className = 'save-status success';
+    setTimeout(() => {
+      if (status.textContent === 'Saved') status.textContent = '';
+    }, 1500);
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'Error';
+    status.className = 'save-status error';
+  }
 }
 
 /* -------------------------------
    Leaderboard recalculation (per user)
 --------------------------------*/
-async function recalculateLeaderboardForUser(userId) {
-  // ensure races are available
+async function recalculateLeaderboardForUser(userId, tipsMap = null) {
+  // ensure races and results are available
   if (!races || !Object.keys(races).length) await loadRaces();
+  await loadResultsCache();
 
-  // Fetch this user's tips
-  const tipsSnap = await getDocs(query(collection(db, "tips"), where("userId", "==", userId)));
-  const tipsByRace = {};
-  tipsSnap.forEach(d => tipsByRace[d.data().raceId] = d.data());
-
+  const tipsSource = tipsMap || tipsByRace;
   let totalPoints = 0;
 
   for (const raceId of Object.keys(races)) {
-    const userTip = tipsByRace[raceId];
+    const userTip = tipsSource[raceId];
     if (!userTip || !userTip.horseId) continue;
-
-    const tipHorseId = userTip.horseId;
-    const jokerUsed = !!userTip.joker;
-
-    const resSnap = await getDoc(doc(db, "results", raceId));
-    if (!resSnap.exists()) continue;
-    const res = resSnap.data();
-
-    let pts = 0;
-    let matched = false;
-
-    if (res.winningHorseId === tipHorseId) { pts += Number(res.points) || 0; matched = true; }
-    if (res.place1HorseId === tipHorseId)   { pts += Number(res.place1Points) || 0; matched = true; }
-    if (res.place2HorseId === tipHorseId)   { pts += Number(res.place2Points) || 0; matched = true; }
-
-    if (matched && jokerUsed && pts > 0) pts *= 2;
-
+    const pts = calculatePoints(raceId, userTip.horseId, !!userTip.joker);
     totalPoints += pts;
   }
 
-  // Write/update leaderboard doc
-  const userDoc = await getDoc(doc(db, "users", userId));
-  const user = userDoc.exists() ? userDoc.data() : {};
+  const user = selectedUserData && selectedUserData.id === userId ? selectedUserData : null;
+  if (!user) {
+    const userDoc = await getDoc(doc(db, "users", userId));
+    selectedUserData = userDoc.exists() ? { id: userId, ...userDoc.data() } : { id: userId };
+  }
+
   await setDoc(doc(db, "leaderboard", userId), {
     userId,
-    teamName: user.teamName || userId,
+    teamName: (selectedUserData && selectedUserData.teamName) || userId,
     points: totalPoints
   }, { merge: true });
 }
