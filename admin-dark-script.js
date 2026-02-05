@@ -340,7 +340,7 @@ function addManualHorse() {
   const horseRow = document.createElement('div');
   horseRow.className = 'horse-row';
   horseRow.innerHTML = `
-    <input type="number" placeholder="No" class="horse-no" style="width: 60px;">
+    <input type="text" placeholder="No" class="horse-no" style="width: 60px;">
     <input type="text" placeholder="Name" class="horse-name flex-1">
     <input type="text" placeholder="Trainer" class="horse-trainer" style="width: 120px;">
     <input type="text" placeholder="Jockey" class="horse-jockey" style="width: 120px;">
@@ -350,6 +350,238 @@ function addManualHorse() {
     <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
   `;
   horsesList.appendChild(horseRow);
+}
+
+async function scrapeHorsesFromUrl() {
+  const url = document.getElementById('race-fields-url').value;
+  if (!url) {
+    showNotification('Please enter a URL', 'error', 'form-notifications');
+    return;
+  }
+
+  const btn = document.getElementById('scrape-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
+
+  try {
+    // Use a CORS-safe proxy to fetch the page content
+    const normalizedUrl = url.replace(/^https?:\/\//, '');
+    const proxyUrl = `https://r.jina.ai/http://${normalizedUrl}`;
+    const response = await fetch(proxyUrl);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch URL');
+    }
+
+    const html = await response.text();
+
+    // Extract horses from the page - look for fields table first
+    const horses = extractHorsesFromText(html);
+
+    if (horses.length === 0) {
+      showNotification('Could not find horse data on this page. Try manual paste instead.', 'error', 'form-notifications');
+      return;
+    }
+
+    // Populate the horses list
+    const horsesList = document.getElementById('horses-list');
+    horsesList.innerHTML = '';
+
+    horses.forEach((horse, idx) => {
+      const horseRow = document.createElement('div');
+      horseRow.className = 'horse-row';
+      horseRow.innerHTML = `
+        <input type="text" placeholder="No" class="horse-no" value="${horse.number || idx + 1}" style="width: 60px;">
+        <input type="text" placeholder="Name" class="horse-name flex-1" value="${horse.name}">
+        <input type="text" placeholder="Trainer" class="horse-trainer" value="${horse.trainer}" style="width: 120px;">
+        <input type="text" placeholder="Jockey" class="horse-jockey" value="${horse.jockey}" style="width: 120px;">
+        <input type="number" placeholder="Barrier" class="horse-barrier" value="${horse.barrier}" style="width: 80px;">
+        <input type="text" placeholder="Weight" class="horse-weight" value="${horse.weight}" style="width: 80px;">
+        <input type="text" placeholder="Silk Desc" class="horse-silk-desc" value="${horse.silk}" style="width: 100px;">
+        <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
+      `;
+      horsesList.appendChild(horseRow);
+    });
+
+    // Clear the URL field
+    document.getElementById('race-fields-url').value = '';
+    showNotification(`Scraped ${horses.length} horses from URL!`, 'success', 'form-notifications');
+  } catch (error) {
+    console.error('Scraping error:', error);
+    showNotification('Error scraping URL: ' + error.message, 'error', 'form-notifications');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-feather="download" class="h-4 w-4"></i> Scrape';
+    feather.replace();
+  }
+}
+
+function extractHorsesFromText(rawText) {
+  let text = rawText || '';
+  if (text.includes('<html') || text.includes('<table') || text.includes('<body')) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+    text = doc.body ? doc.body.innerText : text;
+  }
+
+  const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
+  const horses = [];
+  const cleanCell = (value) => value.replace(/~~|\*\*/g, '').replace(/\s+/g, ' ').trim();
+  const normalizeNumber = (value) => {
+    const match = value.match(/^(\d+)([a-z])?/i);
+    if (!match) {
+      return value;
+    }
+    return `${match[1]}${match[2] ? match[2].toLowerCase() : ''}`;
+  };
+
+  // Strategy 0: Parse markdown table rows (| No | Horse | Trainer | Jockey | Barrier | Weight |)
+  const tableRows = lines.filter(line => line.startsWith('|') && line.includes('|'));
+  if (tableRows.length > 0) {
+    for (const row of tableRows) {
+      if (/^\|\s*-/.test(row)) {
+        continue; // header separator
+      }
+
+      const rawCells = row.split('|');
+      const cells = rawCells.slice(1, -1).map(cell => cell.trim());
+      if (cells.length < 5) {
+        continue;
+      }
+
+      // Some rows can contain multiple records; chunk into 6 columns when possible.
+      for (let i = 0; i + 5 < cells.length; i += 6) {
+        const numberToken = cleanCell(cells[i] || '');
+        if (!/\d/.test(numberToken)) {
+          continue;
+        }
+
+        const number = normalizeNumber(numberToken);
+        const name = cleanCell(cells[i + 1] || '');
+        const trainer = cleanCell(cells[i + 2] || '');
+        const jockey = cleanCell(cells[i + 3] || '');
+        const barrier = cleanCell(cells[i + 4] || '');
+        const weight = cleanCell(cells[i + 5] || '').replace(/\s+/g, '');
+
+        horses.push({
+          number,
+          name,
+          trainer,
+          jockey,
+          barrier,
+          weight,
+          silk: ''
+        });
+      }
+    }
+  }
+
+  if (horses.length > 0) {
+    return horses;
+  }
+
+  // Strategy 1: Parse the fields table block (No Horse Trainer Jockey Barrier Weight)
+  const headerIndex = lines.findIndex(line => /\bNo\b.*\bHorse\b.*\bTrainer\b.*\bJockey\b.*\bBarrier\b.*\bWeight\b/i.test(line));
+  if (headerIndex !== -1) {
+    const stopPattern = /\bOdds\b|\bBet Now\b|\bRandwick\b|\bFebruary\b|\bPM\b|\bAM\b/i;
+    const tokens = [];
+
+    for (let i = headerIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (stopPattern.test(line)) {
+        break;
+      }
+      if (!line) {
+        continue;
+      }
+
+      const parts = line.split(/\t+|\s{2,}/).map(c => c.trim()).filter(Boolean);
+      if (parts.length > 0) {
+        tokens.push(...parts);
+      }
+    }
+
+    for (let i = 0; i + 5 < tokens.length; i += 6) {
+      const numberToken = tokens[i];
+      if (!/^\d+\w*$/i.test(numberToken)) {
+        continue;
+      }
+
+      const number = normalizeNumber(numberToken);
+      const name = tokens[i + 1] || '';
+      const trainer = tokens[i + 2] || '';
+      const jockey = tokens[i + 3] || '';
+      const barrier = tokens[i + 4] || '';
+      const weight = tokens[i + 5] || '';
+
+      horses.push({
+        number,
+        name,
+        trainer,
+        jockey,
+        barrier,
+        weight: weight.replace(/\s+/g, ''),
+        silk: ''
+      });
+    }
+  }
+
+  if (horses.length > 0) {
+    return horses;
+  }
+
+  // Strategy 2: Fallback to odds-style parsing ("1. Horse (Barrier)")
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(/^(\d+)[.]?\s+(.+?)(?:\s+\((\d+)\))?$/);
+    if (!match) {
+      continue;
+    }
+
+    const number = match[1];
+    const name = match[2].trim();
+    const barrier = match[3] || '';
+    let jockey = '';
+    let trainer = '';
+    let weight = '';
+
+    for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+      const nextLine = lines[j];
+      if (/^\d+\./.test(nextLine)) {
+        break;
+      }
+      if (/\bBet Now\b|\bOdds\b|\bPromos\b|\bRacing\b|\bHome Of\b/i.test(nextLine)) {
+        break;
+      }
+
+      const weightMatch = nextLine.match(/(\d+\.?\d*)\s*kg/i);
+      if (weightMatch) {
+        weight = weightMatch[0].replace(/\s+/g, '');
+      }
+
+      const jMatch = nextLine.match(/^J[:]?\s*(.+)$/i);
+      if (jMatch) {
+        jockey = jMatch[1].trim();
+      }
+
+      const tMatch = nextLine.match(/^T[:]?\s*(.+)$/i);
+      if (tMatch) {
+        trainer = tMatch[1].trim();
+      }
+    }
+
+    horses.push({
+      number,
+      name,
+      trainer,
+      jockey,
+      barrier,
+      weight,
+      silk: ''
+    });
+  }
+
+  return horses;
 }
 
 function parseHorseTable() {
@@ -365,7 +597,7 @@ function parseHorseTable() {
       const horseRow = document.createElement('div');
       horseRow.className = 'horse-row';
       horseRow.innerHTML = `
-        <input type="number" placeholder="No" class="horse-no" value="${cols[0].trim()}" style="width: 60px;">
+        <input type="text" placeholder="No" class="horse-no" value="${cols[0].trim()}" style="width: 60px;">
         <input type="text" placeholder="Name" class="horse-name flex-1" value="${cols[1].trim()}">
         <input type="text" placeholder="Trainer" class="horse-trainer" value="${cols[2].trim()}" style="width: 120px;">
         <input type="text" placeholder="Jockey" class="horse-jockey" value="${cols[3].trim()}" style="width: 120px;">
@@ -515,7 +747,7 @@ async function loadRaceHorses(race) {
   Object.entries(race.horses).forEach(([idx, horse]) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input type="number" value="${horse.no}" data-field="no" data-idx="${idx}" style="width: 60px;"></td>
+      <td><input type="text" value="${horse.no}" data-field="no" data-idx="${idx}" style="width: 60px;"></td>
       <td><input type="text" value="${horse.name}" data-field="name" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.trainer || ''}" data-field="trainer" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.jockey || ''}" data-field="jockey" data-idx="${idx}"></td>
@@ -830,6 +1062,7 @@ window.showNewRaceForm = showNewRaceForm;
 window.cancelForm = cancelForm;
 window.addManualHorse = addManualHorse;
 window.parseHorseTable = parseHorseTable;
+window.scrapeHorsesFromUrl = scrapeHorsesFromUrl;
 window.updateRaceDate = updateRaceDate;
 window.updateRaceTime = updateRaceTime;
 window.updateRaceDistance = updateRaceDistance;

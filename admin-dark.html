@@ -277,6 +277,15 @@
     }
     .horse-row input {
       flex: 1;
+      background: rgba(17, 24, 39, 0.9);
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      color: #e5e7eb;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+    .horse-row input::placeholder {
+      color: #9ca3af;
     }
     
     /* Mobile Responsive Styles */
@@ -550,10 +559,25 @@
 
               <div class="border-t border-gray-700 pt-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <i data-feather="link" class="h-5 w-5 text-yellow-400"></i>
+                  Import Horses from URL
+                </h3>
+                <p class="text-gray-400 text-sm mb-3">Paste a URL to a racing fields page (e.g., justhorseracing.com.au)</p>
+                <div class="flex gap-2 mb-4">
+                  <input type="url" id="race-fields-url" class="form-group flex-1" placeholder="https://www.justhorseracing.com.au/fields-results/...">
+                  <button type="button" onclick="scrapeHorsesFromUrl()" class="btn-secondary" id="scrape-btn">
+                    <i data-feather="download" class="h-4 w-4"></i>
+                    Scrape
+                  </button>
+                </div>
+              </div>
+
+              <div class="border-t border-gray-700 pt-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
                   <i data-feather="copy" class="h-5 w-5 text-yellow-400"></i>
                   Import Horses from Table
                 </h3>
-                <p class="text-gray-400 text-sm mb-3">Paste a table with columns: No, Name, Trainer, Jockey, Barrier, Weight</p>
+                <p class="text-gray-400 text-sm mb-3">Or paste a table with columns: No, Name, Trainer, Jockey, Barrier, Weight</p>
                 <textarea id="paste-table" class="form-group" style="min-height: 120px;" placeholder="Paste table rows here..."></textarea>
                 <button type="button" onclick="parseHorseTable()" class="btn-secondary">
                   <i data-feather="upload" class="h-4 w-4"></i>
