@@ -249,24 +249,32 @@
     <script src="js/jquery.min.js"></script>
     <script src="js/bootstrap.bundle.min.js"></script>
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-
-        const firebaseConfig = {…};
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        import { db, auth } from "./firebase-config.js";
+        import { collection, getDocs, query, where, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+        
+        console.log("[Firebase Setup] Initializing with imported config...");
+        console.log("[Firebase Setup] db:", db);
+        console.log("[Firebase Setup] auth:", auth);
 
         let user = null;
         let scrapeResults = [];
 
+        console.log("[Auth Setup] Setting up auth state listener...");
         onAuthStateChanged(auth, (_user) => {
+            console.log("[Auth Setup] Auth state changed - User:", _user ? _user.email : "null");
             user = _user;
-            if (!user) window.location.href = "login.html";
+            if (!user) {
+                console.warn("[Auth Setup] No user logged in, redirecting to login...");
+                window.location.href = "login.html";
+            } else {
+                console.log("[Auth Setup] User authenticated:", user.email);
+            }
         });
 
+        console.log("[Page] Setting up event listeners...");
         document.getElementById("scrapeBtn").addEventListener("click", scrapeAndSave);
+        console.log("[Page] Scrape button listener attached");
 
         async function scrapeAndSave() {
             console.log("========== SCRAPE & SAVE SILKS STARTED ==========");
