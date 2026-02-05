@@ -298,6 +298,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    let currentUser = null;
 
     function toggleMenu() {
       const menu = document.getElementById("mobileMenu");
@@ -321,6 +322,8 @@
         window.location.href = "landing.html";
         return;
       }
+
+      currentUser = user;
 
       const HOME_STATS_CACHE_KEY = "tmstipping:homeStats";
 
@@ -365,6 +368,8 @@
     }
 
     applyCachedHomeStats();
+
+    loadRaces();
 
     // --- Leaderboard data ---
     onAuthStateChanged(auth, async (user) => {
@@ -411,6 +416,18 @@
     async function loadRaces() {
       const raceGrid = document.getElementById("raceGrid");
       raceGrid.innerHTML = "";
+      const tipsMap = new Set();
+
+      if (currentUser) {
+        const tipsSnap = await getDocs(
+          query(collection(db, "tips"), where("userId", "==", currentUser.uid))
+        );
+        tipsSnap.forEach((tipDoc) => {
+          const tipData = tipDoc.data();
+          if (tipData?.raceId) tipsMap.add(tipData.raceId);
+        });
+      }
+
       const racesSnap = await getDocs(collection(db, "races"));
 
       const nowSydney = DateTime.now().setZone("Australia/Sydney");
@@ -446,6 +463,11 @@
         const isClosed = targetTime < DateTime.now().toMillis();
         const previewUrl = (race.preview || "").trim();
         const hasPreview = previewUrl.length > 0;
+        const tipped = tipsMap.has(race.id);
+        const actionText = tipped ? "Tip Submitted" : "Tip Now";
+        const actionClass = tipped
+          ? "bg-green-600 text-white hover:bg-green-500"
+          : "bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 hover:from-yellow-400 hover:to-amber-400 shadow-lg shadow-yellow-900/30";
 
         const card = document.createElement("div");
         card.className = "card rounded-xl shadow-lg overflow-hidden";
@@ -471,8 +493,8 @@
             </div>
             <div class="space-y-2">
               <a href="tipdark.html?raceId=${race.id}" 
-                 class="block w-full text-center bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold py-2.5 rounded-lg hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 shadow-lg shadow-yellow-900/30">
-                Tip Now
+                 class="block w-full text-center ${actionClass} font-semibold py-2.5 rounded-lg transition-all duration-200">
+                ${actionText}
               </a>
               ${hasPreview ? `<a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="block w-full text-center bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold py-2.5 rounded-lg hover:from-red-500 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-900/30">Preview</a>` : ""}
             </div>
@@ -529,8 +551,6 @@
       update(); // initial
       const timer = setInterval(update, 1000);
     }
-
-    loadRaces();
 
     // --- UI setup ---
     AOS.init({ duration: 800, once: true, offset: 50 });

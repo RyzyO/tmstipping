@@ -405,7 +405,13 @@
         let race, tipSnap;
         if(useCached) {
           race = state.racesCache[raceId];
-          tipSnap = { exists: () => !!state.userTipsCache[raceId], data: () => state.userTipsCache[raceId] || {} };
+          const freshTipSnap = await getDoc(doc(db,"tips",state.user.uid+"_"+raceId));
+          tipSnap = freshTipSnap;
+          if (freshTipSnap.exists()) {
+            state.userTipsCache[raceId] = freshTipSnap.data();
+          } else {
+            delete state.userTipsCache[raceId];
+          }
         } else {
           const raceDoc = await getDoc(doc(db,"races",raceId));
           race = raceDoc.data();
