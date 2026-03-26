@@ -44,6 +44,7 @@
         try {
           await loadUserProfile();
           await loadUserStats();
+          await loadUserCompsStats();
         } catch (error) {
           console.error('Error loading profile:', error);
         }
@@ -98,6 +99,55 @@
         document.getElementById('totalPoints').textContent = points.toFixed(2);
       } catch (error) {
         console.error('Error loading stats:', error);
+      }
+    }
+
+    async function loadUserCompsStats() {
+      if (!currentUser) return;
+      
+      try {
+        const joiningsSnap = await getDocs(
+          query(collection(db, 'userCompJoinings'), where('userId', '==', currentUser.uid))
+        );
+
+        const grid = document.getElementById('compsStatsGrid');
+        grid.innerHTML = '';
+
+        if (joiningsSnap.empty) {
+          grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">You haven\'t joined any competitions yet</div>';
+          return;
+        }
+
+        for (const joinDoc of joiningsSnap.docs) {
+          const joining = joinDoc.data();
+          const compSnap = await getDoc(doc(db, 'comps', joining.compId));
+          
+          if (!compSnap.exists()) continue;
+          
+          const comp = compSnap.data();
+          const card = document.createElement('div');
+          card.className = 'bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-yellow-400/50 transition';
+          card.innerHTML = `
+            <h4 class="text-lg font-bold text-yellow-400 mb-3">${comp.name}</h4>
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-gray-400">Rank:</span>
+                <span class="text-white font-semibold">#${joining.rank || '-'}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Points:</span>
+                <span class="text-yellow-400 font-semibold">${(joining.points || 0).toFixed(2)}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-400">Status:</span>
+                <span class="text-green-400 font-semibold">${joining.paymentStatus === 'completed' ? '✓ Joined' : 'Pending'}</span>
+              </div>
+            </div>
+          `;
+          grid.appendChild(card);
+        }
+      } catch (error) {
+        console.error('Error loading comps stats:', error);
       }
     }
 
@@ -406,6 +456,21 @@
               <p class="text-gray-400 text-sm mb-1">Total Points</p>
               <p class="text-3xl font-bold text-yellow-400" id="totalPoints">0.00</p>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- My Competitions Section -->
+    <section data-aos="fade-up" class="mb-8">
+      <div class="card rounded-2xl shadow-2xl p-8 md:p-10">
+        <div class="flex items-center gap-3 mb-6">
+          <i data-feather="trophy" class="h-8 w-8 text-yellow-400"></i>
+          <h3 class="text-2xl font-bold gradient-text">My Competitions</h3>
+        </div>
+        <div id="compsStatsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700 text-center">
+            <p class="text-gray-400 text-sm">Loading competitions...</p>
           </div>
         </div>
       </div>

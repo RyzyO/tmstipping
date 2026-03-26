@@ -87,6 +87,7 @@
           </button>
           <div class="hidden md:flex space-x-6">
             <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+            <a href="comps.html" class="text-gray-300 hover:text-yellow-400 transition">Competitions</a>
             <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
             <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
             <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
@@ -100,6 +101,7 @@
     </div>
     <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
       <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
+      <a href="comps.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Competitions</a>
       <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
       <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
       <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
@@ -255,10 +257,11 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
 
-    const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{}, pendingRaceId:null };
+    const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{}, pendingRaceId:null, selectedCompId:null };
 
     const urlParams = new URLSearchParams(window.location.search);
     state.pendingRaceId = urlParams.get('raceId');
+    state.selectedCompId = urlParams.get('compId') || 'default-comp'; // Default to legacy comp
 
     function showLoading(){ document.getElementById('loading-overlay').classList.remove('hidden'); }
     function hideLoading(){ document.getElementById('loading-overlay').classList.add('hidden'); }
@@ -273,9 +276,16 @@
           return; 
         }
         state.user=_user;
-        const userRef=doc(db,"users",state.user.uid);
-        const userSnap=await getDoc(userRef);
-        if(!userSnap.exists()||userSnap.data().paid!==true){ alert("Your account is locked."); await signOut(auth); window.location.href="login.html"; return; }
+        
+        // Check if user has joined the selected comp
+        const joiningRef = doc(db, "userCompJoinings", `${_user.uid}_${state.selectedCompId}`);
+        const joiningSnap = await getDoc(joiningRef);
+        
+        if(!joiningSnap.exists()) {
+          alert("You haven't joined this competition yet. Please join first.");
+          window.location.href = "comps.html";
+          return;
+        }
         await refreshJokerCount(); await loadUserTips(); await loadRaces();
       }finally{ setBusy(false); }
     });

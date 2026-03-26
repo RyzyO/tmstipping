@@ -226,6 +226,14 @@
       </div>
     </section>
 
+    <!-- Competition Selector -->
+    <div class="max-w-2xl mx-auto mb-8">
+      <label class="block text-sm font-semibold text-gray-300 mb-2">Select Competition</label>
+      <select id="comp-selector" class="search-input w-full px-5 py-3 rounded-xl text-gray-100 focus:outline-none transition-all">
+        <option value="">Loading competitions...</option>
+      </select>
+    </div>
+
     <!-- Search Section -->
     <div class="max-w-2xl mx-auto mb-8 space-y-3">
       <input id="search-input" type="text" placeholder="Search team name..."
@@ -301,7 +309,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, getDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const { DateTime } = luxon;
@@ -339,6 +347,7 @@
     let cachedTips = {};
     let searchTimeout;
     let currentUserId = null;
+    let selectedCompId = "default-comp";
     const LEADERBOARD_CACHE_KEY = "tmstipping:leaderboardCache";
 
     function signOut() {
@@ -546,32 +555,79 @@
         return;
       }
       currentUserId = user.uid;
+      await loadUserComps();
       await loadLeaderboard();
     });
+
+    async function loadUserComps() {
+      try {
+        const selectEl = document.getElementById("comp-selector");
+        const joiningsSnap = await getDocs(
+          query(collection(db, "userCompJoinings"), where("userId", "==", currentUserId))
+        );
+
+        const comps = [];
+        for (const joinDoc of joiningsSnap.docs) {
+          const joining = joinDoc.data();
+          const compSnap = await getDoc(doc(db, "comps", joining.compId));
+          if (compSnap.exists()) {
+            comps.push({ id: compSnap.id, ...compSnap.data() });
+          }
+        }
+
+        selectEl.innerHTML = "";
+        comps.forEach(comp => {
+          const option = document.createElement("option");
+          option.value = comp.id;
+          option.textContent = comp.name;
+          selectEl.appendChild(option);
+        });
+
+        if (comps.length > 0) {
+          selectedCompId = comps[0].id;
+          selectEl.value = selectedCompId;
+        }
+
+        selectEl.onchange = async () => {
+          selectedCompId = selectEl.value;
+          await loadLeaderboard();
+        };
+      } catch (error) {
+        console.error("Error loading user comps:", error);
+      }
+    }
 
     async function loadLeaderboard() {
       showLoading();
       try {
-        const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+        // Load all user joining records for the selected comp
+        const joiningsSnap = await getDocs(
+          query(collection(db, "userCompJoinings"), where("compId", "==", selectedCompId))
+        );
+
         const usersSnap = await getDocs(collection(db, "users"));
 
+        const usersMap = {};
         const jokersMap = {};
         const silksMap = {};
         usersSnap.forEach(d => {
+          usersMap[d.id] = d.data();
           jokersMap[d.id] = d.data().joker ?? 0;
           silksMap[d.id] = d.data().silk || 1;
         });
 
         cachedLeaderboard = [];
-        leaderboardSnap.forEach(docSnap => {
+        joiningsSnap.forEach(docSnap => {
           const d = docSnap.data();
+          const userId = d.userId;
+          const userData = usersMap[userId] || {};
           let pts = parseFloat(d.points) || 0;
           cachedLeaderboard.push({
-            userId: docSnap.id,
-            teamName: d.teamName,
+            userId: userId,
+            teamName: userData.teamName || userData.email || userId,
             points: pts,
-            jokers: jokersMap[docSnap.id] || 0,
-            silk: silksMap[docSnap.id] || 1
+            jokers: jokersMap[userId] || 0,
+            silk: silksMap[userId] || 1
           });
         });
 

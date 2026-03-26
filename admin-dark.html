@@ -399,6 +399,10 @@
             <i data-feather="bar-chart-2" class="h-4 w-4"></i>
             Leaderboard
           </a>
+          <button onclick="switchMainTab('comps')" class="text-gray-300 hover:text-yellow-400 transition text-sm flex items-center gap-2">
+            <i data-feather="trophy" class="h-4 w-4"></i>
+            Competitions
+          </button>
           <button onclick="removeUnpaidFromLeaderboard()" class="text-gray-300 hover:text-red-400 transition text-sm flex items-center gap-2" title="Remove unpaid users from leaderboard">
             <i data-feather="trash-2" class="h-4 w-4"></i>
             <span class="hidden lg:inline">Clean Leaderboard</span>
@@ -420,6 +424,10 @@
           <i data-feather="bar-chart-2" class="h-4 w-4 inline mr-2"></i>
           Leaderboard
         </a>
+        <button onclick="switchMainTab('comps')" class="w-full text-left text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
+          <i data-feather="trophy" class="h-4 w-4 inline mr-2"></i>
+          Competitions
+        </button>
         <button onclick="removeUnpaidFromLeaderboard()" class="w-full text-left text-gray-300 hover:text-red-400 transition text-sm py-2 px-3 rounded bg-gray-800">
           <i data-feather="trash-2" class="h-4 w-4 inline mr-2"></i>
           Clean Leaderboard
@@ -751,6 +759,85 @@
                 <i data-feather="save" class="h-4 w-4"></i>
                 Save Results
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Competitions Management Panel -->
+        <div id="comps-panel" class="hidden">
+          <div class="card rounded-lg p-8">
+            <div class="flex items-center justify-between mb-6">
+              <h2 class="text-xl md:text-2xl font-bold gradient-text flex items-center gap-2">
+                <i data-feather="trophy" class="h-6 w-6"></i>
+                Manage Competitions
+              </h2>
+              <button onclick="window.showNewCompForm()" class="btn-primary">
+                <i data-feather="plus" class="h-4 w-4"></i>
+                New Competition
+              </button>
+            </div>
+
+            <div id="comp-notifications"></div>
+
+            <!-- Competitions List -->
+            <div id="comps-list" class="space-y-4">
+              <div class="text-center py-12 text-gray-400">Loading competitions...</div>
+            </div>
+
+            <!-- New/Edit Comp Form (Hidden) -->
+            <div id="comp-form-container" class="hidden border-t border-gray-700 pt-8 mt-8">
+              <h3 class="text-lg font-bold mb-6 gradient-text" id="form-title">Create New Competition</h3>
+              <form id="comp-form" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="form-group">
+                  <label>Competition Name</label>
+                  <input type="text" id="comp-name" placeholder="e.g., Summer Racing Championship" required>
+                </div>
+                <div class="form-group">
+                  <label>Status</label>
+                  <select id="comp-status">
+                    <option value="active">Active</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Entry Fee ($)</label>
+                  <input type="number" id="comp-fee" placeholder="0.00" min="0" step="0.01" value="0">
+                </div>
+                <div class="form-group">
+                  <label>Prize Pool ($)</label>
+                  <input type="number" id="comp-prize" placeholder="0.00" min="0" step="0.01" value="0">
+                </div>
+                <div class="form-group">
+                  <label>Start Date</label>
+                  <input type="date" id="comp-start" required>
+                </div>
+                <div class="form-group">
+                  <label>End Date</label>
+                  <input type="date" id="comp-end" required>
+                </div>
+                <div class="form-group md:col-span-2">
+                  <label>Description</label>
+                  <textarea id="comp-description" placeholder="Competition details..." rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                  <label>Max Participants</label>
+                  <input type="number" id="comp-max-participants" placeholder="1000" min="1" value="1000">
+                </div>
+                <div class="form-group">
+                  <label>Competition ID (auto-generated, optional)</label>
+                  <input type="text" id="comp-id" placeholder="auto-generated-id" disabled>
+                </div>
+                <div class="flex gap-4 md:col-span-2">
+                  <button type="button" onclick="window.saveCompetition()" class="btn-primary flex-1">
+                    <i data-feather="save" class="h-4 w-4"></i>
+                    Save Competition
+                  </button>
+                  <button type="button" onclick="window.cancelCompForm()" class="btn-secondary flex-1">
+                    <i data-feather="x" class="h-4 w-4"></i>
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

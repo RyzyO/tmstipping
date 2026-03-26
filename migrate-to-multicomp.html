@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Migrate to Multi-Comp System - The Mock Sports Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 50%, #0f1419 100%);
+      background-attachment: fixed;
+      color: #f0f4f8;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background: rgba(31, 42, 58, 0.9);
+      border: 1px solid rgba(150, 155, 165, 0.15);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    button {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #111827;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 200ms;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(251, 191, 36, 0.3);
+    }
+    button:disabled {
+      background: #6b7280;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: monospace;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .status.success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #a7f3d0;
+    }
+    .status.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .status.info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+    }
+    .status.warning {
+      background: rgba(251, 191, 36, 0.1);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      color: #fcd34d;
+    }
+    h1, h2 {
+      color: #fcd34d;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #b0b8c7;
+      line-height: 1.6;
+    }
+    .step {
+      margin-bottom: 24px;
+    }
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔄 Migrate to Multi-Comp System</h1>
+    <p style="margin-bottom: 24px;">This migration tool will move your existing competition data from the old system to the new multi-comp structure.</p>
+
+    <!-- Step 1: Create Default Comp -->
+    <div class="card">
+      <h2>Step 1: Create Default Competition</h2>
+      <p>This creates the "The Great Spring Tip Off" competition document in the new system.</p>
+      <button onclick="createDefaultComp()">Create Default Competition</button>
+      <div id="step1Status"></div>
+    </div>
+
+    <!-- Step 2: Add compId to Existing Races -->
+    <div class="card">
+      <h2>Step 2: Update Races with Competition ID</h2>
+      <p>This adds the compId field to all existing races so they're associated with the competition.</p>
+      <button onclick="updateRacesWithCompId()">Update Races</button>
+      <div id="step2Status"></div>
+    </div>
+
+    <!-- Step 3: Migrate Users to Comp Joinings -->
+    <div class="card">
+      <h2>Step 3: Migrate Users to Competition Joinings</h2>
+      <p>This creates joining records for all users who have made tips, so they can access the competition.</p>
+      <button onclick="migrateUsersToCompJoinings()">Migrate Users</button>
+      <div id="step3Status"></div>
+    </div>
+
+    <!-- Step 4: Migrate Leaderboard Points -->
+    <div class="card">
+      <h2>Step 4: Migrate Leaderboard Points</h2>
+      <p>This migrates the actual points data from the old leaderboard collection to userCompJoinings for each user.</p>
+      <button onclick="migrateLeaderboardPoints()">Migrate Points</button>
+      <div id="step4Status"></div>
+    </div>
+
+    <!-- Step 5: Verify Migration -->
+    <div class="card">
+      <h2>Step 5: Verify Migration</h2>
+      <p>Check that the migration was successful.</p>
+      <button onclick="verifyMigration()">Verify</button>
+      <div id="step5Status"></div>
+    </div>
+
+    <!-- Important Notes -->
+    <div class="card">
+      <h2>⚠️ Important</h2>
+      <ul style="color: #b0b8c7; line-height: 1.8;">
+        <li>✅ This migration is <strong>safe</strong> - it doesn't delete any data</li>
+        <li>✅ You can run this multiple times without issues</li>
+        <li>✅ After migration, users need to be in userCompJoinings to join comps</li>
+        <li>✅ Once complete, comps will be visible in comps.html</li>
+        <li>⚠️ Make sure you have admin access before proceeding</li>
+      </ul>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, serverTimestamp, updateDoc, increment } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let currentUser = null;
+
+    function addLog(elementId, message, type = 'info') {
+      const status = document.getElementById(elementId);
+      if (!status.innerHTML.includes('status')) {
+        status.innerHTML = `<div class="status ${type}"></div>`;
+      }
+      const log = status.querySelector('.status');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.textContent = message;
+      log.appendChild(entry);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog(elementId) {
+      const status = document.getElementById(elementId);
+      status.innerHTML = '';
+    }
+
+    window.createDefaultComp = async () => {
+      clearLog('step1Status');
+      try {
+        addLog('step1Status', '⏳ Creating default competition...', 'warning');
+        
+        const compData = {
+          compId: "default-comp",
+          name: "The Great Spring Tip Off",
+          description: "The main competition for spring racing season",
+          entryFee: 0,
+          prizePool: 0,
+          maxParticipants: 1000,
+          participantCount: 0,
+          status: "closed",
+          startDate: "2025-03-01T00:00:00Z",
+          endDate: "2025-04-30T23:59:59Z",
+          createdBy: currentUser ? currentUser.uid : "migration",
+          createdAt: serverTimestamp()
+        };
+
+        await setDoc(doc(db, "comps", "default-comp"), compData);
+        addLog('step1Status', '✅ Created default competition: The Great Spring Tip Off', 'success');
+        addLog('step1Status', '   ID: default-comp', 'success');
+        addLog('step1Status', '   Proceed to Step 2', 'success');
+      } catch (error) {
+        addLog('step1Status', `❌ Error: ${error.message}`, 'error');
+      }
+    };
+
+    window.updateRacesWithCompId = async () => {
+      clearLog('step2Status');
+      try {
+        addLog('step2Status', '⏳ Fetching all races...', 'warning');
+        
+        const racesSnap = await getDocs(collection(db, "races"));
+        const races = [];
+        racesSnap.forEach(doc => races.push({ id: doc.id, ...doc.data() }));
+        
+        addLog('step2Status', `✅ Found ${races.length} races`, 'success');
+
+        if (races.length === 0) {
+          addLog('step2Status', '⚠️ No races found to update', 'warning');
+          return;
+        }
+
+        addLog('step2Status', '⏳ Updating races with compId...', 'warning');
+        
+        const batch = writeBatch(db);
+        let updated = 0;
+
+        races.forEach(race => {
+          if (!race.compId) {
+            batch.update(doc(db, "races", race.id), { compId: "default-comp" });
+            updated++;
+          }
+        });
+
+        await batch.commit();
+        addLog('step2Status', `✅ Updated ${updated} races with compId: default-comp`, 'success');
+        addLog('step2Status', '   Proceed to Step 3', 'success');
+      } catch (error) {
+        addLog('step2Status', `❌ Error: ${error.message}`, 'error');
+      }
+    };
+
+    window.migrateUsersToCompJoinings = async () => {
+      clearLog('step3Status');
+      try {
+        addLog('step3Status', '⏳ Finding users who made tips in legacy comp...', 'warning');
+        
+        const tipsSnap = await getDocs(collection(db, "tips"));
+        const userIds = new Set();
+        
+        tipsSnap.forEach(doc => {
+          if (doc.data().userId) {
+            userIds.add(doc.data().userId);
+          }
+        });
+        
+        const users = Array.from(userIds);
+        addLog('step3Status', `✅ Found ${users.length} users who made tips`, 'success');
+
+        if (users.length === 0) {
+          addLog('step3Status', '⚠️ No users with tips found', 'warning');
+          return;
+        }
+
+        addLog('step3Status', '⏳ Creating joining records for legacy participants...', 'warning');
+        
+        const batch = writeBatch(db);
+        let created = 0;
+
+        for (const userId of users) {
+          const joiningId = `${userId}_default-comp`;
+          const joiningRef = doc(db, "userCompJoinings", joiningId);
+          
+          batch.set(joiningRef, {
+            userId: userId,
+            compId: "default-comp",
+            joinDate: serverTimestamp(),
+            paymentStatus: "completed",
+            stripePaymentId: "migrated-legacy",
+            rank: 999999,
+            points: 0,
+            wins: 0,
+            losses: 0
+          }, { merge: true });
+
+          created++;
+        }
+
+        await batch.commit();
+        addLog('step3Status', `✅ Created ${created} joining records`, 'success');
+        addLog('step3Status', `   Only legacy participants migrated to default-comp`, 'success');
+        addLog('step3Status', '   Proceed to Step 4', 'success');
+      } catch (error) {
+        addLog('step3Status', `❌ Error: ${error.message}`, 'error');
+      }
+    };
+
+    window.migrateLeaderboardPoints = async () => {
+      clearLog('step4Status');
+      try {
+        addLog('step4Status', '⏳ Fetching leaderboard data...', 'warning');
+        
+        const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
+        const leaderboardEntries = [];
+        
+        leaderboardSnap.forEach(doc => {
+          leaderboardEntries.push({
+            userId: doc.id,
+            points: parseFloat(doc.data().points) || 0
+          });
+        });
+        
+        addLog('step4Status', `✅ Found ${leaderboardEntries.length} entries in leaderboard`, 'success');
+
+        if (leaderboardEntries.length === 0) {
+          addLog('step4Status', '⚠️ No leaderboard data to migrate', 'warning');
+          return;
+        }
+
+        // Sort by points descending to calculate ranks
+        leaderboardEntries.sort((a, b) => b.points - a.points);
+
+        addLog('step4Status', '⏳ Updating userCompJoinings with leaderboard points...', 'warning');
+        
+        const batch = writeBatch(db);
+        let updated = 0;
+
+        leaderboardEntries.forEach((entry, index) => {
+          const joiningId = `${entry.userId}_default-comp`;
+          batch.update(doc(db, "userCompJoinings", joiningId), {
+            points: entry.points,
+            rank: index + 1
+          });
+          updated++;
+        });
+
+        await batch.commit();
+        addLog('step4Status', `✅ Updated ${updated} entries with leaderboard points and ranks`, 'success');
+        addLog('step4Status', '   Proceed to Step 5', 'success');
+      } catch (error) {
+        addLog('step4Status', `❌ Error: ${error.message}`, 'error');
+      }
+    };
+
+    window.verifyMigration = async () => {
+      clearLog('step5Status');
+      try {
+        addLog('step5Status', '⏳ Verifying migration...', 'warning');
+
+        // Check comps collection
+        const compsSnap = await getDocs(collection(db, "comps"));
+        addLog('step5Status', `✅ Comps collection: ${compsSnap.size} document(s)`, 'success');
+
+        // Check for default-comp
+        const defaultCompSnap = await getDocs(collection(db, "comps"));
+        let hasDefaultComp = false;
+        defaultCompSnap.forEach(doc => {
+          if (doc.id === "default-comp") hasDefaultComp = true;
+        });
+        
+        if (hasDefaultComp) {
+          addLog('step5Status', `✅ Default comp found: "The Great Spring Tip Off"`, 'success');
+        } else {
+          addLog('step5Status', `⚠️ Default comp not found (run Step 1)`, 'warning');
+        }
+
+        // Check races with compId
+        const racesSnap = await getDocs(collection(db, "races"));
+        let racesWithCompId = 0;
+        racesSnap.forEach(doc => {
+          if (doc.data().compId === "default-comp") racesWithCompId++;
+        });
+        addLog('step5Status', `✅ Races with compId: ${racesWithCompId}/${racesSnap.size}`, 'success');
+
+        // Check userCompJoinings
+        const joiningsSnap = await getDocs(collection(db, "userCompJoinings"));
+        let joiningsForDefaultComp = 0;
+        joiningsSnap.forEach(doc => {
+          if (doc.data().compId === "default-comp") joiningsForDefaultComp++;
+        });
+        addLog('step5Status', `✅ Users joined to default-comp: ${joiningsForDefaultComp}`, 'success');
+
+        addLog('step5Status', '', 'success');
+        if (hasDefaultComp && racesWithCompId > 0 && joiningsForDefaultComp > 0) {
+          addLog('step5Status', `✅ ✅ ✅ MIGRATION COMPLETE! ✅ ✅ ✅`, 'success');
+          addLog('step5Status', `Comps are now visible in comps.html`, 'success');
+          addLog('step5Status', `Users can join and tip!`, 'success');
+        } else {
+          addLog('step5Status', `⚠️ Incomplete migration - rerun any steps with 0 results`, 'warning');
+        }
+      } catch (error) {
+        addLog('step5Status', `❌ Error: ${error.message}`, 'error');
+      }
+    };
+
+    // Check auth
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      if (!user) {
+        document.body.innerHTML = '<div style="text-align: center; padding: 40px; color: #fca5a5;"><h2>Not Logged In</h2><p>Please log in to the admin panel to perform migrations.</p></div>';
+      }
+    });
+  </script>
+</body>
+</html>

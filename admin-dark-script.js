@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, writeBatch, query, where, addDoc } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, writeBatch, query, where, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
 
 // Initialize Firebase
@@ -1343,3 +1343,193 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('load', () => {
   feather.replace();
 });
+
+// ============ COMPETITIONS MANAGEMENT ============
+window.switchMainTab = function(tab) {
+  // Hide all main panels
+  document.getElementById('race-details-panel').classList.add('hidden');
+  document.getElementById('comps-panel').classList.add('hidden');
+  
+  // Show selected panel
+  if (tab === 'comps') {
+    document.getElementById('comps-panel').classList.remove('hidden');
+    loadCompsManagement();
+  } else {
+    document.getElementById('race-details-panel').classList.remove('hidden');
+  }
+};
+
+async function loadCompsManagement() {
+  try {
+    const compsSnap = await getDocs(collection(db, 'comps'));
+    const compsList = document.getElementById('comps-list');
+    
+    if (compsSnap.empty) {
+      compsList.innerHTML = '<div class="text-center py-12 text-gray-400">No competitions yet. Create one to get started.</div>';
+      return;
+    }
+
+    compsList.innerHTML = '';
+    const comps = [];
+    compsSnap.forEach(doc => {
+      comps.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Sort by start date (newest first)
+    comps.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+
+    for (const comp of comps) {
+      const startDate = DateTime.fromISO(comp.startDate).toFormat('MMM d, yyyy');
+      const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
+      const statusBadge = comp.status === 'active' 
+        ? '<span class="inline-block bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-xs font-semibold">🟢 Active</span>'
+        : '<span class="inline-block bg-gray-500/20 text-gray-400 px-3 py-1 rounded-full text-xs font-semibold">⚫ Closed</span>';
+
+      const card = document.createElement('div');
+      card.className = 'card rounded-lg p-6';
+      card.innerHTML = `
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-gray-100">${comp.name}</h3>
+            <p class="text-sm text-gray-400 mt-1">${comp.description || 'No description'}</p>
+          </div>
+          ${statusBadge}
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 py-4 border-t border-b border-gray-700">
+          <div>
+            <p class="text-xs text-gray-500">Entry Fee</p>
+            <p class="text-lg font-semibold text-yellow-400">$${(comp.entryFee || 0).toFixed(2)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">Prize Pool</p>
+            <p class="text-lg font-semibold text-green-400">$${(comp.prizePool || 0).toFixed(2)}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">Participants</p>
+            <p class="text-lg font-semibold">${comp.participantCount || 0}/${comp.maxParticipants || 1000}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500">Dates</p>
+            <p class="text-xs text-gray-300">${startDate} to ${endDate}</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="window.editCompetition('${comp.id}')" class="btn-secondary flex-1">
+            <i data-feather="edit-2" class="h-4 w-4"></i>
+            Edit
+          </button>
+          <button onclick="window.deleteCompetition('${comp.id}')" class="btn-danger flex-1">
+            <i data-feather="trash-2" class="h-4 w-4"></i>
+            Delete
+          </button>
+        </div>
+      `;
+      compsList.appendChild(card);
+    }
+    feather.replace();
+  } catch (error) {
+    console.error('Error loading comps:', error);
+    showNotification('Error loading competitions', 'error', 'comp-notifications');
+  }
+}
+
+window.showNewCompForm = function() {
+  document.getElementById('comp-form-container').classList.remove('hidden');
+  document.getElementById('form-title').textContent = 'Create New Competition';
+  document.getElementById('comp-form').reset();
+  document.getElementById('comp-id').value = 'auto-generated';
+  document.getElementById('comp-status').value = 'active';
+};
+
+window.cancelCompForm = function() {
+  document.getElementById('comp-form-container').classList.add('hidden');
+  document.getElementById('comp-form').reset();
+};
+
+window.editCompetition = async function(compId) {
+  try {
+    const compSnap = await getDoc(doc(db, 'comps', compId));
+    if (!compSnap.exists()) {
+      showNotification('Competition not found', 'error', 'comp-notifications');
+      return;
+    }
+
+    const comp = compSnap.data();
+    document.getElementById('form-title').textContent = `Edit: ${comp.name}`;
+    document.getElementById('comp-form-container').classList.remove('hidden');
+    
+    // Fill form
+    document.getElementById('comp-name').value = comp.name;
+    document.getElementById('comp-status').value = comp.status;
+    document.getElementById('comp-fee').value = comp.entryFee || 0;
+    document.getElementById('comp-prize').value = comp.prizePool || 0;
+    document.getElementById('comp-start').value = comp.startDate.split('T')[0];
+    document.getElementById('comp-end').value = comp.endDate.split('T')[0];
+    document.getElementById('comp-description').value = comp.description || '';
+    document.getElementById('comp-max-participants').value = comp.maxParticipants || 1000;
+    document.getElementById('comp-id').value = compId;
+  } catch (error) {
+    console.error('Error editing competition:', error);
+    showNotification('Error loading competition', 'error', 'comp-notifications');
+  }
+};
+
+window.saveCompetition = async function() {
+  try {
+    const compId = document.getElementById('comp-id').value;
+    const isNew = compId === 'auto-generated';
+
+    const compData = {
+      name: document.getElementById('comp-name').value.trim(),
+      status: document.getElementById('comp-status').value,
+      entryFee: parseFloat(document.getElementById('comp-fee').value) || 0,
+      prizePool: parseFloat(document.getElementById('comp-prize').value) || 0,
+      startDate: document.getElementById('comp-start').value + 'T00:00:00Z',
+      endDate: document.getElementById('comp-end').value + 'T23:59:59Z',
+      description: document.getElementById('comp-description').value.trim(),
+      maxParticipants: parseInt(document.getElementById('comp-max-participants').value) || 1000,
+      participantCount: isNew ? 0 : undefined,
+      updatedAt: serverTimestamp()
+    };
+
+    if (!compData.name) {
+      showNotification('Competition name is required', 'error', 'comp-notifications');
+      return;
+    }
+
+    // Generate slug from name if new
+    const finalCompId = isNew ? compData.name.toLowerCase().replace(/\s+/g, '-').substring(0, 20) : compId;
+
+    if (isNew) {
+      compData.createdAt = serverTimestamp();
+      compData.participantCount = 0;
+      await setDoc(doc(db, 'comps', finalCompId), compData);
+      showNotification(`Competition "${compData.name}" created successfully!`, 'success', 'comp-notifications');
+    } else {
+      delete compData.participantCount;
+      await updateDoc(doc(db, 'comps', compId), compData);
+      showNotification(`Competition "${compData.name}" updated successfully!`, 'success', 'comp-notifications');
+    }
+
+    document.getElementById('comp-form-container').classList.add('hidden');
+    await loadCompsManagement();
+  } catch (error) {
+    console.error('Error saving competition:', error);
+    showNotification('Error saving competition: ' + error.message, 'error', 'comp-notifications');
+  }
+};
+
+window.deleteCompetition = async function(compId) {
+  if (!confirm('Are you sure you want to delete this competition? This action cannot be undone.')) {
+    return;
+  }
+
+  try {
+    await updateDoc(doc(db, 'comps', compId), { status: 'deleted' });
+    showNotification('Competition deleted', 'success', 'comp-notifications');
+    await loadCompsManagement();
+  } catch (error) {
+    console.error('Error deleting competition:', error);
+    showNotification('Error deleting competition', 'error', 'comp-notifications');
+  }
+}

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Setup - The Mock Sports Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 50%, #0f1419 100%);
+      background-attachment: fixed;
+      color: #f0f4f8;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background: rgba(31, 42, 58, 0.9);
+      border: 1px solid rgba(150, 155, 165, 0.15);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    button {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #111827;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 200ms;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(251, 191, 36, 0.3);
+    }
+    button:disabled {
+      background: #6b7280;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .status.success {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #a7f3d0;
+    }
+    .status.error {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+    .status.info {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #93c5fd;
+    }
+    textarea, input {
+      background: rgba(55, 65, 81, 0.5);
+      border: 1px solid rgba(150, 155, 165, 0.2);
+      border-radius: 8px;
+      color: #f0f4f8;
+      padding: 12px;
+      width: 100%;
+      font-family: monospace;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    h1, h2 {
+      color: #fcd34d;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 The Mock Sports - Database Setup</h1>
+    <p style="color: #b0b8c7; margin-bottom: 24px;">Initialize Firestore collections and create default competition</p>
+
+    <!-- Check Auth -->
+    <div class="card">
+      <h2>Step 1: Verify Admin Access</h2>
+      <button onclick="checkAuth()">Verify Admin Status</button>
+      <div id="authStatus"></div>
+    </div>
+
+    <!-- Initialize Collections -->
+    <div class="card">
+      <h2>Step 2: Create Collections</h2>
+      <p style="color: #b0b8c7; margin-bottom: 12px;">This creates the necessary Firestore collections for the multi-comp system.</p>
+      <button onclick="initializeCollections()">Initialize Collections</button>
+      <div id="collectionStatus"></div>
+    </div>
+
+    <!-- Create Default Comp -->
+    <div class="card">
+      <h2>Step 3: Create Default Competition</h2>
+      <p style="color: #b0b8c7; margin-bottom: 12px;">Create "The Great Spring Tip Off" competition</p>
+      
+      <label>Competition Name:</label>
+      <input type="text" id="compName" value="The Great Spring Tip Off">
+      
+      <label>Description:</label>
+      <textarea id="compDescription" rows="3">The main competition for spring racing season. Pick winners and climb the leaderboard!</textarea>
+      
+      <label>Entry Fee (AUD):</label>
+      <input type="number" id="compEntryFee" value="25.00" step="0.01" min="0">
+      
+      <label>Prize Pool (AUD):</label>
+      <input type="number" id="compPrizePool" value="5000.00" step="0.01" min="0">
+      
+      <label>Max Participants:</label>
+      <input type="number" id="compMaxParticipants" value="500" min="1">
+      
+      <label>Start Date:</label>
+      <input type="datetime-local" id="compStartDate" value="2026-03-01T00:00">
+      
+      <label>End Date:</label>
+      <input type="datetime-local" id="compEndDate" value="2026-04-30T23:59">
+      
+      <button onclick="createDefaultComp()">Create Competition</button>
+      <div id="compStatus"></div>
+    </div>
+
+    <!-- Setup Instructions -->
+    <div class="card">
+      <h2>📋 Setup Instructions</h2>
+      <ol style="color: #b0b8c7; line-height: 1.8;">
+        <li>Click "Verify Admin Status" to confirm you're an admin</li>
+        <li>Click "Initialize Collections" to create the Firestore structure</li>
+        <li>Adjust competition details if needed</li>
+        <li>Click "Create Competition" to set up the default comp</li>
+        <li>Competitions are now ready to use!</li>
+      </ol>
+
+      <h3 style="color: #fcd34d; margin-top: 16px; margin-bottom: 8px;">Next Steps:</h3>
+      <ul style="color: #b0b8c7;">
+        <li>Users can now sign up without payment</li>
+        <li>Users will land on the comps.html page after signup</li>
+        <li>They can join competitions with payment</li>
+        <li>Races should be owned by each competition</li>
+      </ul>
+    </div>
+
+    <!-- Troubleshooting -->
+    <div class="card">
+      <h2>⚠️ Troubleshooting</h2>
+      <details style="color: #b0b8c7;">
+        <summary style="cursor: pointer; font-weight: 600;">I see "Not authenticated" error</summary>
+        <p style="margin-top: 8px;">You must be logged in as an admin user. Contact your database administrator to add the admin flag to your user account in Firebase.</p>
+      </details>
+      <details style="margin-top: 12px; color: #b0b8c7;">
+        <summary style="cursor: pointer; font-weight: 600;">Collections already exist error</summary>
+        <p style="margin-top: 8px;">The collections have already been created. This is normal - you can proceed to the next step. If you need to reset, manually delete collections in the Firebase console.</p>
+      </details>
+      <details style="margin-top: 12px; color: #b0b8c7;">
+        <summary style="cursor: pointer; font-weight: 600;">Can't join competitions</summary>
+        <p style="margin-top: 8px;">Make sure you've completed all steps. Users need to be logged in and have access to the comps.html page.</p>
+      </details>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, doc, getDocs, setDoc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let currentUser = null;
+
+    window.checkAuth = async () => {
+      const status = document.getElementById('authStatus');
+      try {
+        if (!currentUser) {
+          status.innerHTML = '<div class="status error">❌ Not authenticated. Please log in.</div>';
+          return;
+        }
+
+        const userDoc = await getDocs(collection(db, "users"));
+        let isAdmin = false;
+        userDoc.forEach(doc => {
+          if (doc.id === currentUser.uid && doc.data().admin === true) {
+            isAdmin = true;
+          }
+        });
+
+        if (isAdmin) {
+          status.innerHTML = `<div class="status success">✅ Authenticated as admin: ${currentUser.email}</div>`;
+        } else {
+          status.innerHTML = `<div class="status error">❌ User ${currentUser.email} is not an admin. Contact an administrator.</div>`;
+        }
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+      }
+    };
+
+    window.initializeCollections = async () => {
+      const status = document.getElementById('collectionStatus');
+      try {
+        status.innerHTML = '<div class="status info">⏳ Initializing collections...</div>';
+
+        const batch = writeBatch(db);
+        
+        // Create a placeholder document in each collection
+        batch.set(doc(db, "comps", "_placeholder"), { placeholder: true, createdAt: serverTimestamp() });
+        batch.set(doc(db, "userCompJoinings", "_placeholder"), { placeholder: true, createdAt: serverTimestamp() });
+        batch.set(doc(db, "payments", "_placeholder"), { placeholder: true, createdAt: serverTimestamp() });
+        batch.set(doc(db, "leaderboards", "_placeholder"), { placeholder: true, createdAt: serverTimestamp() });
+
+        await batch.commit();
+
+        status.innerHTML = '<div class="status success">✅ Collections initialized successfully!</div>';
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+      }
+    };
+
+    window.createDefaultComp = async () => {
+      const status = document.getElementById('compStatus');
+      try {
+        status.innerHTML = '<div class="status info">⏳ Creating competition...</div>';
+
+        const compData = {
+          compId: "default-comp",
+          name: document.getElementById('compName').value,
+          description: document.getElementById('compDescription').value,
+          entryFee: parseFloat(document.getElementById('compEntryFee').value),
+          prizePool: parseFloat(document.getElementById('compPrizePool').value),
+          maxParticipants: parseInt(document.getElementById('compMaxParticipants').value),
+          participantCount: 0,
+          status: "active",
+          startDate: new Date(document.getElementById('compStartDate').value).toISOString(),
+          endDate: new Date(document.getElementById('compEndDate').value).toISOString(),
+          createdBy: currentUser.uid,
+          createdAt: serverTimestamp()
+        };
+
+        await setDoc(doc(db, "comps", "default-comp"), compData);
+
+        status.innerHTML = `<div class="status success">✅ Competition "The Great Spring Tip Off" created successfully!<br/>
+          ID: default-comp<br/>
+          Entry Fee: AUD $${compData.entryFee.toFixed(2)}<br/>
+          Prize Pool: AUD $${compData.prizePool.toFixed(2)}
+        </div>`;
+      } catch (error) {
+        status.innerHTML = `<div class="status error">❌ Error: ${error.message}</div>`;
+      }
+    };
+
+    // Monitor auth changes
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      if (user) {
+        document.getElementById('authStatus').innerHTML = `<div class="status info">Logged in as: ${user.email}</div>`;
+      } else {
+        document.getElementById('authStatus').innerHTML = '<div class="status error">❌ Not logged in. Please log in to continue.</div>';
+      }
+    });
+  </script>
+</body>
+</html>

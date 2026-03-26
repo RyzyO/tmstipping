@@ -123,11 +123,22 @@
       </div>
     </div>
 
-    <!-- Filter & Sort controls -->
-    <div class="flex flex-col sm:flex-row gap-3 mb-8" data-aos="fade-up">
-      <select id="sort-date" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 flex-1">
-        <option value="newest">Date: Newest → Oldest</option>
-        <option value="oldest">Date: Oldest → Newest</option>
+    <!-- Filters Section -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8" data-aos="fade-up">
+      <div>
+        <label class="block text-sm font-semibold text-gray-300 mb-2">Competition</label>
+        <select id="comp-selector" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 w-full">
+          <option value="">Loading competitions...</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-300 mb-2">Sort</label>
+        <select id="sort-date" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 w-full">
+          <option value="newest">Date: Newest → Oldest</option>
+          <option value="oldest">Date: Oldest → Newest</option>
+        </select>
+      </div>
+    </div>
       </select>
       <select id="filter-win" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 flex-1">
         <option value="all">All Results</option>
@@ -192,7 +203,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, getDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
     const { DateTime } = luxon;
@@ -208,7 +219,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    let user=null, allResults=[], countdownTimer=null;
+    let user=null, allResults=[], countdownTimer=null, selectedCompId = "default-comp";
     let weekStarts=[], currentWeekIndex=0;
     const RESULTS_CACHE_KEY = "tmstipping:resultsCache";
 
@@ -248,7 +259,9 @@
 
     onAuthStateChanged(auth, async (_user)=>{
       if(!_user){window.location.href="login.html"; return;}
-      user=_user; await loadAllResults();
+      user=_user; 
+      await loadUserComps();
+      await loadAllResults();
     });
 
     function formatCountdown(targetMillis) {
@@ -276,12 +289,51 @@
       }, 1000);
     }
 
+    async function loadUserComps() {
+      try {
+        const selectEl = document.getElementById("comp-selector");
+        const joiningsSnap = await getDocs(
+          query(collection(db, "userCompJoinings"), where("userId", "==", user.uid))
+        );
+
+        const comps = [];
+        for (const joinDoc of joiningsSnap.docs) {
+          const joining = joinDoc.data();
+          const compSnap = await getDoc(doc(db, "comps", joining.compId));
+          if (compSnap.exists()) {
+            comps.push({ id: compSnap.id, ...compSnap.data() });
+          }
+        }
+
+        selectEl.innerHTML = "";
+        comps.forEach(comp => {
+          const option = document.createElement("option");
+          option.value = comp.id;
+          option.textContent = comp.name;
+          selectEl.appendChild(option);
+        });
+
+        if (comps.length > 0) {
+          selectedCompId = comps[0].id;
+          selectEl.value = selectedCompId;
+        }
+
+        selectEl.onchange = async () => {
+          selectedCompId = selectEl.value;
+          currentWeekIndex = 0;
+          await loadAllResults();
+        };
+      } catch (error) {
+        console.error("Error loading user comps:", error);
+      }
+    }
+
     async function loadAllResults() {
       if (!hasInitialCache) showLoading();
       try {
         allResults=[];
         const [racesSnap, tipsSnap, resultsSnap] = await Promise.all([
-          getDocs(collection(db,"races")),
+          getDocs(query(collection(db,"races"), where("compId", "==", selectedCompId))),
           getDocs(collection(db,"tips")),
           getDocs(collection(db,"results"))
         ]);

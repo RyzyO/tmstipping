@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Competitions - The Mock Sports</title>
+  <link rel="icon" type="image/x-icon" href="icon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#fbbf24">
+
+  <style>
+    :root {
+      --bg-0: #0f1419;
+      --bg-1: #1a1f2e;
+      --bg-2: #252d3d;
+      --surface: #1f2a3a;
+      --text-1: #f0f4f8;
+      --text-2: #b0b8c7;
+      --accent: #fbbf24;
+      --accent-dark: #f59e0b;
+      --accent-light: #fcd34d;
+      --radius-md: 14px;
+      --space-4: 16px;
+      --space-5: 24px;
+      --space-6: 32px;
+      --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+      --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    body {
+      background: linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-0) 100%);
+      background-attachment: fixed;
+      color: var(--text-1);
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .glass-effect {
+      background: rgba(15, 20, 25, 0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .card {
+      background: linear-gradient(145deg, rgba(37, 45, 61, 0.85), rgba(26, 31, 46, 0.85));
+      border: 1px solid rgba(150, 155, 165, 0.15);
+      border-radius: var(--radius-md);
+      transition: all var(--transition);
+    }
+
+    .card:hover {
+      background: linear-gradient(145deg, rgba(42, 53, 72, 0.9), rgba(31, 42, 58, 0.9));
+      border-color: rgba(251, 191, 36, 0.3);
+      transform: translateY(-6px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 40px rgba(251, 191, 36, 0.1);
+    }
+
+    .comp-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .comp-badge {
+      display: inline-block;
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.35);
+      color: var(--accent-light);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      width: fit-content;
+      margin-bottom: var(--space-4);
+    }
+
+    .btn-join {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      color: #111827;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition);
+      box-shadow: 0 8px 24px rgba(251, 191, 36, 0.2);
+      text-decoration: none;
+      display: inline-block;
+      width: 100%;
+      text-align: center;
+      margin-top: auto;
+    }
+
+    .btn-join:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(251, 191, 36, 0.3);
+    }
+
+    .btn-joined {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      cursor: not-allowed;
+    }
+
+    .tab-button {
+      padding: 12px 24px;
+      background: transparent;
+      border: none;
+      color: var(--text-2);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all var(--transition);
+      position: relative;
+    }
+
+    .tab-button.active {
+      color: var(--accent);
+    }
+
+    .tab-button.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, rgba(55, 65, 81, 0.4) 25%, rgba(75, 85, 99, 0.4) 50%, rgba(55, 65, 81, 0.4) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.8s infinite;
+      border-radius: 10px;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: linear-gradient(145deg, rgba(37, 45, 61, 0.95), rgba(26, 31, 46, 0.95));
+      border: 1px solid rgba(150, 155, 165, 0.15);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: 24px;
+      transition: color var(--transition);
+    }
+
+    .close-btn:hover {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+  
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 glass-effect">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4 md:py-5">
+        <div class="flex items-center gap-3">
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8" style="object-fit: contain;" />
+          <h1 class="text-lg md:text-xl font-bold gradient-text">The Mock Sports</h1>
+        </div>
+        <div class="flex items-center space-x-2 md:space-x-6">
+          <button class="md:hidden p-2 rounded-lg hover:bg-gray-800 transition-colors" onclick="toggleMenu()">
+            <i data-feather="menu" class="h-6 w-6 text-gray-300"></i>
+          </button>
+          <div class="hidden md:flex items-center space-x-1">
+            <a href="dark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Home</a>
+            <a href="comps.html" class="px-3 py-2 rounded-lg text-yellow-400 hover:bg-gray-800 transition-all duration-200">Competitions</a>
+            <a href="tipdark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Tip Now</a>
+            <a href="leaderboarddark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Leaderboard</a>
+            <a href="resultsdark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Results</a>
+            <a href="profiledark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Profile</a>
+            <button onclick="signOut()" class="px-3 py-2 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-900/20 transition-all duration-200 font-medium ml-2">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-3 space-y-1 border-t border-gray-800/50">
+      <a href="dark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Home</a>
+      <a href="comps.html" class="block px-3 py-2.5 text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Competitions</a>
+      <a href="tipdark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Tip Now</a>
+      <a href="leaderboarddark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Leaderboard</a>
+      <a href="resultsdark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Results</a>
+      <a href="profiledark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Profile</a>
+      <button onclick="signOut()" class="w-full text-left px-3 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-all font-medium mt-2">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+    
+    <!-- Header -->
+    <section class="mb-12" data-aos="fade-up">
+      <div class="card rounded-2xl p-8 md:p-12">
+        <h2 class="text-3xl md:text-4xl font-bold mb-3 text-white">Competitions</h2>
+        <p class="text-lg text-gray-400">Browse and join competitions to compete for prizes and glory</p>
+      </div>
+    </section>
+
+    <!-- Tabs -->
+    <div class="mb-12 border-b border-gray-800">
+      <div class="flex gap-2 md:gap-8 overflow-x-auto">
+        <button class="tab-button active" onclick="switchTab('active')">Active Comps</button>
+        <button class="tab-button" onclick="switchTab('joined')">My Comps</button>
+        <button class="tab-button" onclick="switchTab('past')">Past Comps</button>
+      </div>
+    </div>
+
+    <!-- Active Competitions -->
+    <section id="active-section" data-aos="fade-up">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="activeCompsGrid">
+        <!-- Skeleton Loading -->
+        <div class="card rounded-xl p-6 comp-card h-80">
+          <div class="skeleton h-6 w-3/4 mb-4"></div>
+          <div class="skeleton h-4 w-full mb-2"></div>
+          <div class="skeleton h-4 w-full mb-2"></div>
+          <div class="skeleton h-4 w-1/2 mb-8"></div>
+          <div class="skeleton h-12 w-full mt-auto"></div>
+        </div>
+        <div class="card rounded-xl p-6 comp-card h-80 hidden md:flex flex-col">
+          <div class="skeleton h-6 w-3/4 mb-4"></div>
+          <div class="skeleton h-4 w-full mb-2"></div>
+          <div class="skeleton h-4 w-full mb-2"></div>
+          <div class="skeleton h-4 w-1/2 mb-8"></div>
+          <div class="skeleton h-12 w-full mt-auto"></div>
+        </div>
+        <div class="card rounded-xl p-6 comp-card h-80 hidden lg:flex flex-col">
+          <div class="skeleton h-6 w-3/4 mb-4"></div>
+          <div class="skeleton h-4 w-full mb-2"></div>
+          <div class="skeleton h-4 w-full mb-2"></div>
+          <div class="skeleton h-4 w-1/2 mb-8"></div>
+          <div class="skeleton h-12 w-full mt-auto"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- My Competitions -->
+    <section id="joined-section" class="hidden" data-aos="fade-up">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="joinedCompsGrid">
+        <div class="col-span-full text-center py-12">
+          <p class="text-gray-400">Loading your competitions...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Past Competitions -->
+    <section id="past-section" class="hidden" data-aos="fade-up">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="pastCompsGrid">
+        <div class="col-span-full text-center py-12">
+          <p class="text-gray-400">Loading past competitions...</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Join Comp Modal -->
+  <div id="joinCompModal" class="modal">
+    <div class="modal-content relative">
+      <button class="close-btn" onclick="closeJoinModal()">&times;</button>
+      <h3 class="text-2xl font-bold mb-2 text-white" id="modalCompName">Competition Name</h3>
+      <p class="text-gray-400 mb-6" id="modalCompDescription">Details...</p>
+      
+      <div class="space-y-4 mb-8">
+        <div class="flex justify-between py-2 border-b border-gray-700">
+          <span class="text-gray-400">Entry Fee:</span>
+          <span class="font-bold" id="modalEntryFee">$0.00</span>
+        </div>
+        <div class="flex justify-between py-2 border-b border-gray-700">
+          <span class="text-gray-400">Participants:</span>
+          <span class="font-bold" id="modalParticipants">0</span>
+        </div>
+        <div class="flex justify-between py-2 border-b border-gray-700">
+          <span class="text-gray-400">Prize Pool:</span>
+          <span class="font-bold text-accent" id="modalPrizePool">$0.00</span>
+        </div>
+        <div class="flex justify-between py-2">
+          <span class="text-gray-400">Ends:</span>
+          <span class="font-bold" id="modalEndDate">-</span>
+        </div>
+      </div>
+
+      <div id="paymentSection" class="space-y-4">
+        <p class="text-sm text-gray-400">To join this competition, you'll proceed to secure payment via Stripe.</p>
+        <button onclick="proceedToPayment()" class="btn-join w-full">Join & Pay $<span id="feeAmount">0</span></button>
+      </div>
+      
+      <div id="paymentProcessing" class="hidden text-center py-8">
+        <div class="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent mx-auto mb-4"></div>
+        <p class="text-gray-300">Processing payment...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-800/50 text-gray-400 py-12 mt-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-8">
+        <div>
+          <div class="flex items-center mb-3">
+            <img src="images/logo.png" alt="Logo" class="h-6 w-6 mr-2" style="object-fit: contain;" />
+            <span class="font-semibold text-white text-lg">The Mock Sports</span>
+          </div>
+          <p class="text-sm text-gray-500">Compete in multiple competitions, manage your entries, and win prizes.</p>
+        </div>
+        <div>
+          <h4 class="font-semibold text-white mb-4">Quick Links</h4>
+          <ul class="space-y-2 text-sm">
+            <li><a href="dark.html" class="text-gray-400 hover:text-yellow-400 transition">Home</a></li>
+            <li><a href="comps.html" class="text-gray-400 hover:text-yellow-400 transition">Competitions</a></li>
+            <li><a href="leaderboarddark.html" class="text-gray-400 hover:text-yellow-400 transition">Leaderboard</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="font-semibold text-white mb-4">Follow Us</h4>
+          <div class="flex space-x-4">
+            <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-yellow-400 transition-colors hover:scale-110">
+              <i data-feather="twitter" class="h-5 w-5"></i>
+            </a>
+            <a href="https://facebook.com/TheMockSports" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-yellow-400 transition-colors hover:scale-110">
+              <i data-feather="facebook" class="h-5 w-5"></i>
+            </a>
+            <a href="https://instagram.com/themocksports" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-yellow-400 transition-colors hover:scale-110">
+              <i data-feather="instagram" class="h-5 w-5"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="border-t border-gray-800/30 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p class="text-xs text-gray-600">&copy; 2026 The Mock Sports. All rights reserved.</p>
+        <div class="flex space-x-6 text-xs">
+          <a href="#" class="text-gray-500 hover:text-gray-400 transition">Privacy</a>
+          <a href="#" class="text-gray-500 hover:text-gray-400 transition">Terms</a>
+          <a href="contact.html" class="text-gray-500 hover:text-gray-400 transition">Contact</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, where, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    const { DateTime } = luxon;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let currentUser = null;
+    let selectedComp = null;
+
+    function toggleMenu() {
+      const menu = document.getElementById("mobileMenu");
+      menu.classList.toggle("hidden");
+    }
+
+    window.toggleMenu = toggleMenu;
+    window.signOut = () => {
+      firebaseSignOut(auth).then(() => {
+        window.location.href = "landing.html";
+      }).catch(error => {
+        console.error('Sign out error:', error);
+        alert('Error signing out. Please try again.');
+      });
+    };
+
+    function switchTab(tab) {
+      document.querySelectorAll('[id$="-section"]').forEach(el => el.classList.add('hidden'));
+      document.getElementById(tab + '-section').classList.remove('hidden');
+      
+      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+
+    window.switchTab = switchTab;
+
+    async function loadComps() {
+      try {
+        const compsSnap = await getDocs(collection(db, "comps"));
+        const comps = [];
+        compsSnap.forEach(docSnap => {
+          comps.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Separate by status
+        const now = DateTime.now().toJSDate();
+        const active = comps.filter(c => c.status === 'active' && new Date(c.endDate) > now);
+        const past = comps.filter(c => c.status === 'closed' || new Date(c.endDate) <= now);
+
+        await renderActiveComps(active);
+        await renderJoinedComps();
+        await renderPastComps(past);
+      } catch (error) {
+        console.error("Error loading comps:", error);
+      }
+    }
+
+    async function renderActiveComps(comps) {
+      const grid = document.getElementById('activeCompsGrid');
+      
+      if (comps.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-gray-400">No active competitions at the moment</p></div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      for (const comp of comps) {
+        const isJoined = currentUser && await checkUserJoined(currentUser.uid, comp.id);
+        const card = document.createElement('div');
+        card.className = 'card rounded-xl p-6 comp-card';
+        
+        const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
+        const entryFee = (comp.entryFee || 0).toFixed(2);
+        const participantCount = comp.participantCount || 0;
+        
+        card.innerHTML = `
+          <div class="comp-badge">${comp.status === 'active' ? '🔴 LIVE' : '✓ Closed'}</div>
+          <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
+          <p class="text-sm text-gray-400 mb-4 flex-1">${comp.description || 'Join this competition and compete for prizes'}</p>
+          <div class="space-y-2 text-sm text-gray-400 mb-6">
+            <div class="flex justify-between">
+              <span>Entry Fee:</span>
+              <span class="text-accent font-bold">$${entryFee}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Prize Pool:</span>
+              <span class="text-accent font-bold">$${(comp.prizePool || 0).toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Ends:</span>
+              <span class="font-bold">${endDate}</span>
+            </div>
+          </div>
+          <button onclick="openJoinModal('${comp.id}')" class="btn-join ${isJoined ? 'btn-joined' : ''}">
+            ${isJoined ? '✓ Already Joined' : `Join ($${entryFee})`}
+          </button>
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    async function renderJoinedComps() {
+      if (!currentUser) return;
+      
+      const grid = document.getElementById('joinedCompsGrid');
+      const joiningsSnap = await getDocs(
+        query(collection(db, "userCompJoinings"), where("userId", "==", currentUser.uid))
+      );
+
+      if (joiningsSnap.empty) {
+        grid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-gray-400">You haven\'t joined any competitions yet</p></div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      for (const joinDoc of joiningsSnap.docs) {
+        const joining = joinDoc.data();
+        const compSnap = await getDoc(doc(db, "comps", joining.compId));
+        
+        if (!compSnap.exists()) continue;
+        
+        const comp = compSnap.data();
+        const card = document.createElement('div');
+        card.className = 'card rounded-xl p-6 comp-card';
+        
+        const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
+        
+        card.innerHTML = `
+          <div class="comp-badge text-green-400 border-green-500/50 bg-green-500/10">✓ Joined</div>
+          <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
+          <p class="text-sm text-gray-400 mb-4 flex-1">${comp.description || ''}</p>
+          <div class="space-y-2 text-sm text-gray-400 mb-6">
+            <div class="flex justify-between">
+              <span>Your Rank:</span>
+              <span class="text-accent font-bold">#${joining.rank || '-'}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Points:</span>
+              <span class="font-bold">${joining.points || 0}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Ends:</span>
+              <span class="font-bold">${endDate}</span>
+            </div>
+          </div>
+          <a href="tipdark.html?compId=${comp.id}" class="btn-join" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+            Go to Tips
+          </a>
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    async function renderPastComps(comps) {
+      const grid = document.getElementById('pastCompsGrid');
+      
+      if (comps.length === 0) {
+        grid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-gray-400">No past competitions</p></div>';
+        return;
+      }
+
+      grid.innerHTML = '';
+      for (const comp of comps) {
+        const card = document.createElement('div');
+        card.className = 'card rounded-xl p-6 comp-card opacity-75';
+        
+        const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
+        
+        card.innerHTML = `
+          <div class="comp-badge text-gray-400 border-gray-600 bg-gray-600/10">Closed</div>
+          <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
+          <p class="text-sm text-gray-500 mb-4 flex-1">${comp.description || ''}</p>
+          <div class="space-y-2 text-sm text-gray-500 mb-6">
+            <div class="flex justify-between">
+              <span>Price Pool:</span>
+              <span class="font-bold">$${(comp.prizePool || 0).toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Ended:</span>
+              <span class="font-bold">${endDate}</span>
+            </div>
+          </div>
+          <a href="resultsdark.html?compId=${comp.id}" class="btn-join" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); cursor: not-allowed;">
+            View Results
+          </a>
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    async function checkUserJoined(userId, compId) {
+      try {
+        const snap = await getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`));
+        return snap.exists();
+      } catch {
+        return false;
+      }
+    }
+
+    window.openJoinModal = async (compId) => {
+      const compSnap = await getDoc(doc(db, "comps", compId));
+      if (!compSnap.exists()) return;
+
+      selectedComp = { id: compId, ...compSnap.data() };
+      
+      document.getElementById('modalCompName').textContent = selectedComp.name;
+      document.getElementById('modalCompDescription').textContent = selectedComp.description;
+      document.getElementById('modalEntryFee').textContent = `$${selectedComp.entryFee.toFixed(2)}`;
+      document.getElementById('modalPrizePool').textContent = `$${selectedComp.prizePool.toFixed(2)}`;
+      document.getElementById('modalParticipants').textContent = selectedComp.participantCount || 0;
+      document.getElementById('modalEndDate').textContent = DateTime.fromISO(selectedComp.endDate).toFormat('MMM d, yyyy');
+      document.getElementById('feeAmount').textContent = selectedComp.entryFee.toFixed(2);
+      
+      document.getElementById('joinCompModal').classList.add('active');
+    };
+
+    window.closeJoinModal = () => {
+      document.getElementById('joinCompModal').classList.remove('active');
+      selectedComp = null;
+    };
+
+    window.proceedToPayment = async () => {
+      if (!selectedComp) return;
+      
+      // In production, initiate Stripe payment here
+      // For now, create the joining record directly
+      try {
+        document.getElementById('paymentSection').classList.add('hidden');
+        document.getElementById('paymentProcessing').classList.remove('hidden');
+        
+        const joiningRef = doc(db, "userCompJoinings", `${currentUser.uid}_${selectedComp.id}`);
+        await setDoc(joiningRef, {
+          userId: currentUser.uid,
+          compId: selectedComp.id,
+          joinDate: serverTimestamp(),
+          paymentStatus: 'completed', // In production, handle Stripe webhook
+          stripePaymentId: 'stripe_' + Date.now(),
+          rank: 999999,
+          points: 0,
+          wins: 0
+        });
+
+        // Update comp participant count
+        const compRef = doc(db, "comps", selectedComp.id);
+        const compData = await getDoc(compRef);
+        await setDoc(compRef, {
+          participantCount: (compData.data().participantCount || 0) + 1
+        }, { merge: true });
+
+        closeJoinModal();
+        await loadComps();
+        switchTab('joined');
+        alert('Successfully joined the competition!');
+      } catch (error) {
+        console.error('Error joining comp:', error);
+        alert('Error joining competition. Please try again.');
+      } finally {
+        document.getElementById('paymentSection').classList.remove('hidden');
+        document.getElementById('paymentProcessing').classList.add('hidden');
+      }
+    };
+
+    window.feather.replace();
+
+    // Initialize
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "landing.html";
+        return;
+      }
+      currentUser = user;
+      loadComps();
+      AOS.init({ duration: 800, once: true, offset: 50 });
+      feather.replace();
+    });
+  </script>
+</body>
+</html>

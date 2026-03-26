@@ -217,23 +217,12 @@
         <input type="password" id="password" required />
         <button type="button" class="toggle-password" onclick="togglePassword()">&#128065;</button>
       </div>
-      <button type="submit">Continue to Payment</button>
+      <button type="submit">Create Account</button>
       <div id="error-message"></div>
     </form>
     <div class="signup-footer">
       Already have an account? <a href="login.html">Log in</a>
     </div>
-  </div>
-
-  <div id="stripe-container">
-    <p>Almost done! Complete your payment to activate your account:</p>
-    <stripe-buy-button
-      buy-button-id="buy_btn_1Rog4AR1XnBRD6k4LNKKHkr0"
-      publishable-key="pk_live_51RnynwR1XnBRD6k4mpPkcSavAQwuuXQACYmsZG3nsWSnks0DyAscYVOHv36gWPdscvU7RiAaSWtos9NypUBDHyWO0074AxsFdp">
-    </stripe-buy-button>
-  </div>
-
-  <script async src="https://js.stripe.com/v3/buy-button.js"></script>
 
   <!-- Firebase Sign Up Logic -->
  <script type="module">
@@ -306,8 +295,11 @@
         teamName,
         email,
         dob: dobValue,
-        joker: 3
+        joker: 3,
+        paid: false
       });
+      
+      // Initialize user profile (deprecated leaderboard - kept for backward compatibility)
       await setDoc(doc(db, "leaderboard", user.uid), {
         userId: user.uid,
         teamName,
@@ -316,9 +308,9 @@
         rank: 0
       });
 
-      // Show Stripe button
-      signupForm.style.display            = 'none';
-      document.getElementById('stripe-container').style.display = 'block';
+      // Redirect to competitions page to join a comp
+      alert("Account created successfully! Now join a competition to start playing.");
+      window.location.href = "comps.html";
 
     } catch (err) {
       errorMessage.textContent = err.message
