@@ -343,8 +343,14 @@
       </div>
 
       <div id="paymentSection" class="space-y-4">
-        <p class="text-sm text-gray-400">To join this competition, you'll proceed to secure payment via Stripe.</p>
-        <button onclick="proceedToPayment()" class="btn-join w-full">Join & Pay $<span id="feeAmount">0</span></button>
+        <div id="paidCompSection" class="hidden">
+          <p class="text-sm text-gray-400">To join this competition, you'll proceed to secure payment via Stripe.</p>
+          <button onclick="proceedToPayment()" class="btn-join w-full">Join & Pay $<span id="feeAmount">0</span></button>
+        </div>
+        <div id="freeCompSection" class="hidden">
+          <p class="text-sm text-gray-400">This is a free competition. Click below to join!</p>
+          <button onclick="proceedToPayment()" class="btn-join w-full">Join Competition</button>
+        </div>
       </div>
       
       <div id="paymentProcessing" class="hidden text-center py-8">
@@ -623,6 +629,15 @@
       document.getElementById('modalEndDate').textContent = DateTime.fromISO(selectedComp.endDate).toFormat('MMM d, yyyy');
       document.getElementById('feeAmount').textContent = selectedComp.entryFee.toFixed(2);
       
+      // Show correct payment section based on entry fee
+      if (selectedComp.entryFee > 0) {
+        document.getElementById('paidCompSection').classList.remove('hidden');
+        document.getElementById('freeCompSection').classList.add('hidden');
+      } else {
+        document.getElementById('paidCompSection').classList.add('hidden');
+        document.getElementById('freeCompSection').classList.remove('hidden');
+      }
+      
       document.getElementById('joinCompModal').classList.add('active');
     };
 
@@ -634,43 +649,70 @@
     window.proceedToPayment = async () => {
       if (!selectedComp) return;
       
-      // In production, initiate Stripe payment here
-      // For now, create the joining record directly
       try {
         document.getElementById('paymentSection').classList.add('hidden');
         document.getElementById('paymentProcessing').classList.remove('hidden');
         
-        const joiningRef = doc(db, "userCompJoinings", `${currentUser.uid}_${selectedComp.id}`);
-        await setDoc(joiningRef, {
-          userId: currentUser.uid,
-          compId: selectedComp.id,
-          joinDate: serverTimestamp(),
-          paymentStatus: 'completed', // In production, handle Stripe webhook
-          stripePaymentId: 'stripe_' + Date.now(),
-          rank: 999999,
-          points: 0,
-          wins: 0
-        });
-
-        // Update comp participant count
-        const compRef = doc(db, "comps", selectedComp.id);
-        const compData = await getDoc(compRef);
-        await setDoc(compRef, {
-          participantCount: (compData.data().participantCount || 0) + 1
-        }, { merge: true });
-
-        closeJoinModal();
-        await loadComps();
-        switchTab('joined');
-        alert('Successfully joined the competition!');
+        // If comp has a fee, redirect to Stripe checkout
+        if (selectedComp.entryFee > 0) {
+          // In production: Create a Stripe checkout session via Cloud Function
+          // For now, placeholder - see implementation guide below
+          await createStripeCheckoutSession(selectedComp);
+        } else {
+          // Free comp - no payment needed, just join
+          await completeJoinComp();
+        }
       } catch (error) {
-        console.error('Error joining comp:', error);
-        alert('Error joining competition. Please try again.');
-      } finally {
+        console.error('Error in proceedToPayment:', error);
+        alert('Error processing join. Please try again.');
         document.getElementById('paymentSection').classList.remove('hidden');
         document.getElementById('paymentProcessing').classList.add('hidden');
       }
     };
+
+    async function createStripeCheckoutSession(comp) {
+      // PRODUCTION IMPLEMENTATION:
+      // Call a Cloud Function that:
+      // 1. Validates comp exists and user is authenticated (server-side)
+      // 2. Creates Stripe checkout session with:
+      //    - Amount in cents
+      //    - Metadata: userId, compId (for webhook verification)
+      //    - Success/cancel URLs
+      // 3. Returns session ID
+      // 4. Redirects to Stripe checkout
+      
+      // For now, placeholder
+      console.warn('Stripe integration not yet implemented. In production, call Cloud Function here.');
+      alert('Payment processing coming soon!');
+      document.getElementById('paymentSection').classList.remove('hidden');
+      document.getElementById('paymentProcessing').classList.add('hidden');
+    }
+
+    async function completeJoinComp() {
+      const joiningRef = doc(db, "userCompJoinings", `${currentUser.uid}_${selectedComp.id}`);
+      await setDoc(joiningRef, {
+        userId: currentUser.uid,
+        compId: selectedComp.id,
+        joinDate: serverTimestamp(),
+        paymentStatus: 'completed',
+        stripePaymentId: null,
+        rank: 999999,
+        points: 0,
+        wins: 0
+      });
+
+      // Update comp participant count
+      const compRef = doc(db, "comps", selectedComp.id);
+      const compData = await getDoc(compRef);
+      await setDoc(compRef, {
+        participantCount: (compData.data().participantCount || 0) + 1
+      }, { merge: true });
+
+      closeJoinModal();
+      await loadComps();
+      switchTab('joined');
+      alert('Successfully joined the competition!');
+    }
 
     window.feather.replace();
 

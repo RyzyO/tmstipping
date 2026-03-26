@@ -3,7 +3,7 @@
 // Uses Firestore to fetch races, tips, and users, then calculates week-by-week leaderboard
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, query, where, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
@@ -20,6 +20,8 @@ const db = getFirestore(app);
 let weekRaceMap = {}; // weekNum -> [raceIds]
 let weekList = []; // sorted list of week numbers
 let weekLeaderboard = {}; // weekNum -> [{user, points, teamName}]
+let selectedCompId = null; // Currently selected competition
+let allComps = []; // Cached comps list
 
 function getWeekNumber(dateStr) {
     // dateStr: 'YYYY-MM-DD' (from race.date)
@@ -30,8 +32,10 @@ function getWeekNumber(dateStr) {
 }
 
 async function loadDataAndRender() {
-    // 1. Fetch all races
-    const racesSnap = await getDocs(collection(db, "races"));
+    if (!selectedCompId) return; // No comp selected yet
+    
+    // 1. Fetch all races for this comp
+    const racesSnap = await getDocs(query(collection(db, "races"), where("compId", "==", selectedCompId)));
     weekRaceMap = {};
     const raceIdToWeek = {};
     racesSnap.forEach(doc => {
@@ -52,8 +56,8 @@ async function loadDataAndRender() {
         userIdToTeam[doc.id] = data.teamName || data.email || doc.id;
     });
 
-    // 3. Fetch all tips
-    const tipsSnap = await getDocs(collection(db, "tips"));
+    // 3. Fetch all tips for this comp
+    const tipsSnap = await getDocs(query(collection(db, "tips"), where("compId", "==", selectedCompId)));
     const tips = [];
     tipsSnap.forEach(doc => tips.push(doc.data()));
 
@@ -123,6 +127,50 @@ function renderLeaderboard(week) {
     });
 }
 
+async function loadComps() {
+    const compSelect = document.getElementById('compSelect');
+    try {
+        const compsSnap = await getDocs(collection(db, "comps"));
+        allComps = [];
+        compsSnap.forEach(doc => {
+            allComps.push({ id: doc.id, ...doc.data() });
+        });
+        
+        // Sort by name
+        allComps.sort((a, b) => a.name.localeCompare(b.name));
+        
+        // Populate dropdown
+        compSelect.innerHTML = '<option value="">-- Select a Competition --</option>';
+        allComps.forEach(comp => {
+            const option = document.createElement('option');
+            option.value = comp.id;
+            option.textContent = `${comp.name} (${comp.status === 'active' ? 'Active' : 'Closed'})`;
+            compSelect.appendChild(option);
+        });
+        
+        // Set first comp as default
+        if (allComps.length > 0) {
+            selectedCompId = allComps[0].id;
+            compSelect.value = selectedCompId;
+            await loadDataAndRender();
+        }
+    } catch (error) {
+        console.error('Error loading comps:', error);
+        compSelect.innerHTML = '<option value="">Error loading competitions</option>';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    loadDataAndRender();
+    loadComps();
+    
+    // Listen for comp selection changes
+    const compSelect = document.getElementById('compSelect');
+    compSelect.addEventListener('change', async function() {
+        selectedCompId = this.value;
+        if (selectedCompId) {
+            await loadDataAndRender();
+        } else {
+            document.getElementById('leaderboardBody').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;">Please select a competition</td></tr>';
+        }
+    });
 });

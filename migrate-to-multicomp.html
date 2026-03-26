@@ -329,22 +329,27 @@
         // Sort by points descending to calculate ranks
         leaderboardEntries.sort((a, b) => b.points - a.points);
 
-        addLog('step4Status', '⏳ Updating userCompJoinings with leaderboard points...', 'warning');
+        addLog('step4Status', '⏳ Migrating leaderboard points to userCompJoinings...', 'warning');
         
         const batch = writeBatch(db);
-        let updated = 0;
+        let migrated = 0;
 
         leaderboardEntries.forEach((entry, index) => {
           const joiningId = `${entry.userId}_default-comp`;
-          batch.update(doc(db, "userCompJoinings", joiningId), {
+          // Use set with merge: true to create or update
+          batch.set(doc(db, "userCompJoinings", joiningId), {
+            userId: entry.userId,
+            compId: "default-comp",
             points: entry.points,
-            rank: index + 1
-          });
-          updated++;
+            rank: index + 1,
+            paymentStatus: "completed",
+            joinDate: serverTimestamp()
+          }, { merge: true });
+          migrated++;
         });
 
         await batch.commit();
-        addLog('step4Status', `✅ Updated ${updated} entries with leaderboard points and ranks`, 'success');
+        addLog('step4Status', `✅ Migrated ${migrated} entries with leaderboard points and ranks`, 'success');
         addLog('step4Status', '   Proceed to Step 5', 'success');
       } catch (error) {
         addLog('step4Status', `❌ Error: ${error.message}`, 'error');
