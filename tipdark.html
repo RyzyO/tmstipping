@@ -302,8 +302,29 @@
 
     async function loadRaces(){
       const grid=document.getElementById('raceGrid'); grid.innerHTML="";
-      const racesSnap=await getDocs(query(collection(db,"races"),where("compId","==",state.selectedCompId))); const now=DateTime.now().setZone("Australia/Sydney");
-      const races=[]; racesSnap.forEach(docSnap=>races.push({id:docSnap.id,...docSnap.data()}));
+      const races=[];
+      const seenRaceIds=new Set();
+
+      // Primary path: comp-filtered races
+      const racesSnap=await getDocs(query(collection(db,"races"),where("compId","==",state.selectedCompId)));
+      racesSnap.forEach(docSnap=>{
+        races.push({id:docSnap.id,...docSnap.data()});
+        seenRaceIds.add(docSnap.id);
+      });
+
+      // Backward compatibility: include legacy races missing compId for default comp
+      if(state.selectedCompId==="default-comp"){
+        const legacyRacesSnap=await getDocs(collection(db,"races"));
+        legacyRacesSnap.forEach(docSnap=>{
+          const raceData=docSnap.data();
+          if(!raceData.compId && !seenRaceIds.has(docSnap.id)){
+            races.push({id:docSnap.id,...raceData});
+            seenRaceIds.add(docSnap.id);
+          }
+        });
+      }
+
+      const now=DateTime.now().setZone("Australia/Sydney");
       races.sort((a,b)=>DateTime.fromISO(a.date+"T"+a.time,{zone:"Australia/Sydney"})-DateTime.fromISO(b.date+"T"+b.time,{zone:"Australia/Sydney"}));
       
       // Prefetch next 3 upcoming races

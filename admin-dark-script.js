@@ -1023,6 +1023,7 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
       time,
       distance,
       preview,
+      compId: selectedAdminCompId || 'default-comp',
       horses
     });
 
