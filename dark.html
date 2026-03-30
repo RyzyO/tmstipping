@@ -615,6 +615,7 @@
       const raceGrid = document.getElementById("raceGrid");
       raceGrid.innerHTML = "";
       const tipsMap = new Set();
+      const tipByRace = {};
 
       if (currentUser) {
         const tipsSnap = await getDocs(
@@ -622,7 +623,10 @@
         );
         tipsSnap.forEach((tipDoc) => {
           const tipData = tipDoc.data();
-          if (tipData?.raceId) tipsMap.add(tipData.raceId);
+          if (tipData?.raceId) {
+            tipsMap.add(tipData.raceId);
+            tipByRace[tipData.raceId] = tipData;
+          }
         });
       }
 
@@ -662,6 +666,15 @@
         const previewUrl = (race.preview || "").trim();
         const hasPreview = previewUrl.length > 0;
         const tipped = tipsMap.has(race.id);
+        const tipData = tipByRace[race.id] || null;
+        const tippedHorseName = tipped
+          ? (
+              (tipData?.horseId && race.horses?.[tipData.horseId]?.name) ||
+              tipData?.horse ||
+              tipData?.horseName ||
+              ""
+            )
+          : "";
         const actionText = tipped ? "Tip Submitted" : "Tip Now";
         const actionClass = tipped
           ? "bg-green-600 text-white hover:bg-green-500"
@@ -674,6 +687,9 @@
           <div class="h-36 relative overflow-hidden">
             <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent z-10"></div>
             <img src="images/${photo}" alt="Race track" class="w-full h-full object-cover" onerror="this.src='images/default.jpg'">
+            ${tipped && tippedHorseName
+              ? `<div class="absolute top-2 left-2 z-20 bg-green-600/95 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md max-w-[90%] truncate" title="Tipped: ${tippedHorseName}">Tipped: ${tippedHorseName}</div>`
+              : ""}
           </div>
           <div class="p-6">
             <div class="flex justify-between items-start mb-3">

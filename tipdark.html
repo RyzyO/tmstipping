@@ -296,8 +296,17 @@
       state.jokerCount=Math.max(0,count); document.getElementById('joker-count').textContent=state.jokerCount;
     }
     async function loadUserTips(){
-      state.tipsMap={}; const tipsQ=query(collection(db,"tips"),where("userId","==",state.user.uid),where("compId","==",state.selectedCompId));
-      const tipsSnap=await getDocs(tipsQ); tipsSnap.forEach(d=>{ if(d.data().raceId) state.tipsMap[d.data().raceId]=true; });
+      state.tipsMap={};
+      state.userTipsCache={};
+      const tipsQ=query(collection(db,"tips"),where("userId","==",state.user.uid),where("compId","==",state.selectedCompId));
+      const tipsSnap=await getDocs(tipsQ);
+      tipsSnap.forEach(d=>{
+        const tip=d.data();
+        if(tip.raceId){
+          state.tipsMap[tip.raceId]=true;
+          state.userTipsCache[tip.raceId]=tip;
+        }
+      });
     }
 
     async function loadRaces(){
@@ -347,6 +356,10 @@
         let photo="default.jpg"; const n=(race.name||"").toLowerCase();
         if(n.includes("valley")) photo="valley.jpg"; else if(n.includes("randwick")) photo="randwick.jpg"; else if(n.includes("rosehill")) photo="rosehill.jpg"; else if(n.includes("caulfield")) photo="caulfield.jpg"; else if(n.includes("flemington")) photo="flemington.jpg";
         const isLocked=now>=dt.minus({minutes:5}); const timerId="timer-"+race.id; const tipped=state.tipsMap[race.id];
+        const tipData=state.userTipsCache[race.id]||null;
+        const tippedHorseName=tipped
+          ? ((tipData?.horseId && race.horses?.[tipData.horseId]?.name) || tipData?.horse || tipData?.horseName || "")
+          : "";
         const previewUrl=(race.preview||"").trim(); const hasPreview=previewUrl.length>0;
         
         // Extract race number from race name
@@ -358,6 +371,7 @@
           <div class="h-36 relative overflow-hidden">
             <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent z-10"></div>
             <img src="images/${photo}" alt="Race track" class="w-full h-full object-cover" onerror="this.src='images/default.jpg'">
+            ${tipped && tippedHorseName ? `<div class="absolute top-2 left-2 z-20 bg-green-600/95 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md max-w-[90%] truncate">Tipped: ${tippedHorseName}</div>` : ""}
           </div>
           <div class="p-6">
             <div class="flex justify-between items-start mb-3">
