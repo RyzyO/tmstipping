@@ -25,6 +25,7 @@ let allRaces = [];
 let currentTab = 'details';
 let racesByDateCache = {};
 let sortedDatesCache = [];
+let selectedAdminCompId = null;
 
 const ADMIN_STATS_CACHE_KEY = 'tmstipping:adminStats';
 
@@ -55,6 +56,7 @@ onAuthStateChanged(auth, async (user) => {
   applyCachedAdminStats();
 
   // User is authenticated and is admin - load dashboard
+  await loadAllComps();
   await loadDashboardStats();
   await loadRacesList();
   AOS.init();
@@ -92,10 +94,17 @@ function saveAdminStatsToCache({ totalRaces, upcoming, fullyTipped, paidUsers })
 }
 
 // ============ DASHBOARD STATS ============
-async function loadDashboardStats() {
+async function loadDashboardStats(compId = null) {
   try {
-    const racesRef = collection(db, 'races');
-    const racesSnap = await getDocs(racesRef);
+    let racesSnap;
+    
+    // If compId is provided, filter by that comp
+    if (compId) {
+      racesSnap = await getDocs(query(collection(db, 'races'), where('compId', '==', compId)));
+    } else {
+      racesSnap = await getDocs(collection(db, 'races'));
+    }
+    
     const races = racesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
     const now = DateTime.now().setZone('Australia/Sydney');
@@ -111,14 +120,35 @@ async function loadDashboardStats() {
       }
     }
 
-    const usersRef = collection(db, 'users');
-    const usersSnap = await getDocs(query(usersRef, where('isPaid', '==', true)));
-    const paidUsers = usersSnap.size;
+    // Calculate paid users for this comp
+    let paidUsers = 0;
+    let feesCollected = 0;
+    
+    if (compId) {
+      // Filter to users who joined this comp and have paid
+      const joiningsSnap = await getDocs(
+        query(collection(db, 'userCompJoinings'), where('compId', '==', compId), where('isPaid', '==', true))
+      );
+      paidUsers = joiningsSnap.size;
+      
+      // Calculate fees collected for this comp
+      const compDoc = await getDoc(doc(db, 'comps', compId));
+      if (compDoc.exists()) {
+        const entryFee = compDoc.data().entryFee || 0;
+        feesCollected = paidUsers * entryFee;
+      }
+    } else {
+      // Original logic for all comps
+      const usersRef = collection(db, 'users');
+      const usersSnap = await getDocs(query(usersRef, where('isPaid', '==', true)));
+      paidUsers = usersSnap.size;
+    }
 
     document.getElementById('total-races').textContent = races.length;
     document.getElementById('upcoming-races').textContent = upcoming;
     document.getElementById('fully-tipped').textContent = fullyTipped;
     document.getElementById('paid-users').textContent = paidUsers;
+    document.getElementById('fees-collected').textContent = feesCollected > 0 ? `$${feesCollected.toFixed(2)}` : '$0.00';
 
     saveAdminStatsToCache({
       totalRaces: races.length,
@@ -490,7 +520,7 @@ async function scrapeSilksFromUrl() {
   btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
 
   try {
-    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
     console.log('[scrapeSilksFromUrl] Proxy URL:', proxyUrl);
     
     const response = await fetch(proxyUrl);
@@ -541,7 +571,7 @@ async function scrapeSilksFromUrl() {
       const fullUrl = new URL(entry.path, 'https://racing.racingnsw.com.au').href;
       console.log('[scrapeSilksFromUrl] Full URL:', fullUrl);
       
-      const runnerProxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(fullUrl)}`;
+      const runnerProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fullUrl)}`;
 
       const runnerResponse = await fetch(runnerProxyUrl);
       console.log('[scrapeSilksFromUrl] Runner page fetch status:', runnerResponse.status);
@@ -596,6 +626,156 @@ async function scrapeSilksFromUrl() {
     showNotification(`Silks updated: ${updated}. Missing: ${missing}.`, 'success', 'form-notifications');
   } catch (error) {
     console.error('[scrapeSilksFromUrl] Fatal error:', error);
+    showNotification('Error scraping silks: ' + error.message, 'error', 'form-notifications');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-feather="download" class="h-4 w-4"></i> Scrape Silks';
+    feather.replace();
+  }
+}
+
+window.scrapeSilksFromUrlRA = async function() {
+  console.log('[scrapeSilksFromUrlRA] Starting...');
+  const url = document.getElementById('race-silks-url-ra').value;
+  console.log('[scrapeSilksFromUrlRA] URL input:', url);
+  
+  if (!url) {
+    console.warn('[scrapeSilksFromUrlRA] No URL provided');
+    showNotification('Please enter a Racing Australia URL', 'error', 'form-notifications');
+    return;
+  }
+
+  const horseRows = document.querySelectorAll('#horses-list .horse-row');
+  console.log('[scrapeSilksFromUrlRA] Found', horseRows.length, 'horse rows');
+  
+  if (horseRows.length === 0) {
+    console.warn('[scrapeSilksFromUrlRA] No horse rows found');
+    showNotification('Add horses first, then import silks.', 'error', 'form-notifications');
+    return;
+  }
+
+  const btn = document.getElementById('scrape-silks-btn-ra');
+  btn.disabled = true;
+  btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
+
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    console.log('[scrapeSilksFromUrlRA] Proxy URL:', proxyUrl);
+    
+    const response = await fetch(proxyUrl);
+    console.log('[scrapeSilksFromUrlRA] Fetch response status:', response.status);
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch Racing Australia URL');
+    }
+
+    const html = await response.text();
+    console.log('[scrapeSilksFromUrlRA] HTML length:', html.length);
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    console.log('[scrapeSilksFromUrlRA] HTML parsed');
+
+    // Racing Australia uses different link format - look for horse names in table rows
+    const runnerRows = Array.from(doc.querySelectorAll('table tr')).slice(1); // Skip header
+    console.log('[scrapeSilksFromUrlRA] Found', runnerRows.length, 'runner rows');
+    
+    const runnerEntries = runnerRows
+      .map(row => {
+        const cells = Array.from(row.querySelectorAll('td'));
+        if (cells.length < 2) return null;
+        
+        const number = normalizeNumber((cells[0]?.textContent || '').trim());
+        const nameCell = cells[1];
+        const nameLink = nameCell?.querySelector('a');
+        const name = (nameLink?.textContent || nameCell?.textContent || '').trim();
+        const onclick = nameLink?.getAttribute('onclick') || '';
+        
+        // Extract horse ID from onclick handler
+        const match = onclick.match(/HorseFullForm\.aspx\?([^']*)/i);
+        const horseId = match ? match[1] : '';
+        
+        console.log('[scrapeSilksFromUrlRA] Runner - Name:', name, 'Number:', number, 'HorseID:', horseId);
+        return { name, number, horseId };
+      })
+      .filter(entry => entry && entry.horseId);
+
+    console.log('[scrapeSilksFromUrlRA] Filtered to', runnerEntries.length, 'runners with horse IDs');
+
+    if (runnerEntries.length === 0) {
+      console.warn('[scrapeSilksFromUrlRA] No valid runner entries found');
+      showNotification('No runner links found on this page.', 'error', 'form-notifications');
+      return;
+    }
+
+    const { byNumber, byName } = buildHorseRowIndex();
+    console.log('[scrapeSilksFromUrlRA] Built horse index - by number:', byNumber.size, 'by name:', byName.size);
+    
+    let updated = 0;
+    let missing = 0;
+
+    for (const entry of runnerEntries) {
+      console.log('[scrapeSilksFromUrlRA] Processing runner:', entry.name);
+      
+      const fullUrl = new URL(`FreeFields/HorseFullForm.aspx?${entry.horseId}`, 'https://www.racingaustralia.horse').href;
+      console.log('[scrapeSilksFromUrlRA] Full URL:', fullUrl);
+      
+      const runnerProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fullUrl)}`;
+
+      const runnerResponse = await fetch(runnerProxyUrl);
+      console.log('[scrapeSilksFromUrlRA] Runner page fetch status:', runnerResponse.status);
+      
+      if (!runnerResponse.ok) {
+        console.warn('[scrapeSilksFromUrlRA] Failed to fetch runner page for:', entry.name);
+        missing += 1;
+        continue;
+      }
+
+      const runnerHtml = await runnerResponse.text();
+      console.log('[scrapeSilksFromUrlRA] Runner HTML length:', runnerHtml.length);
+      
+      // Racing Australia uses JockeySilks path similar to RacingNSW
+      const silkMatch = runnerHtml.match(/JockeySilks\/(\d+)\.png/i);
+      console.log('[scrapeSilksFromUrlRA] Silk ID found:', silkMatch ? silkMatch[1] : 'null');
+      
+      if (!silkMatch) {
+        console.warn('[scrapeSilksFromUrlRA] No silk ID found for:', entry.name);
+        missing += 1;
+        continue;
+      }
+
+      const silksId = silkMatch[1];
+      const normalizedName = normalizeHorseName(entry.name);
+      console.log('[scrapeSilksFromUrlRA] Looking for horse with normalized name:', normalizedName);
+      
+      const row = normalizedName && byName.get(normalizedName);
+      console.log('[scrapeSilksFromUrlRA] Horse row found:', !!row);
+
+      if (!row) {
+        console.warn('[scrapeSilksFromUrlRA] No matching horse row for:', entry.name);
+        missing += 1;
+        continue;
+      }
+
+      const silkIdInput = row.querySelector('.horse-silk-id');
+      console.log('[scrapeSilksFromUrlRA] Silk ID input element found:', !!silkIdInput);
+      
+      if (silkIdInput) {
+        silkIdInput.value = silksId;
+        console.log('[scrapeSilksFromUrlRA] Set silksId:', silksId, 'for horse:', entry.name);
+        showNotification(`Silk found: ${entry.name} (ID: ${silksId})`, 'success', 'form-notifications');
+        updated += 1;
+      } else {
+        console.warn('[scrapeSilksFromUrlRA] No silk ID input element for:', entry.name);
+        missing += 1;
+      }
+    }
+
+    console.log('[scrapeSilksFromUrlRA] Complete - Updated:', updated, 'Missing:', missing);
+    document.getElementById('race-silks-url-ra').value = '';
+    showNotification(`Silks updated: ${updated}. Missing: ${missing}.`, 'success', 'form-notifications');
+  } catch (error) {
+    console.error('[scrapeSilksFromUrlRA] Fatal error:', error);
     showNotification('Error scraping silks: ' + error.message, 'error', 'form-notifications');
   } finally {
     btn.disabled = false;
@@ -1343,6 +1523,53 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('load', () => {
   feather.replace();
 });
+
+// ============ COMPETITION SELECTOR ============
+async function loadAllComps() {
+  try {
+    const compsSnap = await getDocs(collection(db, 'comps'));
+    const select = document.getElementById('admin-comp-select');
+    
+    if (!select) return;
+    
+    // Clear existing options except the first one
+    while (select.options.length > 1) {
+      select.remove(1);
+    }
+    
+    const comps = [];
+    compsSnap.forEach(doc => {
+      comps.push({ id: doc.id, ...doc.data() });
+    });
+    
+    // Sort by status (active first) then by name
+    comps.sort((a, b) => {
+      if (a.status === 'active' && b.status !== 'active') return -1;
+      if (a.status !== 'active' && b.status === 'active') return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    // Add each comp as an option
+    comps.forEach(comp => {
+      const option = document.createElement('option');
+      option.value = comp.id;
+      const statusBadge = comp.status === 'active' ? '🎯' : '✓';
+      option.textContent = `${statusBadge} ${comp.name}`;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Error loading competitions:', error);
+  }
+}
+
+window.handleCompSelectionChange = async function() {
+  const select = document.getElementById('admin-comp-select');
+  const compId = select ? select.value : null;
+  selectedAdminCompId = compId || null;
+  
+  // Reload stats with the selected comp filter
+  await loadDashboardStats(selectedAdminCompId);
+};
 
 // ============ COMPETITIONS MANAGEMENT ============
 window.switchMainTab = function(tab) {

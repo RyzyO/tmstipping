@@ -597,6 +597,21 @@
 
               <div class="border-t border-gray-700 pt-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <i data-feather="image" class="h-5 w-5 text-yellow-400"></i>
+                  Import Silks from Racing Australia
+                </h3>
+                <p class="text-gray-400 text-sm mb-3">Paste a Racing Australia form URL to attach silks to the horses above (for non-NSW meetings).</p>
+                <div class="flex gap-2 mb-4">
+                  <input type="url" id="race-silks-url-ra" class="form-group flex-1" placeholder="https://www.racingaustralia.horse/FreeFields/Form.aspx?Key=YYYYMmmDD,STATE,Venue">
+                  <button type="button" onclick="scrapeSilksFromUrlRA()" class="btn-secondary" id="scrape-silks-btn-ra">
+                    <i data-feather="download" class="h-4 w-4"></i>
+                    Scrape Silks
+                  </button>
+                </div>
+              </div>
+
+              <div class="border-t border-gray-700 pt-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
                   <i data-feather="copy" class="h-5 w-5 text-yellow-400"></i>
                   Import Horses from Table
                 </h3>
@@ -841,6 +856,19 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Competition Selector Filter -->
+    <div class="card rounded-lg p-6 mt-8">
+      <div class="flex items-center gap-4">
+        <label for="admin-comp-select" class="flex items-center gap-2 font-semibold text-gray-300 whitespace-nowrap">
+          <i data-feather="filter" class="h-5 w-5 text-yellow-400"></i>
+          Filter by Competition:
+        </label>
+        <select id="admin-comp-select" class="form-group m-0 flex-1" onchange="window.handleCompSelectionChange()">
+          <option value="">All Competitions</option>
+        </select>
       </div>
     </div>
   </main>
