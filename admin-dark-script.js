@@ -508,9 +508,9 @@ function extractHorseNumberFromRow(row) {
 function buildProxyUrls(targetUrl) {
   const normalized = targetUrl.replace(/^https?:\/\//i, '');
   return [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+    `https://r.jina.ai/http://${normalized}`,
     `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-    `https://r.jina.ai/http://${normalized}`
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
   ];
 }
 
