@@ -309,17 +309,22 @@
     <div class="col-lg-4">
       <section class="panel">
         <div class="panel-header">
-          <h5>Paid Players</h5>
-          <span class="panel-hint">Select a player to edit their details.</span>
+          <h5>User Selection</h5>
+          <span class="panel-hint">Pick a user first, then pick one of their competitions.</span>
         </div>
-        <div class="user-list" id="user-list"></div>
-      </section>
-      <section class="panel mt-4">
-        <div class="panel-header">
-          <h5>Unpaid Players</h5>
-          <span class="panel-hint">Not included in the leaderboard.</span>
+        <div class="mb-3">
+          <label for="user-select" class="form-label">User</label>
+          <select id="user-select" class="form-select">
+            <option value="">Loading users...</option>
+          </select>
         </div>
-        <div class="user-list" id="unpaid-user-list"></div>
+        <div class="mb-2">
+          <label for="comp-select" class="form-label">Competition</label>
+          <select id="comp-select" class="form-select" disabled>
+            <option value="">Select a user first</option>
+          </select>
+        </div>
+        <div id="selection-summary" class="panel-hint mt-3">Choose a user and competition to begin editing.</div>
       </section>
     </div>
     <div class="col-lg-8">
@@ -398,13 +403,16 @@ const rtdb = getDatabase(app);
 let users = [];
 let selectedUserId = null;
 let selectedUserData = null;
+let selectedCompId = null;
+let selectedUserJoinings = [];
 let races = {};
 let resultsCache = {};
 let resultsLoaded = false;
 let tipsByRace = {};
 
-const userListDiv = document.getElementById('user-list');
-const unpaidUserListDiv = document.getElementById('unpaid-user-list');
+const userSelect = document.getElementById('user-select');
+const compSelect = document.getElementById('comp-select');
+const selectionSummary = document.getElementById('selection-summary');
 const searchInput = document.getElementById('user-search');
 const feesCounter = document.getElementById('fees-collected-counter');
 const userSaveStatus = document.getElementById('user-save-status');
@@ -444,19 +452,22 @@ async function loadResultsCache() {
   resultsCache = {};
   const resultsSnap = await getDocs(collection(db, "results"));
   resultsSnap.forEach(docSnap => {
-    resultsCache[docSnap.id] = docSnap.data();
+    const resultData = docSnap.data();
+    const raceId = resultData.raceId || docSnap.id;
+    resultsCache[raceId] = resultData;
   });
   resultsLoaded = true;
 }
 
-function updateFeesCounter() {
-  const paidCount = users.filter(u => u.paid === true).length;
-  feesCounter.textContent = `$${paidCount * 30}`;
+async function updateFeesCounter() {
+  const joiningsSnap = await getDocs(
+    query(collection(db, "userCompJoinings"), where("paymentStatus", "==", "completed"))
+  );
+  feesCounter.textContent = `$${joiningsSnap.size * 30}`;
 }
 
 async function loadUsers() {
-  userListDiv.innerHTML = '<div class="text-muted p-2">Loading users...</div>';
-  unpaidUserListDiv.innerHTML = '<div class="text-muted p-2">Loading users...</div>';
+  userSelect.innerHTML = '<option value="">Loading users...</option>';
 
   const usersSnap = await getDocs(collection(db, "users"));
   users = [];
@@ -466,48 +477,78 @@ async function loadUsers() {
     users.push({ id: docSnap.id, ...userData });
   });
 
-  // Update fees collected counter ($30 per paid)
-  updateFeesCounter();
+  users.sort((a, b) => {
+    const aName = (a.teamName || a.email || a.id || '').toLowerCase();
+    const bName = (b.teamName || b.email || b.id || '').toLowerCase();
+    return aName.localeCompare(bName);
+  });
 
-  filterAndRenderLists();
+  userSelect.innerHTML = '<option value="">Select user...</option>';
+  users.forEach(user => {
+    const option = document.createElement('option');
+    option.value = user.id;
+    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+    option.textContent = `${user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
+    userSelect.appendChild(option);
+  });
+
+  await updateFeesCounter();
 }
 
 /* -------------------------------
    Rendering helpers
 --------------------------------*/
-function renderUserList(userArr, container) {
-  container.innerHTML = '';
-  if (userArr.length === 0) {
-    container.innerHTML = '<div class="text-muted p-2">No users found.</div>';
-    return;
-  }
-  userArr.forEach(user => {
-    const div = document.createElement('div');
-    div.className = 'user-list-item' + (user.id === selectedUserId ? ' selected' : '');
-    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    div.textContent = `${user.teamName || ''} (${name}) - ${user.email || ''}`;
-    div.onclick = () => selectUser(user.id);
-    container.appendChild(div);
-  });
-}
-
-function filterAndRenderLists() {
+function filterUserDropdown() {
   const q = (searchInput.value || '').trim().toLowerCase();
 
-  const matches = (u) =>
-    ((u.email && u.email.toLowerCase().includes(q)) ||
-     (u.firstName && u.firstName.toLowerCase().includes(q)) ||
-     (u.lastName && u.lastName.toLowerCase().includes(q)) ||
-     (u.teamName && u.teamName.toLowerCase().includes(q)));
+  const currentValue = userSelect.value;
+  userSelect.innerHTML = '<option value="">Select user...</option>';
 
-  const paidFiltered = users.filter(u => u.paid === true && matches(u));
-  const unpaidFiltered = users.filter(u => u.paid !== true && matches(u));
+  users
+    .filter((u) =>
+      (!q ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.firstName && u.firstName.toLowerCase().includes(q)) ||
+        (u.lastName && u.lastName.toLowerCase().includes(q)) ||
+        (u.teamName && u.teamName.toLowerCase().includes(q)))
+    )
+    .forEach((user) => {
+      const option = document.createElement('option');
+      option.value = user.id;
+      const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      option.textContent = `${user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
+      userSelect.appendChild(option);
+    });
 
-  renderUserList(paidFiltered, userListDiv);
-  renderUserList(unpaidFiltered, unpaidUserListDiv);
+  if (currentValue && Array.from(userSelect.options).some(o => o.value === currentValue)) {
+    userSelect.value = currentValue;
+  }
 }
 
-searchInput.oninput = filterAndRenderLists;
+searchInput.oninput = filterUserDropdown;
+userSelect.onchange = async () => {
+  const userId = userSelect.value;
+  if (!userId) {
+    selectedUserId = null;
+    selectedCompId = null;
+    compSelect.innerHTML = '<option value="">Select a user first</option>';
+    compSelect.disabled = true;
+    document.getElementById('user-edit-section').style.display = 'none';
+    selectionSummary.textContent = 'Choose a user and competition to begin editing.';
+    return;
+  }
+  await selectUser(userId);
+};
+
+compSelect.onchange = async () => {
+  selectedCompId = compSelect.value || null;
+  if (!selectedUserId || !selectedCompId) return;
+
+  const selectedJoining = selectedUserJoinings.find(j => j.compId === selectedCompId) || null;
+  document.getElementById('edit-paid').checked = selectedJoining?.paymentStatus === 'completed';
+  selectionSummary.textContent = `Editing ${selectedUserData?.teamName || selectedUserData?.email || selectedUserId} in ${compSelect.options[compSelect.selectedIndex]?.textContent || selectedCompId}`;
+  await loadUserTips(selectedUserId, selectedCompId);
+};
 
 /* -------------------------------
    Select & edit user
@@ -515,8 +556,8 @@ searchInput.oninput = filterAndRenderLists;
 async function selectUser(userId) {
   selectedUserId = userId;
   selectedUserData = null;
-  // re-apply filters to refresh selected highlight
-  filterAndRenderLists();
+  selectedCompId = null;
+  selectedUserJoinings = [];
 
   document.getElementById('user-edit-section').style.display = '';
   userSaveStatus.textContent = '';
@@ -533,9 +574,45 @@ async function selectUser(userId) {
   document.getElementById('edit-teamName').value = user.teamName || '';
   document.getElementById('edit-joker').value =
     typeof user.joker === "number" ? user.joker : (user.joker ? Number(user.joker) : 0);
-  document.getElementById('edit-paid').checked = !!user.paid;
+  document.getElementById('edit-paid').checked = false;
 
-  await loadUserTips(userId);
+  const joiningsSnap = await getDocs(
+    query(collection(db, "userCompJoinings"), where("userId", "==", userId))
+  );
+
+  selectedUserJoinings = [];
+  for (const joiningDoc of joiningsSnap.docs) {
+    const joining = joiningDoc.data();
+    const compSnap = await getDoc(doc(db, "comps", joining.compId));
+    const compName = compSnap.exists() ? (compSnap.data().name || joining.compId) : joining.compId;
+    selectedUserJoinings.push({ ...joining, compName });
+  }
+
+  selectedUserJoinings.sort((a, b) => (a.compName || '').localeCompare(b.compName || ''));
+
+  compSelect.innerHTML = '';
+  if (selectedUserJoinings.length === 0) {
+    compSelect.innerHTML = '<option value="">No competitions joined</option>';
+    compSelect.disabled = true;
+    selectionSummary.textContent = 'This user has not joined any competitions.';
+    document.getElementById('user-tips-list').innerHTML = '<div class="text-muted p-2">No competitions joined for this user.</div>';
+    return;
+  }
+
+  compSelect.disabled = false;
+  selectedUserJoinings.forEach(joining => {
+    const option = document.createElement('option');
+    option.value = joining.compId;
+    option.textContent = `${joining.compName} (${joining.paymentStatus || 'pending'})`;
+    compSelect.appendChild(option);
+  });
+
+  selectedCompId = selectedUserJoinings[0].compId;
+  compSelect.value = selectedCompId;
+  document.getElementById('edit-paid').checked = selectedUserJoinings[0].paymentStatus === 'completed';
+  selectionSummary.textContent = `Editing ${selectedUserData?.teamName || selectedUserData?.email || selectedUserId} in ${selectedUserJoinings[0].compName}`;
+
+  await loadUserTips(userId, selectedCompId);
 }
 
 document.getElementById('user-edit-form').onsubmit = async function(e) {
@@ -546,7 +623,7 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
   const firstName = document.getElementById('edit-firstName').value;
   const lastName = document.getElementById('edit-lastName').value;
   const teamName = document.getElementById('edit-teamName').value;
-  const paid = document.getElementById('edit-paid').checked;
+  const paidForComp = document.getElementById('edit-paid').checked;
   const joker = Number(document.getElementById('edit-joker').value) || 0;
 
   saveUserBtn.disabled = true;
@@ -555,8 +632,16 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
 
   try {
     await updateDoc(doc(db, "users", selectedUserId), {
-      email, firstName, lastName, teamName, paid, joker
+      email, firstName, lastName, teamName, joker
     });
+
+    if (selectedCompId) {
+      await setDoc(doc(db, "userCompJoinings", `${selectedUserId}_${selectedCompId}`), {
+        userId: selectedUserId,
+        compId: selectedCompId,
+        paymentStatus: paidForComp ? 'completed' : 'pending'
+      }, { merge: true });
+    }
 
     // keep leaderboard doc's teamName aligned if it exists
     const leaderboardDocRef = doc(db, "leaderboard", selectedUserId);
@@ -567,11 +652,11 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
 
     const idx = users.findIndex(u => u.id === selectedUserId);
     if (idx !== -1) {
-      users[idx] = { ...users[idx], email, firstName, lastName, teamName, paid, joker };
+      users[idx] = { ...users[idx], email, firstName, lastName, teamName, joker };
     }
-    selectedUserData = { id: selectedUserId, email, firstName, lastName, teamName, paid, joker };
-    updateFeesCounter();
-    filterAndRenderLists();
+    selectedUserData = { id: selectedUserId, email, firstName, lastName, teamName, joker };
+    await updateFeesCounter();
+    filterUserDropdown();
     userSaveStatus.textContent = 'Saved';
     userSaveStatus.className = 'save-status success';
   } catch (err) {
@@ -589,20 +674,33 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
 /* -------------------------------
    Tips view & save (with points calc)
 --------------------------------*/
-async function loadUserTips(userId) {
+async function loadUserTips(userId, compId) {
   const tipsDiv = document.getElementById('user-tips-list');
+
+  if (!compId) {
+    tipsDiv.innerHTML = '<div class="text-muted p-2">Select a competition to view tips.</div>';
+    return;
+  }
+
   tipsDiv.innerHTML = 'Loading tips...';
 
   await loadResultsCache();
 
-  const tipsSnap = await getDocs(query(collection(db, "tips"), where("userId", "==", userId)));
+  const tipsSnap = await getDocs(query(
+    collection(db, "tips"),
+    where("userId", "==", userId),
+    where("compId", "==", compId)
+  ));
   tipsByRace = {};
   tipsSnap.forEach(docSnap => {
     const data = docSnap.data();
     tipsByRace[data.raceId] = { id: docSnap.id, ...data };
   });
 
-  const allRaceIds = Object.keys(races);
+  const allRaceIds = Object.keys(races).filter((raceId) => {
+    const race = races[raceId];
+    return race?.compId === compId;
+  });
   allRaceIds.sort((a, b) => {
     const aDate = new Date(`${races[a].date}T${races[a].time}`);
     const bDate = new Date(`${races[b].date}T${races[b].time}`);
@@ -692,7 +790,7 @@ function calculatePoints(raceId, horseId, jokerUsed) {
 }
 
 async function saveTipForRace(raceId) {
-  if (!raceId || !selectedUserId) return;
+  if (!raceId || !selectedUserId || !selectedCompId) return;
   const tipsDiv = document.getElementById('user-tips-list');
   const row = tipsDiv.querySelector(`[data-race-row="${raceId}"]`);
   if (!row) return;
@@ -711,14 +809,15 @@ async function saveTipForRace(raceId) {
   try {
     await setDoc(doc(db, "tips", tipDocId), {
       userId: selectedUserId,
+      compId: selectedCompId,
       raceId,
       horseId: chosenHorseId || "",
       timestamp: Date.now(),
       joker
     });
 
-    tipsByRace[raceId] = { userId: selectedUserId, raceId, horseId: chosenHorseId || "", joker };
-    await recalculateLeaderboardForUser(selectedUserId, tipsByRace);
+    tipsByRace[raceId] = { userId: selectedUserId, compId: selectedCompId, raceId, horseId: chosenHorseId || "", joker };
+    await recalculateLeaderboardForUser(selectedUserId, selectedCompId, tipsByRace);
 
     const points = calculatePoints(raceId, chosenHorseId, joker);
     if (pointsEl) {
@@ -740,17 +839,23 @@ async function saveTipForRace(raceId) {
 /* -------------------------------
    Leaderboard recalculation (per user)
 --------------------------------*/
-async function recalculateLeaderboardForUser(userId, tipsMap = null) {
+async function recalculateLeaderboardForUser(userId, compId, tipsMap = null) {
+  if (!compId) return;
+
   // ensure races and results are available
   if (!races || !Object.keys(races).length) await loadRaces();
   await loadResultsCache();
 
   const tipsSource = tipsMap || tipsByRace;
   let totalPoints = 0;
+  let totalWins = 0;
 
   for (const raceId of Object.keys(races)) {
+    if (races[raceId]?.compId !== compId) continue;
     const userTip = tipsSource[raceId];
     if (!userTip || !userTip.horseId) continue;
+    const result = resultsCache[raceId] || null;
+    if (result?.winningHorseId === userTip.horseId) totalWins += 1;
     const pts = calculatePoints(raceId, userTip.horseId, !!userTip.joker);
     totalPoints += pts;
   }
@@ -761,10 +866,11 @@ async function recalculateLeaderboardForUser(userId, tipsMap = null) {
     selectedUserData = userDoc.exists() ? { id: userId, ...userDoc.data() } : { id: userId };
   }
 
-  await setDoc(doc(db, "leaderboard", userId), {
+  await setDoc(doc(db, "userCompJoinings", `${userId}_${compId}`), {
     userId,
-    teamName: (selectedUserData && selectedUserData.teamName) || userId,
-    points: totalPoints
+    compId,
+    points: totalPoints,
+    wins: totalWins
   }, { merge: true });
 }
 
