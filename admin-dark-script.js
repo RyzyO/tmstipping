@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, writeBatch, query, where, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
 
 // Initialize Firebase
@@ -1123,18 +1123,42 @@ async function loadRaceHorses(race) {
     return;
   }
 
-  Object.entries(race.horses).forEach(([idx, horse]) => {
+  let substituteHorseId = null;
+  Object.entries(race.horses).forEach(([horseId, horse]) => {
+    if (horse.substitute) substituteHorseId = horseId;
+  });
+
+  const sortedHorses = Object.entries(race.horses).sort((a, b) => {
+    const aNo = Number(a[1].no ?? a[1].number ?? 0);
+    const bNo = Number(b[1].no ?? b[1].number ?? 0);
+    return aNo - bNo;
+  });
+
+  sortedHorses.forEach(([idx, horse]) => {
+    const horseNo = horse.no ?? horse.number ?? '';
     const tr = document.createElement('tr');
+    const isScratched = !!horse.scratched;
+    const isSubstitute = !!horse.substitute;
     tr.innerHTML = `
-      <td><input type="text" value="${horse.no}" data-field="no" data-idx="${idx}" style="width: 60px;"></td>
+      <td><input type="text" value="${horseNo}" data-field="no" data-idx="${idx}" style="width: 60px;"></td>
       <td><input type="text" value="${horse.name}" data-field="name" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.trainer || ''}" data-field="trainer" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.jockey || ''}" data-field="jockey" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.barrier || ''}" data-field="barrier" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.weight || ''}" data-field="weight" data-idx="${idx}"></td>
-      <td><input type="text" value="${horse.silkDesc || ''}" data-field="silkDesc" data-idx="${idx}"></td>
+      <td><input type="text" value="${horse.silkDesc || horse.silkId || ''}" data-field="silkDesc" data-idx="${idx}"></td>
       <td>
-        <button onclick="saveHorseChange(this)" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Save</button>
+        <div class="flex flex-wrap gap-2 items-center">
+          <button onclick="saveHorseChange(this)" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Save</button>
+          ${isScratched
+            ? '<button onclick="toggleHorseScratch(\'' + idx + '\', false)" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Unscratch</button><span class="text-red-400 text-xs font-semibold">SCRATCHED</span>'
+            : '<button onclick="toggleHorseScratch(\'' + idx + '\', true)" class="btn-danger" style="font-size: 0.75rem; padding: 6px 10px;">Scratch</button>'
+          }
+          <button onclick="setSubstituteHorse('\'' + idx + '\')" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">
+            ${isSubstitute ? 'Substitute (Current)' : 'Set Substitute'}
+          </button>
+          ${isSubstitute ? '<span class="text-yellow-400 text-xs font-semibold">SUB</span>' : ''}
+        </div>
       </td>
     `;
     horsesList.appendChild(tr);
@@ -1154,14 +1178,88 @@ async function saveHorseChange(btn) {
   const weight = inputs[5].value;
   const silkDesc = inputs[6].value;
 
+  const race = allRaces.find(r => r.id === currentRaceId);
+  const existingHorse = race?.horses?.[idx] || {};
+
   try {
     const raceRef = doc(db, 'races', currentRaceId);
     await updateDoc(raceRef, {
-      [`horses.${idx}`]: { no, name, trainer, jockey, barrier, weight, silkDesc }
+      [`horses.${idx}`]: {
+        ...existingHorse,
+        no,
+        number: no,
+        name,
+        trainer,
+        jockey,
+        barrier,
+        weight,
+        silkDesc
+      }
     });
     showNotification('Horse updated', 'success', 'race-notifications');
+    await refreshCurrentRaceData();
   } catch (error) {
     showNotification('Error updating horse', 'error', 'race-notifications');
+  }
+}
+
+async function refreshCurrentRaceData() {
+  if (!currentRaceId) return;
+
+  const raceSnap = await getDoc(doc(db, 'races', currentRaceId));
+  if (!raceSnap.exists()) return;
+
+  const updatedRace = { id: currentRaceId, ...raceSnap.data() };
+  allRaces = allRaces.map(r => r.id === currentRaceId ? updatedRace : r);
+
+  await loadRaceHorses(updatedRace);
+  if (currentTab === 'results') {
+    await loadResultsForm();
+  }
+}
+
+async function toggleHorseScratch(horseIdx, shouldScratch) {
+  if (!currentRaceId) return;
+
+  const race = allRaces.find(r => r.id === currentRaceId);
+  if (!race?.horses?.[horseIdx]) return;
+
+  race.horses[horseIdx].scratched = shouldScratch;
+  if (shouldScratch && race.horses[horseIdx].substitute) {
+    race.horses[horseIdx].substitute = false;
+  }
+
+  try {
+    await updateDoc(doc(db, 'races', currentRaceId), { horses: race.horses });
+    showNotification(shouldScratch ? 'Horse scratched' : 'Horse unscratched', 'success', 'race-notifications');
+    await refreshCurrentRaceData();
+  } catch (error) {
+    console.error('Error updating scratch status:', error);
+    showNotification('Error updating horse status', 'error', 'race-notifications');
+  }
+}
+
+async function setSubstituteHorse(horseIdx) {
+  if (!currentRaceId) return;
+
+  const race = allRaces.find(r => r.id === currentRaceId);
+  if (!race?.horses?.[horseIdx]) return;
+  if (race.horses[horseIdx].scratched) {
+    showNotification('Cannot set a scratched horse as substitute', 'error', 'race-notifications');
+    return;
+  }
+
+  Object.entries(race.horses).forEach(([id, horse]) => {
+    race.horses[id].substitute = id === horseIdx;
+  });
+
+  try {
+    await updateDoc(doc(db, 'races', currentRaceId), { horses: race.horses });
+    showNotification('Substitute horse updated', 'success', 'race-notifications');
+    await refreshCurrentRaceData();
+  } catch (error) {
+    console.error('Error setting substitute horse:', error);
+    showNotification('Error setting substitute horse', 'error', 'race-notifications');
   }
 }
 
@@ -1174,14 +1272,67 @@ async function addHorseToRace() {
 
   try {
     await updateDoc(doc(db, 'races', currentRaceId), {
-      [`horses.${newIdx}`]: { no: newIdx + 1, name: '', trainer: '', jockey: '', barrier: '', weight: '', silkDesc: '' }
+      [`horses.${newIdx}`]: {
+        no: newIdx + 1,
+        number: String(newIdx + 1),
+        name: '',
+        trainer: '',
+        jockey: '',
+        barrier: '',
+        weight: '',
+        silkDesc: '',
+        scratched: false,
+        substitute: false
+      }
     });
 
-    const raceSnap = await getDoc(doc(db, 'races', currentRaceId));
-    await loadRaceHorses(raceSnap.data());
+    await refreshCurrentRaceData();
     showNotification('Horse added', 'success', 'race-notifications');
   } catch (error) {
     showNotification('Error adding horse', 'error', 'race-notifications');
+  }
+}
+
+async function archiveRace() {
+  if (!currentRaceId) return;
+
+  const race = allRaces.find(r => r.id === currentRaceId);
+  if (!race) return;
+
+  const confirmed = window.confirm(`Delete ${race.name || 'this race'}? This moves it to deletedRaces and removes it from active races.`);
+  if (!confirmed) return;
+
+  try {
+    const raceRef = doc(db, 'races', currentRaceId);
+    const raceSnap = await getDoc(raceRef);
+    if (!raceSnap.exists()) {
+      showNotification('Race not found', 'error', 'race-notifications');
+      return;
+    }
+
+    const archiveRef = doc(db, 'deletedRaces', currentRaceId);
+    await setDoc(archiveRef, {
+      ...raceSnap.data(),
+      originalRaceId: currentRaceId,
+      deletedAt: serverTimestamp(),
+      deletedBy: auth.currentUser?.uid || null,
+      deletedFrom: 'admin-dark'
+    });
+
+    await deleteDoc(raceRef);
+
+    allRaces = allRaces.filter(r => r.id !== currentRaceId);
+    currentRaceId = null;
+
+    document.getElementById('race-details-panel').classList.add('hidden');
+    document.getElementById('new-race-panel').classList.add('hidden');
+    document.getElementById('no-selection').classList.remove('hidden');
+
+    await loadRacesList();
+    alert('Race archived and hidden from active list.');
+  } catch (error) {
+    console.error('Error archiving race:', error);
+    showNotification('Error deleting race', 'error', 'race-notifications');
   }
 }
 
@@ -1197,9 +1348,10 @@ async function loadResultsForm() {
   [winnerSelect, place1Select, place2Select].forEach(select => {
     select.innerHTML = '<option value="">Select horse...</option>';
     Object.entries(race.horses).forEach(([idx, horse]) => {
+      if (horse.scratched) return;
       const option = document.createElement('option');
       option.value = idx;
-      option.textContent = `${horse.no} - ${horse.name}`;
+      option.textContent = `${horse.no ?? horse.number ?? idx} - ${horse.name}`;
       select.appendChild(option);
     });
   });
@@ -1484,7 +1636,10 @@ window.updateRaceDate = updateRaceDate;
 window.updateRaceTime = updateRaceTime;
 window.updateRaceDistance = updateRaceDistance;
 window.updateRacePreview = updateRacePreview;
+window.archiveRace = archiveRace;
 window.saveHorseChange = saveHorseChange;
+window.toggleHorseScratch = toggleHorseScratch;
+window.setSubstituteHorse = setSubstituteHorse;
 window.addHorseToRace = addHorseToRace;
 window.saveResults = saveResults;
 window.switchTab = switchTab;
