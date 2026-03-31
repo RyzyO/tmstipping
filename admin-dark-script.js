@@ -505,6 +505,42 @@ function extractHorseNumberFromRow(row) {
   return normalizeHorseNumber(firstCell.textContent || '');
 }
 
+function buildProxyUrls(targetUrl) {
+  const normalized = targetUrl.replace(/^https?:\/\//i, '');
+  return [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+    `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+    `https://r.jina.ai/http://${normalized}`
+  ];
+}
+
+async function fetchHtmlViaProxy(targetUrl, contextLabel) {
+  const proxyUrls = buildProxyUrls(targetUrl);
+  let lastError = null;
+
+  for (const proxyUrl of proxyUrls) {
+    try {
+      console.log(`[${contextLabel}] Trying proxy:`, proxyUrl);
+      const response = await fetch(proxyUrl, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const html = await response.text();
+      if (!html || html.length < 200) {
+        throw new Error('Response too small / empty');
+      }
+
+      return html;
+    } catch (error) {
+      console.warn(`[${contextLabel}] Proxy failed:`, proxyUrl, error.message || error);
+      lastError = error;
+    }
+  }
+
+  throw new Error(`All proxy fetch attempts failed for ${targetUrl}. Last error: ${lastError?.message || 'Unknown error'}`);
+}
+
 async function scrapeSilksFromUrl() {
   console.log('[scrapeSilksFromUrl] Starting...');
   const url = document.getElementById('race-silks-url').value;
@@ -530,17 +566,7 @@ async function scrapeSilksFromUrl() {
   btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
 
   try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    console.log('[scrapeSilksFromUrl] Proxy URL:', proxyUrl);
-    
-    const response = await fetch(proxyUrl);
-    console.log('[scrapeSilksFromUrl] Fetch response status:', response.status);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch RacingNSW URL');
-    }
-
-    const html = await response.text();
+    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrl:list');
     console.log('[scrapeSilksFromUrl] HTML length:', html.length);
     
     const parser = new DOMParser();
@@ -580,19 +606,8 @@ async function scrapeSilksFromUrl() {
       
       const fullUrl = new URL(entry.path, 'https://racing.racingnsw.com.au').href;
       console.log('[scrapeSilksFromUrl] Full URL:', fullUrl);
-      
-      const runnerProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fullUrl)}`;
 
-      const runnerResponse = await fetch(runnerProxyUrl);
-      console.log('[scrapeSilksFromUrl] Runner page fetch status:', runnerResponse.status);
-      
-      if (!runnerResponse.ok) {
-        console.warn('[scrapeSilksFromUrl] Failed to fetch runner page for:', entry.name);
-        missing += 1;
-        continue;
-      }
-
-      const runnerHtml = await runnerResponse.text();
+      const runnerHtml = await fetchHtmlViaProxy(fullUrl, `scrapeSilksFromUrl:runner:${entry.name}`);
       console.log('[scrapeSilksFromUrl] Runner HTML length:', runnerHtml.length);
       
       const silkMatch = runnerHtml.match(/JockeySilks\/(\d+)\.png/i);
@@ -669,17 +684,7 @@ window.scrapeSilksFromUrlRA = async function() {
   btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
 
   try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    console.log('[scrapeSilksFromUrlRA] Proxy URL:', proxyUrl);
-    
-    const response = await fetch(proxyUrl);
-    console.log('[scrapeSilksFromUrlRA] Fetch response status:', response.status);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch Racing Australia URL');
-    }
-
-    const html = await response.text();
+    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrlRA:list');
     console.log('[scrapeSilksFromUrlRA] HTML length:', html.length);
     
     const parser = new DOMParser();
@@ -729,19 +734,8 @@ window.scrapeSilksFromUrlRA = async function() {
       
       const fullUrl = new URL(`FreeFields/HorseFullForm.aspx?${entry.horseId}`, 'https://www.racingaustralia.horse').href;
       console.log('[scrapeSilksFromUrlRA] Full URL:', fullUrl);
-      
-      const runnerProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(fullUrl)}`;
 
-      const runnerResponse = await fetch(runnerProxyUrl);
-      console.log('[scrapeSilksFromUrlRA] Runner page fetch status:', runnerResponse.status);
-      
-      if (!runnerResponse.ok) {
-        console.warn('[scrapeSilksFromUrlRA] Failed to fetch runner page for:', entry.name);
-        missing += 1;
-        continue;
-      }
-
-      const runnerHtml = await runnerResponse.text();
+      const runnerHtml = await fetchHtmlViaProxy(fullUrl, `scrapeSilksFromUrlRA:runner:${entry.name}`);
       console.log('[scrapeSilksFromUrlRA] Runner HTML length:', runnerHtml.length);
       
       // Racing Australia uses JockeySilks path similar to RacingNSW
