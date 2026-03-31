@@ -19,7 +19,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getAuth, onAuthStateChanged, signOut, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     
     const firebaseConfig = {
       apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
@@ -77,26 +77,35 @@
       if (!currentUser) return;
       
       try {
-        // Get total tips
-        const tipsQuery = query(collection(db, 'tips'), where('userId', '==', currentUser.uid));
-        const tipsSnap = await getDocs(tipsQuery);
-        document.getElementById('totalTips').textContent = tipsSnap.size;
+        const joiningsSnap = await getDocs(
+          query(collection(db, 'userCompJoinings'), where('userId', '==', currentUser.uid))
+        );
 
-        // Get leaderboard position and points
-        const leaderboardQuery = query(collection(db, 'leaderboard'), orderBy('points', 'desc'));
-        const leaderboardSnap = await getDocs(leaderboardQuery);
-        let rank = 0;
-        let points = 0;
-        
-        leaderboardSnap.forEach((docSnap, index) => {
-          if (docSnap.data().userId === currentUser.uid) {
-            rank = index + 1;
-            points = docSnap.data().points || 0;
-          }
-        });
+        const joinings = [];
+        for (const joinDoc of joiningsSnap.docs) {
+          const joining = joinDoc.data();
+          const compSnap = await getDoc(doc(db, 'comps', joining.compId));
+          const compData = compSnap.exists() ? compSnap.data() : null;
+          joinings.push({ id: joinDoc.id, ...joining, compStatus: compData?.status || null });
+        }
 
-        document.getElementById('currentRank').textContent = rank > 0 ? rank : '-';
-        document.getElementById('totalPoints').textContent = points.toFixed(2);
+        const activeJoinings = joinings.filter(j => j.compStatus === 'active');
+        const completedJoinings = joinings.filter(j => j.paymentStatus === 'completed');
+        const primaryJoining = activeJoinings[0] || completedJoinings[0] || joinings[0] || null;
+
+        let tipsCount = 0;
+        if (primaryJoining?.compId) {
+          const tipsSnap = await getDocs(query(
+            collection(db, 'tips'),
+            where('userId', '==', currentUser.uid),
+            where('compId', '==', primaryJoining.compId)
+          ));
+          tipsCount = tipsSnap.size;
+        }
+
+        document.getElementById('totalTips').textContent = tipsCount;
+        document.getElementById('currentRank').textContent = primaryJoining?.rank ? primaryJoining.rank : '-';
+        document.getElementById('totalPoints').textContent = Number(primaryJoining?.points || 0).toFixed(2);
       } catch (error) {
         console.error('Error loading stats:', error);
       }

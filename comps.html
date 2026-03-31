@@ -522,7 +522,11 @@
       
       const grid = document.getElementById('joinedCompsGrid');
       const joiningsSnap = await getDocs(
-        query(collection(db, "userCompJoinings"), where("userId", "==", currentUser.uid))
+        query(
+          collection(db, "userCompJoinings"),
+          where("userId", "==", currentUser.uid),
+          where("paymentStatus", "==", "completed")
+        )
       );
 
       if (joiningsSnap.empty) {
@@ -609,7 +613,7 @@
     async function checkUserJoined(userId, compId) {
       try {
         const snap = await getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`));
-        return snap.exists();
+        return snap.exists() && snap.data()?.paymentStatus === 'completed';
       } catch {
         return false;
       }
@@ -671,42 +675,65 @@
     };
 
     async function createStripeCheckoutSession(comp) {
-      // PRODUCTION IMPLEMENTATION:
-      // Call a Cloud Function that:
-      // 1. Validates comp exists and user is authenticated (server-side)
-      // 2. Creates Stripe checkout session with:
-      //    - Amount in cents
-      //    - Metadata: userId, compId (for webhook verification)
-      //    - Success/cancel URLs
-      // 3. Returns session ID
-      // 4. Redirects to Stripe checkout
-      
-      // For now, placeholder
-      console.warn('Stripe integration not yet implemented. In production, call Cloud Function here.');
-      alert('Payment processing coming soon!');
-      document.getElementById('paymentSection').classList.remove('hidden');
-      document.getElementById('paymentProcessing').classList.add('hidden');
+      try {
+        const response = await fetch('/api/create-payment-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: currentUser.uid,
+            compId: comp.id,
+            amount: comp.entryFee
+          })
+        });
+
+        if (response.ok) {
+          const payload = await response.json();
+          if (payload?.url) {
+            window.location.href = payload.url;
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn('Checkout session endpoint unavailable, using fallback join flow:', error);
+      }
+
+      const confirmed = window.confirm(
+        `Stripe checkout is not configured yet. To keep the competition launch on track, join ${comp.name} now and reconcile payment manually later?`
+      );
+
+      if (!confirmed) {
+        document.getElementById('paymentSection').classList.remove('hidden');
+        document.getElementById('paymentProcessing').classList.add('hidden');
+        return;
+      }
+
+      await completeJoinComp('manual-launch-override');
     }
 
-    async function completeJoinComp() {
+    async function completeJoinComp(stripePaymentId = null) {
       const joiningRef = doc(db, "userCompJoinings", `${currentUser.uid}_${selectedComp.id}`);
+      const existingJoin = await getDoc(joiningRef);
+      const wasCompleted = existingJoin.exists() && existingJoin.data()?.paymentStatus === 'completed';
+
       await setDoc(joiningRef, {
         userId: currentUser.uid,
         compId: selectedComp.id,
         joinDate: serverTimestamp(),
         paymentStatus: 'completed',
-        stripePaymentId: null,
+        stripePaymentId,
         rank: 999999,
         points: 0,
         wins: 0
       });
 
       // Update comp participant count
-      const compRef = doc(db, "comps", selectedComp.id);
-      const compData = await getDoc(compRef);
-      await setDoc(compRef, {
-        participantCount: (compData.data().participantCount || 0) + 1
-      }, { merge: true });
+      if (!wasCompleted) {
+        const compRef = doc(db, "comps", selectedComp.id);
+        const compData = await getDoc(compRef);
+        await setDoc(compRef, {
+          participantCount: (compData.data().participantCount || 0) + 1
+        }, { merge: true });
+      }
 
       closeJoinModal();
       await loadComps();

@@ -219,13 +219,16 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    let user=null, allResults=[], countdownTimer=null, selectedCompId = "default-comp";
+    let user=null, allResults=[], countdownTimer=null;
+    let selectedCompId = new URLSearchParams(window.location.search).get("compId") || "default-comp";
     let weekStarts=[], currentWeekIndex=0;
-    const RESULTS_CACHE_KEY = "tmstipping:resultsCache";
+    function getResultsCacheKey() {
+      return `tmstipping:resultsCache:${selectedCompId || 'default-comp'}`;
+    }
 
     function getCachedResults() {
       try {
-        const raw = localStorage.getItem(RESULTS_CACHE_KEY);
+        const raw = localStorage.getItem(getResultsCacheKey());
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed?.entries)) return null;
@@ -237,7 +240,7 @@
     }
 
     function saveCachedResults(entries) {
-      localStorage.setItem(RESULTS_CACHE_KEY, JSON.stringify({ entries, updatedAt: Date.now() }));
+      localStorage.setItem(getResultsCacheKey(), JSON.stringify({ entries, updatedAt: Date.now() }));
     }
 
     function showLoading(){document.getElementById("loading-overlay").classList.remove("hidden");}
@@ -249,13 +252,7 @@
     }
     window.closeModal=()=>document.getElementById("result-modal").classList.add("hidden");
 
-    const cached = getCachedResults();
     let hasInitialCache = false;
-    if (cached) {
-      allResults = cached;
-      renderResults();
-      hasInitialCache = true;
-    }
 
     onAuthStateChanged(auth, async (_user)=>{
       if(!_user){window.location.href="login.html"; return;}
@@ -293,7 +290,11 @@
       try {
         const selectEl = document.getElementById("comp-selector");
         const joiningsSnap = await getDocs(
-          query(collection(db, "userCompJoinings"), where("userId", "==", user.uid))
+          query(
+            collection(db, "userCompJoinings"),
+            where("userId", "==", user.uid),
+            where("paymentStatus", "==", "completed")
+          )
         );
 
         const comps = [];
@@ -314,8 +315,17 @@
         });
 
         if (comps.length > 0) {
-          selectedCompId = comps[0].id;
+          const preferredComp = comps.find(c => c.id === selectedCompId) || comps[0];
+          selectedCompId = preferredComp.id;
           selectEl.value = selectedCompId;
+
+          const cached = getCachedResults();
+          if (cached) {
+            allResults = cached;
+            renderResults();
+            setupWeekNavigation(allResults);
+            hasInitialCache = true;
+          }
         }
 
         selectEl.onchange = async () => {
@@ -334,15 +344,19 @@
         allResults=[];
         const [racesSnap, tipsSnap, resultsSnap] = await Promise.all([
           getDocs(query(collection(db,"races"), where("compId", "==", selectedCompId))),
-          getDocs(collection(db,"tips")),
+          getDocs(query(collection(db,"tips"), where("userId", "==", user.uid), where("compId", "==", selectedCompId))),
           getDocs(collection(db,"results"))
         ]);
 
         const userTips={};
-        tipsSnap.forEach(d=>{const t=d.data(); if(t.userId===user.uid) userTips[t.raceId]=t;});
+        tipsSnap.forEach(d=>{const t=d.data(); userTips[t.raceId]=t;});
 
         const resultsMap={};
-        resultsSnap.forEach(d=>{resultsMap[d.id]=d.data();});
+        resultsSnap.forEach(d=>{
+          const resultData = d.data();
+          const raceId = resultData.raceId || d.id;
+          resultsMap[raceId]=resultData;
+        });
 
         for(const docSnap of racesSnap.docs){
           const race={id:docSnap.id,...docSnap.data()};

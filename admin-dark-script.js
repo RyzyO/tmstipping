@@ -127,7 +127,11 @@ async function loadDashboardStats(compId = null) {
     if (compId) {
       // Filter to users who joined this comp and have paid
       const joiningsSnap = await getDocs(
-        query(collection(db, 'userCompJoinings'), where('compId', '==', compId), where('isPaid', '==', true))
+        query(
+          collection(db, 'userCompJoinings'),
+          where('compId', '==', compId),
+          where('paymentStatus', '==', 'completed')
+        )
       );
       paidUsers = joiningsSnap.size;
       
@@ -138,10 +142,16 @@ async function loadDashboardStats(compId = null) {
         feesCollected = paidUsers * entryFee;
       }
     } else {
-      // Original logic for all comps
-      const usersRef = collection(db, 'users');
-      const usersSnap = await getDocs(query(usersRef, where('isPaid', '==', true)));
-      paidUsers = usersSnap.size;
+      // Multi-comp global logic: unique users with a completed joining
+      const joiningsSnap = await getDocs(
+        query(collection(db, 'userCompJoinings'), where('paymentStatus', '==', 'completed'))
+      );
+      const paidUserIds = new Set();
+      joiningsSnap.forEach(joinDoc => {
+        const joining = joinDoc.data();
+        if (joining?.userId) paidUserIds.add(joining.userId);
+      });
+      paidUsers = paidUserIds.size;
     }
 
     document.getElementById('total-races').textContent = races.length;
@@ -1200,12 +1210,17 @@ async function loadResultsForm() {
   const snap = await getDocs(q);
   if (snap.docs.length > 0) {
     const result = snap.docs[0].data();
-    if (result.winner) document.getElementById('winner-horse-id').value = result.winner.idx || '';
-    if (result.place1) document.getElementById('place1-horse-id').value = result.place1.idx || '';
-    if (result.place2) document.getElementById('place2-horse-id').value = result.place2.idx || '';
-    if (result.winner?.points) document.getElementById('winner-points').value = result.winner.points;
-    if (result.place1?.points) document.getElementById('place1-points').value = result.place1.points;
-    if (result.place2?.points) document.getElementById('place2-points').value = result.place2.points;
+    const winnerIdx = result.winner?.idx || result.winningHorseId || '';
+    const place1Idx = result.place1?.idx || result.place1HorseId || '';
+    const place2Idx = result.place2?.idx || result.place2HorseId || '';
+
+    if (winnerIdx) document.getElementById('winner-horse-id').value = winnerIdx;
+    if (place1Idx) document.getElementById('place1-horse-id').value = place1Idx;
+    if (place2Idx) document.getElementById('place2-horse-id').value = place2Idx;
+
+    if (result.winner?.points || result.points) document.getElementById('winner-points').value = result.winner?.points || result.points;
+    if (result.place1?.points || result.place1Points) document.getElementById('place1-points').value = result.place1?.points || result.place1Points;
+    if (result.place2?.points || result.place2Points) document.getElementById('place2-points').value = result.place2?.points || result.place2Points;
   }
 }
 
@@ -1223,12 +1238,23 @@ async function saveResults() {
     const q = query(resultsRef, where('raceId', '==', currentRaceId));
     const snap = await getDocs(q);
 
+    const winnerPoints = parseInt(document.getElementById('winner-points').value) || 10;
+    const place1Points = parseInt(document.getElementById('place1-points').value) || 5;
+    const place2Points = parseInt(document.getElementById('place2-points').value) || 2;
+
     const result = {
       raceId: currentRaceId,
       raceName: race.name,
-      winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx].name, points: parseInt(document.getElementById('winner-points').value) || 10 } : null,
-      place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx].name, points: parseInt(document.getElementById('place1-points').value) || 5 } : null,
-      place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx].name, points: parseInt(document.getElementById('place2-points').value) || 2 } : null,
+      winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx].name, points: winnerPoints } : null,
+      place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx].name, points: place1Points } : null,
+      place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx].name, points: place2Points } : null,
+      // Canonical fields used by dark-mode pages and admin-script.js
+      winningHorseId: winnerIdx || null,
+      place1HorseId: place1Idx || null,
+      place2HorseId: place2Idx || null,
+      points: winnerPoints,
+      place1Points: place1Points,
+      place2Points: place2Points,
       createdAt: new Date().toISOString()
     };
 
@@ -1253,37 +1279,107 @@ async function calculateAndSaveLeaderboard() {
     const resultsRef = collection(db, 'results');
     const resultsSnap = await getDocs(resultsRef);
     const leaderboardMap = {};
+    const compLeaderboardMap = {};
 
-    resultsSnap.docs.forEach(doc => {
-      const result = doc.data();
+    const raceCompIdMap = {};
+    allRaces.forEach(r => {
+      raceCompIdMap[r.id] = r.compId || null;
+    });
+
+    for (const resultDoc of resultsSnap.docs) {
+      const result = resultDoc.data();
+      const raceId = result.raceId || resultDoc.id;
       const tipsRef = collection(db, 'tips');
-      getDocs(query(tipsRef, where('raceId', '==', result.raceId))).then(tipsSnap => {
-        tipsSnap.docs.forEach(tipDoc => {
-          const tip = tipDoc.data();
-          const userId = tip.userId;
+      const tipsSnap = await getDocs(query(tipsRef, where('raceId', '==', raceId)));
 
-          if (!leaderboardMap[userId]) {
-            leaderboardMap[userId] = { userId, points: 0, wins: 0 };
-          }
+      const winnerHorseId = result.winningHorseId || result.winner?.idx || null;
+      const place1HorseId = result.place1HorseId || result.place1?.idx || null;
+      const place2HorseId = result.place2HorseId || result.place2?.idx || null;
 
-          if (tip.horseId == result.winner?.idx) {
-            leaderboardMap[userId].points += result.winner.points;
-            leaderboardMap[userId].wins += 1;
-          } else if (tip.horseId == result.place1?.idx || tip.horseId == result.place2?.idx) {
-            leaderboardMap[userId].points += 3;
-          }
-        });
+      const winnerPoints = Number(result.points ?? result.winner?.points ?? 0) || 0;
+      const place1Points = Number(result.place1Points ?? result.place1?.points ?? 0) || 0;
+      const place2Points = Number(result.place2Points ?? result.place2?.points ?? 0) || 0;
+
+      tipsSnap.docs.forEach(tipDoc => {
+        const tip = tipDoc.data();
+        const userId = tip.userId;
+        const compId = tip.compId || raceCompIdMap[raceId] || selectedAdminCompId || 'default-comp';
+
+        if (!leaderboardMap[userId]) {
+          leaderboardMap[userId] = { userId, points: 0, wins: 0 };
+        }
+
+        if (!compLeaderboardMap[compId]) {
+          compLeaderboardMap[compId] = {};
+        }
+        if (!compLeaderboardMap[compId][userId]) {
+          compLeaderboardMap[compId][userId] = { userId, points: 0, wins: 0 };
+        }
+
+        let points = 0;
+        let wasWin = false;
+        if (winnerHorseId && tip.horseId == winnerHorseId) {
+          points += winnerPoints;
+          wasWin = true;
+        } else if (place1HorseId && tip.horseId == place1HorseId) {
+          points += place1Points;
+        } else if (place2HorseId && tip.horseId == place2HorseId) {
+          points += place2Points;
+        }
+
+        if (points > 0 && tip.joker === true) {
+          points *= 2;
+        }
+
+        leaderboardMap[userId].points += points;
+        if (wasWin) leaderboardMap[userId].wins += 1;
+
+        compLeaderboardMap[compId][userId].points += points;
+        if (wasWin) compLeaderboardMap[compId][userId].wins += 1;
+      });
+    }
+
+    const leaderboardRef = collection(db, 'leaderboard');
+    const legacyBatch = writeBatch(db);
+
+    Object.values(leaderboardMap).forEach(entry => {
+      legacyBatch.set(doc(leaderboardRef, entry.userId), entry, { merge: true });
+    });
+
+    await legacyBatch.commit();
+
+    // Update per-comp standings used by dark-mode leaderboard/profile pages.
+    const compBatch = writeBatch(db);
+
+    Object.entries(compLeaderboardMap).forEach(([compId, usersMap]) => {
+      const entries = Object.values(usersMap).sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        return b.wins - a.wins;
+      });
+
+      let lastPoints = null;
+      let lastWins = null;
+      let lastRank = 0;
+
+      entries.forEach((entry, idx) => {
+        const rank = (entry.points === lastPoints && entry.wins === lastWins) ? lastRank : idx + 1;
+        lastPoints = entry.points;
+        lastWins = entry.wins;
+        lastRank = rank;
+
+        const joiningRef = doc(db, 'userCompJoinings', `${entry.userId}_${compId}`);
+        compBatch.set(joiningRef, {
+          userId: entry.userId,
+          compId,
+          points: entry.points,
+          wins: entry.wins,
+          rank,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
       });
     });
 
-    const leaderboardRef = collection(db, 'leaderboard');
-    const batch = writeBatch(db);
-
-    Object.values(leaderboardMap).forEach(entry => {
-      batch.set(doc(leaderboardRef, entry.userId), entry, { merge: true });
-    });
-
-    await batch.commit();
+    await compBatch.commit();
   } catch (error) {
     console.error('Error calculating leaderboard:', error);
   }
@@ -1302,9 +1398,27 @@ async function loadRaceTips(race) {
     tipsList.innerHTML = '';
 
     const paidUsersSet = new Set();
-    const usersRef = collection(db, 'users');
-    const usersSnap = await getDocs(query(usersRef, where('isPaid', '==', true)));
-    usersSnap.docs.forEach(doc => paidUsersSet.add(doc.id));
+    const activeCompId = race?.compId || selectedAdminCompId || null;
+    let joiningsSnap;
+
+    if (activeCompId) {
+      joiningsSnap = await getDocs(
+        query(
+          collection(db, 'userCompJoinings'),
+          where('compId', '==', activeCompId),
+          where('paymentStatus', '==', 'completed')
+        )
+      );
+    } else {
+      joiningsSnap = await getDocs(
+        query(collection(db, 'userCompJoinings'), where('paymentStatus', '==', 'completed'))
+      );
+    }
+
+    joiningsSnap.docs.forEach(joinDoc => {
+      const joining = joinDoc.data();
+      if (joining?.userId) paidUsersSet.add(joining.userId);
+    });
 
     let paidTipsCount = 0;
 

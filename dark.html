@@ -319,6 +319,7 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
     let currentUser = null;
+    let selectedHomeCompId = null;
 
     function toggleMenu() {
       const menu = document.getElementById("mobileMenu");
@@ -433,7 +434,11 @@
         if (!select) return;
         
         const joiningsSnap = await getDocs(
-          query(collection(db, 'userCompJoinings'), where('userId', '==', userId))
+          query(
+            collection(db, 'userCompJoinings'),
+            where('userId', '==', userId),
+            where('paymentStatus', '==', 'completed')
+          )
         );
         
         const compIds = [];
@@ -481,7 +486,9 @@
         // Load stats for the most recent active comp by default
         if (activeComps.length > 0) {
           const mostRecentActiveComp = activeComps[0];
+          selectedHomeCompId = mostRecentActiveComp.id;
           await loadCompStats(userId, mostRecentActiveComp.id);
+          await loadRaces(mostRecentActiveComp.id);
           select.value = mostRecentActiveComp.id;
           document.getElementById('tip-now-btn').style.display = '';
         }
@@ -496,27 +503,20 @@
       const compId = select ? select.value : null;
       
       if (compId) {
+        selectedHomeCompId = compId;
         // Show the tip now button
         tipBtn.style.display = '';
         // Load comp-specific stats
         await loadCompStats(currentUser.uid, compId);
+        await loadRaces(compId);
       } else {
+        selectedHomeCompId = null;
         // Hide the tip now button
         tipBtn.style.display = 'none';
-        // Reload global stats if "Choose a competition" is selected
-        const snap = await getDoc(doc(db, "leaderboard", currentUser.uid));
-        if (snap.exists()) {
-          const data = snap.data();
-          const userName = data.teamName || currentUser.displayName || currentUser.email || "Guest";
-          const rank = data.rank || "-";
-          const wins = data.winners || 0;
-          const points = data.points?.toFixed(2) || 0;
-
-          document.getElementById("userName").textContent = userName;
-          document.getElementById("leaderboard-rank").textContent = getOrdinalSuffix(rank);
-          document.getElementById("wins-count").textContent = wins;
-          document.getElementById("points").textContent = points;
-        }
+        document.getElementById("leaderboard-rank").textContent = "-";
+        document.getElementById("wins-count").textContent = 0;
+        document.getElementById("points").textContent = "0.00";
+        await loadRaces();
       }
     };
 
@@ -531,67 +531,21 @@
     // Load competition-specific stats
     async function loadCompStats(userId, compId) {
       try {
-        // Get all races for this comp
-        const racesSnap = await getDocs(query(collection(db, "races"), where("compId", "==", compId)));
-        const races = [];
-        racesSnap.forEach(doc => {
-          races.push({ id: doc.id, ...doc.data() });
-        });
+        const [userSnap, joiningSnap] = await Promise.all([
+          getDoc(doc(db, "users", userId)),
+          getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`))
+        ]);
 
-        // Get all tips for this user in this comp
-        const tipsSnap = await getDocs(query(
-          collection(db, "tips"),
-          where("userId", "==", userId),
-          where("compId", "==", compId)
-        ));
-        const userTips = [];
-        tipsSnap.forEach(doc => {
-          userTips.push({ id: doc.id, ...doc.data() });
-        });
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const joining = joiningSnap.exists() ? joiningSnap.data() : {};
 
-        // Calculate wins (number of races where user tipped the winner)
-        let wins = 0;
-        const tipsByRace = {};
-        userTips.forEach(tip => {
-          tipsByRace[tip.raceId] = tip;
-        });
-
-        races.forEach(race => {
-          if (race.result && race.result.winner && tipsByRace[race.id]) {
-            if (tipsByRace[race.id].horse === race.result.winner) {
-              wins++;
-            }
-          }
-        });
-
-        // Calculate points (sum of all tip points for this comp)
-        let points = 0;
-        userTips.forEach(tip => {
-          points += (tip.points || 0);
-        });
-
-        // Get user's rank in this comp (compare against other users' points)
-        const allTipsSnap = await getDocs(query(
-          collection(db, "tips"),
-          where("compId", "==", compId)
-        ));
-
-        const userPointsMap = {};
-        allTipsSnap.forEach(doc => {
-          const tipData = doc.data();
-          if (!userPointsMap[tipData.userId]) {
-            userPointsMap[tipData.userId] = 0;
-          }
-          userPointsMap[tipData.userId] += (tipData.points || 0);
-        });
-
-        const sortedUsers = Object.entries(userPointsMap)
-          .sort((a, b) => b[1] - a[1])
-          .map(([uid], idx) => ({ uid, rank: idx + 1 }));
-
-        const userRank = sortedUsers.find(u => u.uid === userId)?.rank || "-";
+        const userName = userData.teamName || currentUser.displayName || currentUser.email || "Guest";
+        const userRank = joining.rank || "-";
+        const wins = joining.wins || 0;
+        const points = Number(joining.points || 0);
 
         // Update display
+        document.getElementById("userName").textContent = userName;
         document.getElementById("leaderboard-rank").textContent = getOrdinalSuffix(userRank);
         document.getElementById("wins-count").textContent = wins;
         document.getElementById("points").textContent = points.toFixed(2);
@@ -611,15 +565,35 @@
     });
 
     // --- Races data ---
-    async function loadRaces() {
+    async function loadRaces(compId = selectedHomeCompId) {
       const raceGrid = document.getElementById("raceGrid");
       raceGrid.innerHTML = "";
       const tipsMap = new Set();
       const tipByRace = {};
 
+      if (!compId) {
+        raceGrid.innerHTML = `
+          <div class="col-span-full card rounded-xl p-12 text-center">
+            <div class="max-w-sm mx-auto">
+              <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+                <i data-feather="target" class="h-8 w-8 text-gray-500"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-300 mb-2">Select A Competition</h3>
+              <p class="text-gray-500 text-sm">Choose a competition to view and submit tips.</p>
+            </div>
+          </div>
+        `;
+        feather.replace();
+        return;
+      }
+
       if (currentUser) {
         const tipsSnap = await getDocs(
-          query(collection(db, "tips"), where("userId", "==", currentUser.uid))
+          query(
+            collection(db, "tips"),
+            where("userId", "==", currentUser.uid),
+            where("compId", "==", compId)
+          )
         );
         tipsSnap.forEach((tipDoc) => {
           const tipData = tipDoc.data();
@@ -630,7 +604,9 @@
         });
       }
 
-      const racesSnap = await getDocs(collection(db, "races"));
+      const racesSnap = await getDocs(
+        query(collection(db, "races"), where("compId", "==", compId))
+      );
 
       const nowSydney = DateTime.now().setZone("Australia/Sydney");
       const races = [];
@@ -706,7 +682,7 @@
               <div id="${timerId}" class="${isClosed ? 'countdown-closed' : 'bg-gray-800/50 border border-gray-700'} text-center py-2 rounded-lg text-sm font-semibold ${isClosed ? '' : 'text-yellow-400'}"></div>
             </div>
             <div class="space-y-2">
-              <a href="tipdark.html?raceId=${race.id}" 
+              <a href="tipdark.html?compId=${compId}&raceId=${race.id}" 
                  class="block w-full text-center ${actionClass} font-semibold py-2.5 rounded-lg transition-all duration-200">
                 ${actionText}
               </a>
