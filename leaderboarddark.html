@@ -355,11 +355,17 @@
     let cachedTips = {};
     let searchTimeout;
     let currentUserId = null;
-    let selectedCompId = new URLSearchParams(window.location.search).get("compId") || "default-comp";
+    let selectedCompId = new URLSearchParams(window.location.search).get("compId") || null;
     let modalCacheCompId = null;
 
     function getLeaderboardCacheKey() {
-      return `tmstipping:leaderboardCache:${selectedCompId || 'default-comp'}`;
+      return `tmstipping:leaderboardCache:${selectedCompId || 'none'}`;
+    }
+
+    function sortByRecentStartDateDesc(a, b) {
+      const aStart = a.startDate ? Date.parse(a.startDate) : 0;
+      const bStart = b.startDate ? Date.parse(b.startDate) : 0;
+      return bStart - aStart;
     }
 
     function signOut() {
@@ -593,12 +599,23 @@
           selectEl.appendChild(option);
         });
 
+        const activeComps = comps.filter(c => c.status === 'active').sort(sortByRecentStartDateDesc);
+
         if (comps.length > 0) {
-          const preferredComp = comps.find(c => c.id === selectedCompId) || comps[0];
-          selectedCompId = preferredComp.id;
-          selectEl.value = selectedCompId;
+          const selectedComp = comps.find(c => c.id === selectedCompId) || null;
+          if (selectedComp?.status === 'active') {
+            selectedCompId = selectedComp.id;
+          } else if (activeComps.length > 0) {
+            selectedCompId = activeComps[0].id;
+          } else {
+            selectedCompId = null;
+          }
+
+          if (selectedCompId) {
+            selectEl.value = selectedCompId;
+          }
           const cached = readCachedLeaderboard();
-          if (cached) {
+          if (cached && selectedCompId) {
             cachedLeaderboard = cached;
             renderLeaderboard(cachedLeaderboard);
           }
