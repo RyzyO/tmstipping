@@ -509,9 +509,9 @@
               <span class="font-bold">${endDate}</span>
             </div>
           </div>
-          <button onclick="openJoinModal('${comp.id}')" class="btn-join ${isJoined ? 'btn-joined' : ''}">
-            ${isJoined ? '✓ Already Joined' : `Join ($${entryFee})`}
-          </button>
+          ${isJoined
+            ? `<button class="btn-join btn-joined" type="button" disabled aria-disabled="true">✓ Already Joined</button>`
+            : `<button onclick="openJoinModal('${comp.id}')" class="btn-join">Join ($${entryFee})</button>`}
         `;
         grid.appendChild(card);
       }
@@ -547,7 +547,7 @@
         
         const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
         const parsedRank = Number(joining.rank);
-        const rankLabel = Number.isFinite(parsedRank) && parsedRank > 0 && parsedRank < 999999
+        const rankLabel = Number.isFinite(parsedRank) && parsedRank > 0 && parsedRank < 99999
           ? `#${parsedRank}`
           : '-';
         
@@ -624,6 +624,13 @@
     }
 
     window.openJoinModal = async (compId) => {
+      if (!currentUser) return;
+      const alreadyJoined = await checkUserJoined(currentUser.uid, compId);
+      if (alreadyJoined) {
+        alert('You have already joined this competition.');
+        return;
+      }
+
       const compSnap = await getDoc(doc(db, "comps", compId));
       if (!compSnap.exists()) return;
 
@@ -717,18 +724,31 @@
     async function completeJoinComp(stripePaymentId = null) {
       const joiningRef = doc(db, "userCompJoinings", `${currentUser.uid}_${selectedComp.id}`);
       const existingJoin = await getDoc(joiningRef);
+      const existingData = existingJoin.exists() ? existingJoin.data() : {};
       const wasCompleted = existingJoin.exists() && existingJoin.data()?.paymentStatus === 'completed';
 
-      await setDoc(joiningRef, {
+      const joinPayload = {
         userId: currentUser.uid,
         compId: selectedComp.id,
-        joinDate: serverTimestamp(),
         paymentStatus: 'completed',
-        stripePaymentId,
-        rank: null,
-        points: 0,
-        wins: 0
-      });
+        stripePaymentId: stripePaymentId || existingData.stripePaymentId || null
+      };
+
+      if (!existingJoin.exists()) {
+        joinPayload.joinDate = serverTimestamp();
+      }
+
+      if (existingData.rank === undefined) {
+        joinPayload.rank = null;
+      }
+      if (existingData.points === undefined) {
+        joinPayload.points = 0;
+      }
+      if (existingData.wins === undefined) {
+        joinPayload.wins = 0;
+      }
+
+      await setDoc(joiningRef, joinPayload, { merge: true });
 
       // Update comp participant count
       if (!wasCompleted) {

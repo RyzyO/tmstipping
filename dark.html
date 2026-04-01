@@ -113,6 +113,14 @@
       border: 1px solid rgba(239, 68, 68, 0.3);
       color: #fca5a5;
     }
+    select {
+      background-color: #111827;
+      color: #f3f4f6;
+    }
+    select option {
+      background-color: #111827;
+      color: #f3f4f6;
+    }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -338,7 +346,7 @@
     window.toggleMenu = toggleMenu;
     window.signOut = signOut;
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (!user) {
         window.location.href = "landing.html";
         return;
@@ -359,7 +367,7 @@
 
       function formatRankForDisplay(rawRank) {
         const rank = Number(rawRank);
-        if (!Number.isFinite(rank) || rank < 1 || rank >= 999999) {
+        if (!Number.isFinite(rank) || rank < 1 || rank >= 99999) {
           return "-";
         }
         return getOrdinalSuffix(rank);
@@ -400,33 +408,22 @@
 
     loadRaces();
     
-    // Load competitions on auth (will load default active comp stats)
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        currentUser = user;
-        await loadUserCompsToDropdown(user.uid);
-        
-        // Fetch user profile to display silk
-        try {
-          const userSnap = await getDoc(doc(db, "users", user.uid));
-          if (userSnap.exists()) {
-            const userData = userSnap.data();
-            const silkNumber = userData.silk || 1;
-            const silkImg = document.getElementById("welcomeSilk");
-            silkImg.src = `static/silks/${silkNumber}.png`;
-            silkImg.style.display = "block";
-          }
-        } catch (err) {
-          console.log("Could not load profile silk:", err);
-        }
-      } else {
-        document.getElementById("userName").textContent = "Guest";
-        document.getElementById("leaderboard-rank").textContent = "-";
-        document.getElementById("wins-count").textContent = 0;
-        document.getElementById("points").textContent = 0;
-        localStorage.removeItem(HOME_STATS_CACHE_KEY);
+    // Initial authenticated load (within primary auth listener)
+    await loadUserCompsToDropdown(currentUser.uid);
+
+    // Fetch user profile to display silk
+    try {
+      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const silkNumber = userData.silk || 1;
+        const silkImg = document.getElementById("welcomeSilk");
+        silkImg.src = `static/silks/${silkNumber}.png`;
+        silkImg.style.display = "block";
       }
-    });
+    } catch (err) {
+      console.log("Could not load profile silk:", err);
+    }
 
     // --- User's Competitions (Replaced by dropdown selector) ---
     // Old loadUserComps function kept for reference but no longer used
@@ -564,13 +561,6 @@
         document.getElementById("points").textContent = "0";
       }
     };
-
-    // Load competitions on auth
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        await loadUserCompsToDropdown(user.uid);
-      }
-    });
 
     // --- Races data ---
     async function loadRaces(compId = selectedHomeCompId) {
