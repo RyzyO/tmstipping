@@ -866,6 +866,54 @@ async function fetchNswRunnerEntriesFromXml(sourceUrl, contextLabel) {
   return runnerEntries;
 }
 
+function buildNswXmlSilksLookup(xmlEntries) {
+  const byNameAndNumber = new Map();
+  const byName = new Map();
+  const byNumber = new Map();
+
+  const setUnique = (map, key, value) => {
+    if (!key || !value) return;
+    if (!map.has(key)) {
+      map.set(key, value);
+      return;
+    }
+    if (map.get(key) !== value) {
+      map.set(key, '');
+    }
+  };
+
+  for (const entry of xmlEntries) {
+    const silksId = (entry.silksIdFromRow || '').trim();
+    if (!silksId) continue;
+
+    const normalizedName = normalizeHorseName(entry.name || '');
+    const normalizedNumber = normalizeHorseNumber(entry.number || '');
+
+    setUnique(byNameAndNumber, `${normalizedName}|${normalizedNumber}`, silksId);
+    setUnique(byName, normalizedName, silksId);
+    setUnique(byNumber, normalizedNumber, silksId);
+  }
+
+  return { byNameAndNumber, byName, byNumber };
+}
+
+function resolveSilksIdFromNswXml(entry, lookup) {
+  const normalizedName = normalizeHorseName(entry.name || '');
+  const normalizedNumber = normalizeHorseNumber(entry.number || '');
+
+  const exactKey = `${normalizedName}|${normalizedNumber}`;
+  const exact = lookup.byNameAndNumber.get(exactKey);
+  if (exact) return exact;
+
+  const byName = lookup.byName.get(normalizedName);
+  if (byName) return byName;
+
+  const byNumber = lookup.byNumber.get(normalizedNumber);
+  if (byNumber) return byNumber;
+
+  return null;
+}
+
 async function scrapeSilksFromUrl() {
   console.log('[scrapeSilksFromUrl] Starting...');
   const url = document.getElementById('race-silks-url').value;
@@ -874,6 +922,25 @@ async function scrapeSilksFromUrl() {
   if (!url) {
     console.warn('[scrapeSilksFromUrl] No URL provided');
     showNotification('Please enter a RacingNSW URL', 'error', 'form-notifications');
+    return;
+  }
+
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+  } catch (error) {
+    showNotification('Invalid URL. Please paste a full RacingNSW Acceptances/Form URL.', 'error', 'form-notifications');
+    return;
+  }
+
+  const host = (parsedUrl.hostname || '').toLowerCase();
+  const isRacingNswHost = host.includes('racing.racingnsw.com.au');
+  if (!isRacingNswHost) {
+    showNotification(
+      'Unsupported URL for NSW silks. Use a racing.racingnsw.com.au Acceptances/Form URL, or use the Racing Australia silks tool for non-NSW.',
+      'error',
+      'form-notifications'
+    );
     return;
   }
 
@@ -940,6 +1007,32 @@ async function scrapeSilksFromUrl() {
       }
     }
 
+    // Enrich with XML-derived IDs before any runner page fetches.
+    const xmlEntriesForSilks = await fetchNswRunnerEntriesFromXml(url, 'scrapeSilksFromUrl:list:xml-enrich');
+    if (xmlEntriesForSilks.length > 0) {
+      const scopedXmlEntries = targetRaceNumber
+        ? xmlEntriesForSilks.filter(entry => entry.raceNumber === targetRaceNumber)
+        : xmlEntriesForSilks;
+      const xmlLookup = buildNswXmlSilksLookup(scopedXmlEntries);
+
+      let xmlEnrichedCount = 0;
+      runnerEntries = runnerEntries.map(entry => {
+        if (entry.silksIdFromRow) {
+          return entry;
+        }
+
+        const xmlSilksId = resolveSilksIdFromNswXml(entry, xmlLookup);
+        if (!xmlSilksId) {
+          return entry;
+        }
+
+        xmlEnrichedCount += 1;
+        return { ...entry, silksIdFromRow: xmlSilksId };
+      });
+
+      console.log('[scrapeSilksFromUrl] XML silk enrichment applied to', xmlEnrichedCount, 'runners');
+    }
+
     console.log('[scrapeSilksFromUrl] Filtered to', runnerEntries.length, 'runners with paths');
 
     if (runnerEntries.length === 0) {
@@ -967,7 +1060,7 @@ async function scrapeSilksFromUrl() {
       let runnerHtml = '';
 
       // Fast path: acceptances row already has silk image id.
-      if (!silksId) {
+      if (!silksId && entry.path) {
         const fullUrl = new URL(entry.path, 'https://racing.racingnsw.com.au').href;
         console.log('[scrapeSilksFromUrl] Full URL:', fullUrl);
 
@@ -977,6 +1070,8 @@ async function scrapeSilksFromUrl() {
         const silkMatch = runnerHtml.match(/JockeySilks\/(\d+)\.png/i);
         silksId = silkMatch ? silkMatch[1] : null;
         console.log('[scrapeSilksFromUrl] Silk ID found:', silksId || 'null');
+      } else if (!silksId && !entry.path) {
+        console.warn('[scrapeSilksFromUrl] No runner path available for:', entry.name);
       }
 
       if (!silksId) {
