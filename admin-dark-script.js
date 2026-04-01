@@ -26,6 +26,7 @@ let currentTab = 'details';
 let racesByDateCache = {};
 let sortedDatesCache = [];
 let selectedAdminCompId = null;
+let allComps = [];
 
 const ADMIN_STATS_CACHE_KEY = 'tmstipping:adminStats';
 
@@ -345,6 +346,8 @@ async function selectRace(raceId) {
   document.getElementById('edit-race-distance').value = race.distance || '';
   document.getElementById('edit-race-preview').value = race.preview || '';
 
+  await populateMoveRaceCompSelect(race.compId || null);
+
   // Load horses
   await loadRaceHorses(race);
 
@@ -353,6 +356,91 @@ async function selectRace(raceId) {
 
   // Reset tab
   switchTab('details');
+}
+
+async function populateMoveRaceCompSelect(currentCompId = null) {
+  const currentCompLabel = document.getElementById('current-race-comp');
+  const moveSelect = document.getElementById('move-race-comp-select');
+  if (!moveSelect) return;
+
+  if (!allComps.length) {
+    await loadAllComps();
+  }
+
+  moveSelect.innerHTML = '<option value="">Select target competition...</option>';
+  allComps.forEach(comp => {
+    const option = document.createElement('option');
+    option.value = comp.id;
+    option.textContent = `${comp.name}${comp.status === 'active' ? ' (Active)' : ''}`;
+    moveSelect.appendChild(option);
+  });
+
+  if (currentCompLabel) {
+    const currentComp = allComps.find(c => c.id === currentCompId);
+    currentCompLabel.textContent = `Current competition: ${currentComp ? currentComp.name : (currentCompId || 'Unassigned')}`;
+  }
+}
+
+async function moveRaceToComp() {
+  if (!currentRaceId) {
+    showNotification('Select a race first', 'error', 'race-notifications');
+    return;
+  }
+
+  const race = allRaces.find(r => r.id === currentRaceId);
+  if (!race) {
+    showNotification('Race not found', 'error', 'race-notifications');
+    return;
+  }
+
+  const targetSelect = document.getElementById('move-race-comp-select');
+  const targetCompId = targetSelect?.value || null;
+
+  if (!targetCompId) {
+    showNotification('Select a target competition', 'error', 'race-notifications');
+    return;
+  }
+
+  const currentCompId = race.compId || null;
+  if (currentCompId === targetCompId) {
+    showNotification('Race is already in that competition', 'error', 'race-notifications');
+    return;
+  }
+
+  const targetComp = allComps.find(c => c.id === targetCompId);
+  const confirmed = window.confirm(
+    `Move "${race.name}" to ${targetComp?.name || targetCompId}? This will also move all tips for this race to the new competition.`
+  );
+  if (!confirmed) return;
+
+  try {
+    // Move race document to target comp
+    await updateDoc(doc(db, 'races', currentRaceId), {
+      compId: targetCompId
+    });
+
+    // Keep existing race tips aligned with moved race competition.
+    const tipsSnap = await getDocs(query(collection(db, 'tips'), where('raceId', '==', currentRaceId)));
+    const tipsBatch = writeBatch(db);
+    tipsSnap.forEach(tipDoc => {
+      tipsBatch.update(doc(db, 'tips', tipDoc.id), { compId: targetCompId });
+    });
+    if (!tipsSnap.empty) {
+      await tipsBatch.commit();
+    }
+
+    // Refresh local race cache
+    allRaces = allRaces.map(r => r.id === currentRaceId ? { ...r, compId: targetCompId } : r);
+
+    await loadRacesList();
+    await selectRace(currentRaceId);
+    await loadDashboardStats(selectedAdminCompId);
+
+    showNotification('Race moved successfully', 'success', 'race-notifications');
+  } catch (error) {
+    console.error('Error moving race to another comp:', error);
+    showNotification('Error moving race: ' + error.message, 'error', 'race-notifications');
+  }
 }
 
 // ============ RACE FORM ============
@@ -505,8 +593,16 @@ function extractHorseNumberFromRow(row) {
   return normalizeHorseNumber(firstCell.textContent || '');
 }
 
-function buildProxyUrls(targetUrl) {
+function buildProxyUrls(targetUrl, preferRaw = false) {
   const normalized = targetUrl.replace(/^https?:\/\//i, '');
+  if (preferRaw) {
+    return [
+      `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+      `https://r.jina.ai/http://${normalized}`
+    ];
+  }
+
   return [
     `https://r.jina.ai/http://${normalized}`,
     `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
@@ -514,8 +610,8 @@ function buildProxyUrls(targetUrl) {
   ];
 }
 
-async function fetchHtmlViaProxy(targetUrl, contextLabel) {
-  const proxyUrls = buildProxyUrls(targetUrl);
+async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false) {
+  const proxyUrls = buildProxyUrls(targetUrl, preferRaw);
   let lastError = null;
 
   for (const proxyUrl of proxyUrls) {
@@ -566,7 +662,7 @@ async function scrapeSilksFromUrl() {
   btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
 
   try {
-    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrl:list');
+    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrl:list', true);
     console.log('[scrapeSilksFromUrl] HTML length:', html.length);
     
     const parser = new DOMParser();
@@ -576,16 +672,29 @@ async function scrapeSilksFromUrl() {
     const runnerLinks = Array.from(doc.querySelectorAll("a[onclick*='HorseFullForm.aspx']"));
     console.log('[scrapeSilksFromUrl] Found', runnerLinks.length, 'runner links');
     
-    const runnerEntries = runnerLinks.map(link => {
+    let runnerEntries = runnerLinks.map(link => {
       const row = link.closest('tr');
       const number = extractHorseNumberFromRow(row);
       const name = (link.textContent || '').trim();
+      const rowHtml = row?.innerHTML || '';
+      const rowSilkMatch = rowHtml.match(/JockeySilks\/(\d+)\.png/i);
+      const silksIdFromRow = rowSilkMatch ? rowSilkMatch[1] : null;
       const onclick = link.getAttribute('onclick') || '';
       const match = onclick.match(/newPopup\('([^']*HorseFullForm\.aspx[^']*)'\)/i);
       const path = match ? match[1] : '';
       console.log('[scrapeSilksFromUrl] Runner - Name:', name, 'Number:', number, 'Path found:', !!path);
-      return { name, number, path };
+      return { name, number, path, silksIdFromRow };
     }).filter(entry => entry.path);
+
+    // Fallback for transformed/proxied HTML where onclick anchors are stripped.
+    if (runnerEntries.length === 0) {
+      const pathMatches = [...html.matchAll(/HorseFullForm\.aspx\?[^\s"'<>`)]+/gi)]
+        .map(m => m[0])
+        .filter(Boolean);
+      const uniquePaths = Array.from(new Set(pathMatches));
+      runnerEntries = uniquePaths.map(path => ({ name: '', number: '', path, silksIdFromRow: null }));
+      console.log('[scrapeSilksFromUrl] Fallback runner path extraction found', runnerEntries.length, 'paths');
+    }
 
     console.log('[scrapeSilksFromUrl] Filtered to', runnerEntries.length, 'runners with paths');
 
@@ -598,32 +707,67 @@ async function scrapeSilksFromUrl() {
     const { byNumber, byName } = buildHorseRowIndex();
     console.log('[scrapeSilksFromUrl] Built horse index - by number:', byNumber.size, 'by name:', byName.size);
     
+    // Full-card links include many races; only keep entries that match horses currently loaded for this race.
+    const selectedEntriesByHorseKey = new Map();
+    for (const entry of runnerEntries) {
+      const normalizedName = normalizeHorseName(entry.name || '');
+      const normalizedNumber = normalizeHorseNumber(entry.number || '');
+      const matchedRow =
+        (normalizedName && byName.get(normalizedName)) ||
+        (normalizedNumber && byNumber.get(normalizedNumber)) ||
+        null;
+
+      if (!matchedRow) continue;
+
+      const key = `${normalizeHorseNumber(matchedRow.querySelector('.horse-no')?.value || '')}|${normalizeHorseName(matchedRow.querySelector('.horse-name')?.value || '')}`;
+      if (!selectedEntriesByHorseKey.has(key)) {
+        selectedEntriesByHorseKey.set(key, { ...entry, matchedRow });
+      }
+    }
+
+    runnerEntries = Array.from(selectedEntriesByHorseKey.values());
+    console.log('[scrapeSilksFromUrl] Entries matched to current race:', runnerEntries.length);
+
     let updated = 0;
     let missing = 0;
 
     for (const entry of runnerEntries) {
       console.log('[scrapeSilksFromUrl] Processing runner:', entry.name);
-      
-      const fullUrl = new URL(entry.path, 'https://racing.racingnsw.com.au').href;
-      console.log('[scrapeSilksFromUrl] Full URL:', fullUrl);
+      let silksId = entry.silksIdFromRow;
+      let runnerHtml = '';
 
-      const runnerHtml = await fetchHtmlViaProxy(fullUrl, `scrapeSilksFromUrl:runner:${entry.name}`);
-      console.log('[scrapeSilksFromUrl] Runner HTML length:', runnerHtml.length);
-      
-      const silkMatch = runnerHtml.match(/JockeySilks\/(\d+)\.png/i);
-      console.log('[scrapeSilksFromUrl] Silk ID found:', silkMatch ? silkMatch[1] : 'null');
-      
-      if (!silkMatch) {
+      // Fast path: acceptances row already has silk image id.
+      if (!silksId) {
+        const fullUrl = new URL(entry.path, 'https://racing.racingnsw.com.au').href;
+        console.log('[scrapeSilksFromUrl] Full URL:', fullUrl);
+
+        runnerHtml = await fetchHtmlViaProxy(fullUrl, `scrapeSilksFromUrl:runner:${entry.name}`, true);
+        console.log('[scrapeSilksFromUrl] Runner HTML length:', runnerHtml.length);
+
+        const silkMatch = runnerHtml.match(/JockeySilks\/(\d+)\.png/i);
+        silksId = silkMatch ? silkMatch[1] : null;
+        console.log('[scrapeSilksFromUrl] Silk ID found:', silksId || 'null');
+      }
+
+      if (!silksId) {
         console.warn('[scrapeSilksFromUrl] No silk ID found for:', entry.name);
         missing += 1;
         continue;
       }
 
-      const silksId = silkMatch[1];
-      const normalizedName = normalizeHorseName(entry.name);
-      console.log('[scrapeSilksFromUrl] Looking for horse with normalized name:', normalizedName);
-      
-      const row = normalizedName && byName.get(normalizedName);
+      // If list-page parsing did not yield a horse name, extract one from the runner page.
+      let entryName = (entry.name || '').trim();
+      if (!entryName && runnerHtml) {
+        const titleMatch = runnerHtml.match(/<title[^>]*>([^<]+)<\/title>/i);
+        if (titleMatch?.[1]) {
+          entryName = titleMatch[1]
+            .replace(/\s*[-|].*$/g, '')
+            .replace(/\s+Racing\s+NSW.*$/i, '')
+            .trim();
+        }
+      }
+
+      const row = entry.matchedRow || null;
       console.log('[scrapeSilksFromUrl] Horse row found:', !!row);
 
       if (!row) {
@@ -637,11 +781,11 @@ async function scrapeSilksFromUrl() {
       
       if (silkIdInput) {
         silkIdInput.value = silksId;
-        console.log('[scrapeSilksFromUrl] Set silksId:', silksId, 'for horse:', entry.name);
-        showNotification(`Silk found: ${entry.name} (ID: ${silksId})`, 'success', 'form-notifications');
+        console.log('[scrapeSilksFromUrl] Set silksId:', silksId, 'for horse:', entryName || entry.name || '(unknown)');
+        showNotification(`Silk found: ${entryName || entry.name || 'Horse'} (ID: ${silksId})`, 'success', 'form-notifications');
         updated += 1;
       } else {
-        console.warn('[scrapeSilksFromUrl] No silk ID input element for:', entry.name);
+        console.warn('[scrapeSilksFromUrl] No silk ID input element for:', entryName || entry.name || '(unknown)');
         missing += 1;
       }
     }
@@ -684,7 +828,7 @@ window.scrapeSilksFromUrlRA = async function() {
   btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
 
   try {
-    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrlRA:list');
+    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrlRA:list', true);
     console.log('[scrapeSilksFromUrlRA] HTML length:', html.length);
     
     const parser = new DOMParser();
@@ -1598,7 +1742,7 @@ async function loadRaceTips(race) {
 }
 
 // ============ TAB SWITCHING ============
-function switchTab(tabName) {
+function switchTab(tabName, triggerEl = null) {
   currentTab = tabName;
 
   // Hide all tabs
@@ -1607,7 +1751,8 @@ function switchTab(tabName) {
 
   // Show selected tab
   document.getElementById(`${tabName}-tab`)?.classList.remove('hidden');
-  event.target.classList.add('active');
+  const activeBtn = triggerEl || document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+  activeBtn?.classList.add('active');
 
   // Load tab-specific data
   if (tabName === 'horses') {
@@ -1630,6 +1775,7 @@ window.updateRaceDate = updateRaceDate;
 window.updateRaceTime = updateRaceTime;
 window.updateRaceDistance = updateRaceDistance;
 window.updateRacePreview = updateRacePreview;
+window.moveRaceToComp = moveRaceToComp;
 window.archiveRace = archiveRace;
 window.saveHorseChange = saveHorseChange;
 window.toggleHorseScratch = toggleHorseScratch;
@@ -1813,14 +1959,22 @@ async function loadAllComps() {
       return a.name.localeCompare(b.name);
     });
     
+    allComps = comps;
+
     // Add each comp as an option
-    comps.forEach(comp => {
+    allComps.forEach(comp => {
       const option = document.createElement('option');
       option.value = comp.id;
       const statusBadge = comp.status === 'active' ? '🎯' : '✓';
       option.textContent = `${statusBadge} ${comp.name}`;
       select.appendChild(option);
     });
+
+    // Keep move selector in sync when comps are changed
+    if (currentRaceId) {
+      const race = allRaces.find(r => r.id === currentRaceId);
+      await populateMoveRaceCompSelect(race?.compId || null);
+    }
   } catch (error) {
     console.error('Error loading competitions:', error);
   }

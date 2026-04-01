@@ -357,6 +357,14 @@
         return num + "th";
       }
 
+      function formatRankForDisplay(rawRank) {
+        const rank = Number(rawRank);
+        if (!Number.isFinite(rank) || rank < 1 || rank >= 999999) {
+          return "-";
+        }
+        return getOrdinalSuffix(rank);
+      }
+
     function applyCachedHomeStats() {
       try {
         const raw = localStorage.getItem(HOME_STATS_CACHE_KEY);
@@ -368,7 +376,7 @@
           document.getElementById("userName").textContent = cached.userName;
         }
         if (cached.rank !== undefined) {
-          document.getElementById("leaderboard-rank").textContent = getOrdinalSuffix(cached.rank);
+          document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(cached.rank);
         }
         if (cached.wins !== undefined) {
           document.getElementById("wins-count").textContent = cached.wins;
@@ -540,13 +548,13 @@
         const joining = joiningSnap.exists() ? joiningSnap.data() : {};
 
         const userName = userData.teamName || currentUser.displayName || currentUser.email || "Guest";
-        const userRank = joining.rank || "-";
+        const userRank = joining.rank;
         const wins = joining.wins || 0;
         const points = Number(joining.points || 0);
 
         // Update display
         document.getElementById("userName").textContent = userName;
-        document.getElementById("leaderboard-rank").textContent = getOrdinalSuffix(userRank);
+        document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(userRank);
         document.getElementById("wins-count").textContent = wins;
         document.getElementById("points").textContent = points.toFixed(2);
       } catch (error) {

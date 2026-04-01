@@ -546,6 +546,10 @@
         card.className = 'card rounded-xl p-6 comp-card';
         
         const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
+        const parsedRank = Number(joining.rank);
+        const rankLabel = Number.isFinite(parsedRank) && parsedRank > 0 && parsedRank < 999999
+          ? `#${parsedRank}`
+          : '-';
         
         card.innerHTML = `
           <div class="comp-badge text-green-400 border-green-500/50 bg-green-500/10">✓ Joined</div>
@@ -554,7 +558,7 @@
           <div class="space-y-2 text-sm text-gray-400 mb-6">
             <div class="flex justify-between">
               <span>Your Rank:</span>
-              <span class="text-accent font-bold">#${joining.rank || '-'}</span>
+              <span class="text-accent font-bold">${rankLabel}</span>
             </div>
             <div class="flex justify-between">
               <span>Points:</span>
@@ -721,7 +725,7 @@
         joinDate: serverTimestamp(),
         paymentStatus: 'completed',
         stripePaymentId,
-        rank: 999999,
+        rank: null,
         points: 0,
         wins: 0
       });
