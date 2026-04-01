@@ -779,6 +779,44 @@ function extractNswRunnerEntriesFromHtml(html) {
   return { doc, runnerEntries, runnerLinkCount: runnerLinks.length };
 }
 
+async function fetchNswRunnerEntriesWithProxyFallback(targetUrl, contextLabel) {
+  const proxyUrls = buildProxyUrls(targetUrl, true);
+  let lastError = null;
+
+  for (const proxyUrl of proxyUrls) {
+    try {
+      console.log(`[${contextLabel}] Trying NSW proxy:`, proxyUrl);
+      const response = await fetch(proxyUrl, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const html = await response.text();
+      if (!html || html.length < 200) {
+        throw new Error('Response too small / empty');
+      }
+
+      const hasNswSignals = /HorseFullForm\.aspx|Acceptances\.aspx|JockeySilks\/(\d+)\.png/i.test(html);
+      if (!hasNswSignals) {
+        throw new Error('Response missing NSW signals');
+      }
+
+      const parsed = extractNswRunnerEntriesFromHtml(html);
+      if (parsed.runnerEntries.length > 0 || /StageMeeting\.aspx/i.test(targetUrl)) {
+        return { html, ...parsed };
+      }
+
+      // Some proxy responses can include marker text but no runner data; keep trying.
+      throw new Error('No runner entries extracted from proxy response');
+    } catch (error) {
+      console.warn(`[${contextLabel}] NSW proxy failed:`, proxyUrl, error.message || error);
+      lastError = error;
+    }
+  }
+
+  throw new Error(`All NSW proxy attempts failed for ${targetUrl}. Last error: ${lastError?.message || 'Unknown error'}`);
+}
+
 async function scrapeSilksFromUrl() {
   console.log('[scrapeSilksFromUrl] Starting...');
   const url = document.getElementById('race-silks-url').value;
@@ -804,15 +842,17 @@ async function scrapeSilksFromUrl() {
   btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
 
   try {
-    const hasNswRunnerSignals = (candidateHtml) => /HorseFullForm\.aspx|Acceptances\.aspx|JockeySilks\/(\d+)\.png/i.test(candidateHtml);
     const targetRaceNumber = getTargetRaceNumberForSilks();
     console.log('[scrapeSilksFromUrl] Target race number from form/title:', targetRaceNumber);
 
-    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrl:list', true, hasNswRunnerSignals);
+    const { html, runnerEntries: initialEntries, runnerLinkCount } = await fetchNswRunnerEntriesWithProxyFallback(
+      url,
+      'scrapeSilksFromUrl:list'
+    );
     console.log('[scrapeSilksFromUrl] HTML length:', html.length);
     console.log('[scrapeSilksFromUrl] HTML parsed');
 
-    let { runnerEntries, runnerLinkCount } = extractNswRunnerEntriesFromHtml(html);
+    let runnerEntries = initialEntries;
     console.log('[scrapeSilksFromUrl] Found', runnerLinkCount, 'runner links');
     if (runnerLinkCount > 0) {
       runnerEntries.forEach(entry => {
@@ -826,15 +866,12 @@ async function scrapeSilksFromUrl() {
       const acceptancesUrl = url.replace(/StageMeeting\.aspx/i, 'Acceptances.aspx');
       console.log('[scrapeSilksFromUrl] No runners on StageMeeting page. Trying Acceptances URL:', acceptancesUrl);
 
-      const acceptancesHtml = await fetchHtmlViaProxy(
+      const { runnerEntries: acceptancesEntries } = await fetchNswRunnerEntriesWithProxyFallback(
         acceptancesUrl,
-        'scrapeSilksFromUrl:list:acceptances',
-        true,
-        hasNswRunnerSignals
+        'scrapeSilksFromUrl:list:acceptances'
       );
 
-      const parsedAcceptances = extractNswRunnerEntriesFromHtml(acceptancesHtml);
-      runnerEntries = parsedAcceptances.runnerEntries;
+      runnerEntries = acceptancesEntries;
       console.log('[scrapeSilksFromUrl] Acceptances fallback found', runnerEntries.length, 'runner entries');
     }
 
