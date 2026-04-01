@@ -258,6 +258,7 @@
     const auth = getAuth(app);
 
     const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{}, pendingRaceId:null, selectedCompId:null };
+    const TIP_RACES_CACHE_PREFIX = 'tmstipping:tipRacesCache';
 
     const urlParams = new URLSearchParams(window.location.search);
     state.pendingRaceId = urlParams.get('raceId');
@@ -362,37 +363,78 @@
       });
     }
 
-    async function loadRaces(){
-      const grid=document.getElementById('raceGrid'); grid.innerHTML="";
-      const races=[];
-      const seenRaceIds=new Set();
+    function getTipRacesCacheKey(userId, compId) {
+      return `${TIP_RACES_CACHE_PREFIX}:${userId || 'anon'}:${compId || 'none'}`;
+    }
 
-      // Primary path: comp-filtered races
-      const racesSnap=await getDocs(query(collection(db,"races"),where("compId","==",state.selectedCompId)));
-      racesSnap.forEach(docSnap=>{
-        races.push({id:docSnap.id,...docSnap.data()});
-        seenRaceIds.add(docSnap.id);
+    function readTipRacesCache(userId, compId) {
+      try {
+        const raw = localStorage.getItem(getTipRacesCacheKey(userId, compId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed?.races) || typeof parsed?.tipByRace !== 'object') {
+          return null;
+        }
+        return parsed;
+      } catch {
+        return null;
+      }
+    }
+
+    function writeTipRacesCache(userId, compId, races, tipByRace) {
+      try {
+        localStorage.setItem(
+          getTipRacesCacheKey(userId, compId),
+          JSON.stringify({ races, tipByRace, updatedAt: Date.now() })
+        );
+      } catch (error) {
+        console.warn('Unable to write tip races cache:', error);
+      }
+    }
+
+    async function fetchTipRacesAndTips(compId) {
+      const tipsSnapPromise = getDocs(
+        query(
+          collection(db, "tips"),
+          where("userId", "==", state.user.uid),
+          where("compId", "==", compId)
+        )
+      );
+      const racesSnapPromise = getDocs(query(collection(db, "races"), where("compId", "==", compId)));
+      const [tipsSnap, racesSnap] = await Promise.all([tipsSnapPromise, racesSnapPromise]);
+
+      const tipByRace = {};
+      const tipsMap = new Set();
+      tipsSnap.forEach((tipDoc) => {
+        const tipData = tipDoc.data();
+        if (tipData?.raceId) {
+          tipsMap.add(tipData.raceId);
+          tipByRace[tipData.raceId] = tipData;
+        }
       });
 
-      // Backward compatibility: include legacy races missing compId for default comp
-      if(state.selectedCompId==="default-comp"){
-        const legacyRacesSnap=await getDocs(collection(db,"races"));
-        legacyRacesSnap.forEach(docSnap=>{
-          const raceData=docSnap.data();
-          if(!raceData.compId && !seenRaceIds.has(docSnap.id)){
-            races.push({id:docSnap.id,...raceData});
-            seenRaceIds.add(docSnap.id);
-          }
-        });
-      }
+      const races = [];
+      racesSnap.forEach((docSnap) => {
+        races.push({ id: docSnap.id, ...docSnap.data() });
+      });
 
+      return { races, tipsMap, tipByRace };
+    }
+
+    function renderTipRacesGrid(races, tipsMap, tipByRace) {
+      const grid=document.getElementById('raceGrid');
+      grid.innerHTML="";
       const now=DateTime.now().setZone("Australia/Sydney");
-      races.sort((a,b)=>DateTime.fromISO(a.date+"T"+a.time,{zone:"Australia/Sydney"})-DateTime.fromISO(b.date+"T"+b.time,{zone:"Australia/Sydney"}));
-      
+
+      const sortedRaces = [...races].sort((a,b)=>
+        DateTime.fromISO(a.date+"T"+a.time,{zone:"Australia/Sydney"})-
+        DateTime.fromISO(b.date+"T"+b.time,{zone:"Australia/Sydney"})
+      );
+
       // Prefetch next 3 upcoming races
       let prefetched = 0;
       const prefetchPromises = [];
-      for(const race of races){
+      for(const race of sortedRaces){
         const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"});
         if(dt<now) continue;
         if(prefetched < 3) {
@@ -401,24 +443,24 @@
         }
       }
       Promise.all(prefetchPromises).catch(err => console.log('Prefetch error:', err));
-      
+
       let shown=0;
-      for(const race of races){
+      for(const race of sortedRaces){
         const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"});
         if(dt<now) continue; shown++;
         let photo="default.jpg"; const n=(race.name||"").toLowerCase();
         if(n.includes("valley")) photo="valley.jpg"; else if(n.includes("randwick")) photo="randwick.jpg"; else if(n.includes("rosehill")) photo="rosehill.jpg"; else if(n.includes("caulfield")) photo="caulfield.jpg"; else if(n.includes("flemington")) photo="flemington.jpg";
-        const isLocked=now>=dt; const timerId="timer-"+race.id; const tipped=state.tipsMap[race.id];
-        const tipData=state.userTipsCache[race.id]||null;
+        const isLocked=now>=dt; const timerId="timer-"+race.id; const tipped=tipsMap.has(race.id);
+        const tipData=tipByRace[race.id]||null;
         const tippedHorseName=tipped
           ? ((tipData?.horseId && race.horses?.[tipData.horseId]?.name) || tipData?.horse || tipData?.horseName || "")
           : "";
         const previewUrl=(race.preview||"").trim(); const hasPreview=previewUrl.length>0;
-        
+
         // Extract race number from race name
         const raceNumMatch = (race.name||"").match(/race\s*(\d+)/i);
         const raceNum = raceNumMatch ? raceNumMatch[1] : "";
-        
+
         const card=document.createElement("div"); card.className="card rounded-xl shadow-lg overflow-hidden";
         card.innerHTML=`
           <div class="h-36 relative overflow-hidden">
@@ -448,13 +490,14 @@
           </div>`;
         grid.appendChild(card); startCountdown(timerId,dt.toMillis());
       }
+
       feather.replace();
       if(state.pendingRaceId){
-        const raceExists = races.some(r => r.id === state.pendingRaceId);
+        const raceExists = sortedRaces.some(r => r.id === state.pendingRaceId);
         if(raceExists){
           const raceId = state.pendingRaceId;
           state.pendingRaceId = null;
-          await window.selectRace(raceId);
+          window.selectRace(raceId);
         }
       }
       if(shown===0) {
@@ -471,6 +514,44 @@
         `;
         feather.replace();
       }
+    }
+
+    async function loadRaces(){
+      const grid=document.getElementById('raceGrid'); grid.innerHTML="";
+
+      const seenRaceIds=new Set();
+
+      // Primary path: comp-filtered races
+      const cachePayload = readTipRacesCache(state.user?.uid, state.selectedCompId);
+      if (cachePayload?.races?.length) {
+        const cachedTips = cachePayload.tipByRace || {};
+        renderTipRacesGrid(cachePayload.races, new Set(Object.keys(cachedTips)), cachedTips);
+      }
+
+      const fresh = await fetchTipRacesAndTips(state.selectedCompId);
+      const races = [...fresh.races];
+
+      // Backward compatibility: include legacy races missing compId for default comp
+      if(state.selectedCompId==="default-comp"){
+        const legacyRacesSnap=await getDocs(collection(db,"races"));
+        races.forEach(r => seenRaceIds.add(r.id));
+        legacyRacesSnap.forEach(docSnap=>{
+          const raceData=docSnap.data();
+          if(!raceData.compId && !seenRaceIds.has(docSnap.id)){
+            races.push({id:docSnap.id,...raceData});
+            seenRaceIds.add(docSnap.id);
+          }
+        });
+      }
+
+      // Keep state mirrors in sync for downstream race view logic.
+      state.tipsMap = {};
+      state.userTipsCache = {};
+      fresh.tipsMap.forEach(raceId => { state.tipsMap[raceId] = true; });
+      Object.entries(fresh.tipByRace).forEach(([raceId, tip]) => { state.userTipsCache[raceId] = tip; });
+
+      renderTipRacesGrid(races, fresh.tipsMap, fresh.tipByRace);
+      writeTipRacesCache(state.user?.uid, state.selectedCompId, races, fresh.tipByRace);
     }
 
     async function prefetchRaceData(raceId) {

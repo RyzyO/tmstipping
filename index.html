@@ -329,6 +329,7 @@
     let currentUser = null;
     let currentUserProfile = null;
     let selectedHomeCompId = null;
+    const HOME_RACES_CACHE_PREFIX = 'tmstipping:homeRacesCache';
 
     function toggleMenu() {
       const menu = document.getElementById("mobileMenu");
@@ -559,29 +560,39 @@
       }
     };
 
-    // --- Races data ---
-    async function loadRaces(compId = selectedHomeCompId) {
-      const raceGrid = document.getElementById("raceGrid");
-      raceGrid.innerHTML = "";
-      const tipsMap = new Set();
-      const tipByRace = {};
+    function getHomeRacesCacheKey(userId, compId) {
+      return `${HOME_RACES_CACHE_PREFIX}:${userId || 'anon'}:${compId || 'none'}`;
+    }
 
-      if (!compId) {
-        raceGrid.innerHTML = `
-          <div class="col-span-full card rounded-xl p-12 text-center">
-            <div class="max-w-sm mx-auto">
-              <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
-                <i data-feather="target" class="h-8 w-8 text-gray-500"></i>
-              </div>
-              <h3 class="text-lg font-semibold text-gray-300 mb-2">Select A Competition</h3>
-              <p class="text-gray-500 text-sm">Choose a competition to view and submit tips.</p>
-            </div>
-          </div>
-        `;
-        feather.replace();
-        return;
+    function readHomeRacesCache(userId, compId) {
+      try {
+        const key = getHomeRacesCacheKey(userId, compId);
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed?.races) || typeof parsed?.tipByRace !== 'object') {
+          return null;
+        }
+        return parsed;
+      } catch {
+        return null;
       }
+    }
 
+    function writeHomeRacesCache(userId, compId, races, tipByRace) {
+      try {
+        const key = getHomeRacesCacheKey(userId, compId);
+        localStorage.setItem(key, JSON.stringify({
+          races,
+          tipByRace,
+          updatedAt: Date.now()
+        }));
+      } catch (error) {
+        console.warn('Unable to write races cache:', error);
+      }
+    }
+
+    async function fetchRacesAndTipsForComp(compId) {
       const tipsPromise = currentUser
         ? getDocs(
             query(
@@ -595,6 +606,8 @@
       const racesPromise = getDocs(query(collection(db, "races"), where("compId", "==", compId)));
       const [tipsSnap, racesSnap] = await Promise.all([tipsPromise, racesPromise]);
 
+      const tipByRace = {};
+      const tipsMap = new Set();
       if (tipsSnap) {
         tipsSnap.forEach((tipDoc) => {
           const tipData = tipDoc.data();
@@ -605,20 +618,26 @@
         });
       }
 
-      const nowSydney = DateTime.now().setZone("Australia/Sydney");
       const races = [];
-
       racesSnap.forEach(docSnap => {
         races.push({ id: docSnap.id, ...docSnap.data() });
       });
 
-      races.sort((a, b) => {
+      return { races, tipsMap, tipByRace };
+    }
+
+    function renderRacesGrid(compId, races, tipsMap, tipByRace) {
+      const raceGrid = document.getElementById("raceGrid");
+      raceGrid.innerHTML = "";
+
+      const nowSydney = DateTime.now().setZone("Australia/Sydney");
+      const sortedRaces = [...races].sort((a, b) => {
         return DateTime.fromISO(`${a.date}T${a.time}`, { zone: "Australia/Sydney" }) -
                DateTime.fromISO(`${b.date}T${b.time}`, { zone: "Australia/Sydney" });
       });
 
       let shown = 0;
-      for (const race of races) {
+      for (const race of sortedRaces) {
         const dt = DateTime.fromISO(`${race.date}T${race.time}`, { zone: "Australia/Sydney" });
         if (dt < nowSydney) continue; // skip past races
         shown++;
@@ -706,6 +725,46 @@
           </div>
         `;
         feather.replace();
+        return;
+      }
+
+      feather.replace();
+    }
+
+    // --- Races data ---
+    async function loadRaces(compId = selectedHomeCompId) {
+      const raceGrid = document.getElementById("raceGrid");
+
+      if (!compId) {
+        raceGrid.innerHTML = `
+          <div class="col-span-full card rounded-xl p-12 text-center">
+            <div class="max-w-sm mx-auto">
+              <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+                <i data-feather="target" class="h-8 w-8 text-gray-500"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-300 mb-2">Select A Competition</h3>
+              <p class="text-gray-500 text-sm">Choose a competition to view and submit tips.</p>
+            </div>
+          </div>
+        `;
+        feather.replace();
+        return;
+      }
+
+      // Instant path: render cached races immediately if available.
+      const cachePayload = currentUser ? readHomeRacesCache(currentUser.uid, compId) : null;
+      if (cachePayload?.races?.length) {
+        const cachedTips = cachePayload.tipByRace || {};
+        renderRacesGrid(compId, cachePayload.races, new Set(Object.keys(cachedTips)), cachedTips);
+      } else {
+        raceGrid.innerHTML = "";
+      }
+
+      // Always refresh in background and repaint with newest data.
+      const fresh = await fetchRacesAndTipsForComp(compId);
+      renderRacesGrid(compId, fresh.races, fresh.tipsMap, fresh.tipByRace);
+      if (currentUser) {
+        writeHomeRacesCache(currentUser.uid, compId, fresh.races, fresh.tipByRace);
       }
     }
 
