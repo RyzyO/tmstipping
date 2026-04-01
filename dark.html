@@ -633,10 +633,10 @@
         else if (raceName.includes("caulfield")) photo = "caulfield.jpg";
         else if (raceName.includes("flemington")) photo = "flemington.jpg";
 
-        // --- Countdown target (5 mins before start) ---
-        const targetTime = dt.minus({ minutes: 5 }).toMillis();
+        // --- Countdown target (jump time) ---
+        const targetTime = dt.toMillis();
         const timerId = `timer-${race.id}`;
-        const isClosed = targetTime < DateTime.now().toMillis();
+        const isClosed = targetTime <= DateTime.now().toMillis();
         const previewUrl = (race.preview || "").trim();
         const hasPreview = previewUrl.length > 0;
         const tipped = tipsMap.has(race.id);
@@ -729,7 +729,7 @@
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
         const s = Math.floor((diff % (1000 * 60)) / 1000);
         
-        let timeText = "Closes in: ";
+        let timeText = "Closes at jump in: ";
         if (d > 0) timeText += `${d}d `;
         if (h > 0 || d > 0) timeText += `${h}h `;
         timeText += `${m}m ${s}s`;

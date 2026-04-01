@@ -121,7 +121,7 @@
         <h2 class="text-2xl md:text-3xl font-bold mb-2 gradient-text">Select a Race</h2>
         <p class="text-sm text-gray-300 flex items-center justify-center">
           <i data-feather="alert-circle" class="h-4 w-4 mr-2 text-yellow-400"></i>
-          Tipping closes 5 minutes before the jump
+          Tipping closes at jump time
         </p>
       </div>
       <div id="raceGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -408,7 +408,7 @@
         if(dt<now) continue; shown++;
         let photo="default.jpg"; const n=(race.name||"").toLowerCase();
         if(n.includes("valley")) photo="valley.jpg"; else if(n.includes("randwick")) photo="randwick.jpg"; else if(n.includes("rosehill")) photo="rosehill.jpg"; else if(n.includes("caulfield")) photo="caulfield.jpg"; else if(n.includes("flemington")) photo="flemington.jpg";
-        const isLocked=now>=dt.minus({minutes:5}); const timerId="timer-"+race.id; const tipped=state.tipsMap[race.id];
+        const isLocked=now>=dt; const timerId="timer-"+race.id; const tipped=state.tipsMap[race.id];
         const tipData=state.userTipsCache[race.id]||null;
         const tippedHorseName=tipped
           ? ((tipData?.horseId && race.horses?.[tipData.horseId]?.name) || tipData?.horse || tipData?.horseName || "")
@@ -446,7 +446,7 @@
               ${hasPreview?`<a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center py-2.5 rounded-lg font-semibold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-900/30">Watch Preview</a>`:""}
             </div>
           </div>`;
-        grid.appendChild(card); startCountdown(timerId,dt.minus({minutes:5}).toMillis());
+        grid.appendChild(card); startCountdown(timerId,dt.toMillis());
       }
       feather.replace();
       if(state.pendingRaceId){
@@ -487,7 +487,7 @@
       }
     }
 
-    function startCountdown(id,target){const el=document.getElementById(id);if(!el)return;function u(){const diff=target-DateTime.now().toMillis();if(diff<=0){el.textContent="⛔ Tipping Closed";el.className="bg-red-900/20 border border-red-700/30 text-red-400 text-center py-2 rounded-lg text-sm font-semibold";clearInterval(t);}else{const d=Math.floor(diff/86400000),h=Math.floor(diff/3600000)%24,m=Math.floor(diff/60000)%60,s=Math.floor(diff/1000)%60;let txt="Closes in: ";if(d>0)txt+=d+"d ";if(h>0||d>0)txt+=h+"h ";txt+=m+"m "+s+"s";el.textContent=txt;}}u();const t=setInterval(u,1000);}
+    function startCountdown(id,target){const el=document.getElementById(id);if(!el)return;function u(){const diff=target-DateTime.now().toMillis();if(diff<=0){el.textContent="⛔ Tipping Closed";el.className="bg-red-900/20 border border-red-700/30 text-red-400 text-center py-2 rounded-lg text-sm font-semibold";clearInterval(t);}else{const d=Math.floor(diff/86400000),h=Math.floor(diff/3600000)%24,m=Math.floor(diff/60000)%60,s=Math.floor(diff/1000)%60;let txt="Closes at jump in: ";if(d>0)txt+=d+"d ";if(h>0||d>0)txt+=h+"h ";txt+=m+"m "+s+"s";el.textContent=txt;}}u();const t=setInterval(u,1000);}
 
     window.selectRace=async(raceId)=>{ 
       // Use cached data if available for instant load
@@ -521,7 +521,7 @@
         
         const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"}); 
         const now=DateTime.now().setZone("Australia/Sydney"); 
-        const isLocked=now>=dt.minus({minutes:5});
+        const isLocked=now>=dt;
         
         document.getElementById("selected-race-title").textContent=race.name; 
         document.getElementById("selected-race-date").textContent=dt.toFormat("EEE, LLL d • h:mm a"); 
