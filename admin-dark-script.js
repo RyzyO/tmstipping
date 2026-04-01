@@ -2254,6 +2254,10 @@ function renderCompsManagementList() {
       ? `<button onclick="window.restoreCompetition('${comp.id}')" class="btn-secondary flex-1"><i data-feather="rotate-ccw" class="h-4 w-4"></i>Restore</button>`
       : `<button onclick="window.deleteCompetition('${comp.id}')" class="btn-danger flex-1"><i data-feather="archive" class="h-4 w-4"></i>Archive</button>`;
 
+    const joinLinkAction = status === 'active'
+      ? `<button onclick="window.copyCompetitionJoinLink('${comp.id}')" class="btn-secondary flex-1"><i data-feather="link" class="h-4 w-4"></i>Copy Join Link</button>`
+      : `<button class="btn-secondary flex-1" disabled title="Only active competitions can be joined"><i data-feather="link" class="h-4 w-4"></i>Join Link</button>`;
+
     const card = document.createElement('div');
     card.className = 'card rounded-lg p-6';
     card.innerHTML = `
@@ -2287,7 +2291,8 @@ function renderCompsManagementList() {
           <p class="text-xs text-gray-300">${startDate} to ${endDate}</p>
         </div>
       </div>
-      <div class="flex gap-2">
+      <div class="flex gap-2 flex-wrap md:flex-nowrap">
+        ${joinLinkAction}
         <button onclick="window.editCompetition('${comp.id}')" class="btn-secondary flex-1" ${status === 'deleted' ? 'disabled' : ''}>
           <i data-feather="edit-2" class="h-4 w-4"></i>
           Edit
@@ -2465,5 +2470,25 @@ window.restoreCompetition = async function(compId) {
   } catch (error) {
     console.error('Error restoring competition:', error);
     showNotification('Error restoring competition', 'error', 'comp-notifications');
+  }
+};
+
+window.copyCompetitionJoinLink = async function(compId) {
+  try {
+    const link = `${window.location.origin}/comps.html?joinCompId=${encodeURIComponent(compId)}&joinPrompt=1`;
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(link);
+    } else {
+      const tempInput = document.createElement('input');
+      tempInput.value = link;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+    showNotification('Competition join link copied to clipboard', 'success', 'comp-notifications');
+  } catch (error) {
+    console.error('Error copying join link:', error);
+    showNotification('Could not copy link. Try again.', 'error', 'comp-notifications');
   }
 };

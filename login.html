@@ -208,6 +208,18 @@
     const loginForm = document.getElementById('login-form');
     const errorMessage = document.getElementById('error-message');
     const forgotPasswordLink = document.getElementById('forgot-password');
+    const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+
+    function getSafeRedirectTarget() {
+      if (!redirectParam) return 'dark.html';
+      if (redirectParam.startsWith('http://') || redirectParam.startsWith('https://') || redirectParam.startsWith('//')) {
+        return 'dark.html';
+      }
+      if (!redirectParam.startsWith('/')) {
+        return redirectParam;
+      }
+      return redirectParam.substring(1);
+    }
 
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -219,7 +231,7 @@
 
       try {
         await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = 'dark.html';
+        window.location.href = getSafeRedirectTarget();
       } catch (error) {
         console.error('Login error:', error.code, error.message);
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
