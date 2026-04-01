@@ -1306,7 +1306,8 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
         jockey,
         barrier,
         weight,
-        silksId
+        silksId,
+        amt: 0
       };
     }
   });
@@ -1566,6 +1567,7 @@ async function addHorseToRace() {
         barrier: '',
         weight: '',
         silkDesc: '',
+        amt: 0,
         scratched: false,
         substitute: false
       }

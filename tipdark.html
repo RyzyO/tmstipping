@@ -567,10 +567,18 @@
       list.innerHTML="";
       // Ensure tippedHorseId is a string for proper comparison
       const tippedId = tippedHorseId ? String(tippedHorseId) : null;
-      Object.entries(race.horses||{}).filter(([_,h])=>!h.scratched).sort((a,b)=>a[1].number-b[1].number).forEach(([id,h])=>{
+      const visibleHorses = Object.entries(race.horses||{}).filter(([_,h])=>!h.scratched);
+      const totalTipsForRace = visibleHorses.reduce((sum, [_, h]) => {
+        const amt = Math.max(0, Number(h?.amt || 0));
+        return sum + (Number.isFinite(amt) ? amt : 0);
+      }, 0);
+
+      visibleHorses.sort((a,b)=>a[1].number-b[1].number).forEach(([id,h])=>{
         const d=document.createElement("div");
         d.className="horse-row rounded-lg p-4 cursor-pointer";
         d.dataset.horseId=id;
+        const tipAmt = Math.max(0, Number(h?.amt || 0));
+        const tipPct = totalTipsForRace > 0 ? Math.round((tipAmt / totalTipsForRace) * 100) : 0;
         
         // Use silksId if available (from RacingNSW scraper), otherwise fallback
         let silkUrl = '';
@@ -597,6 +605,7 @@
               <div class="flex items-baseline gap-3 mb-1">
                 <span class="font-bold text-yellow-400 text-lg">#${h.number}</span>
                 <span class="font-bold text-gray-100 text-base">${h.name}${h.barrier ? ` (${h.barrier})` : ''}</span>
+                <span class="ml-auto text-xs font-semibold px-2 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 whitespace-nowrap">${tipPct}% tipped</span>
               </div>
               <div class="text-sm text-gray-400 leading-relaxed">
                 <div class="mb-0.5"><span class="font-semibold text-gray-300">J</span> ${h.jockey||"Unknown"} ${h.weight?h.weight:''}</div>
@@ -618,8 +627,93 @@
     }
     function getSelectedHorseId(){const sel=document.querySelector(".horse-row.selected");return sel?sel.dataset.horseId:null;}
 
+    function normalizeHorseTipCount(value){
+      const num = Number(value);
+      return Number.isFinite(num) ? Math.max(0, num) : 0;
+    }
+
+    async function saveTipAndAdjustHorseCounters({ horseId, joker }) {
+      const tipId = state.user.uid + "_" + state.selectedRaceId;
+      const tipRef = doc(db, "tips", tipId);
+      const userRef = doc(db, "users", state.user.uid);
+      const raceRef = doc(db, "races", state.selectedRaceId);
+
+      await runTransaction(db, async (tx) => {
+        const [tipSnap, userSnap, raceSnap] = await Promise.all([
+          tx.get(tipRef),
+          tx.get(userRef),
+          tx.get(raceRef)
+        ]);
+
+        const prevTip = tipSnap.exists() ? tipSnap.data() : null;
+        const prevHorseId = prevTip?.horseId ? String(prevTip.horseId) : null;
+        const prevJoker = prevTip?.joker === true;
+        const desiredJoker = joker === true;
+
+        let jokers = 0;
+        if (userSnap.exists() && !isNaN(userSnap.data().joker)) {
+          jokers = Number(userSnap.data().joker);
+        }
+
+        if (!prevJoker && desiredJoker) {
+          if (jokers <= 0) {
+            throw new Error("No jokers left");
+          }
+          tx.set(userRef, { joker: increment(-1) }, { merge: true });
+        }
+
+        if (prevJoker && !desiredJoker) {
+          tx.set(userRef, { joker: increment(1) }, { merge: true });
+        }
+
+        if (raceSnap.exists()) {
+          const raceData = raceSnap.data() || {};
+          const horses = { ...(raceData.horses || {}) };
+
+          if (prevHorseId && prevHorseId !== horseId && horses[prevHorseId]) {
+            horses[prevHorseId] = {
+              ...horses[prevHorseId],
+              amt: Math.max(0, normalizeHorseTipCount(horses[prevHorseId].amt) - 1)
+            };
+          }
+
+          if ((!prevHorseId || prevHorseId !== horseId) && horses[horseId]) {
+            horses[horseId] = {
+              ...horses[horseId],
+              amt: normalizeHorseTipCount(horses[horseId].amt) + 1
+            };
+          }
+
+          tx.update(raceRef, { horses });
+        }
+
+        tx.set(tipRef, {
+          userId: state.user.uid,
+          compId: state.selectedCompId,
+          raceId: state.selectedRaceId,
+          horseId,
+          joker: desiredJoker,
+          timestamp: serverTimestamp()
+        }, { merge: true });
+      });
+    }
+
     // Submit tip
-    document.getElementById("tip-form").onsubmit=async e=>{e.preventDefault();if(!state.selectedRaceId||!state.user||state.inFlight)return;const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const userSnap=await tx.get(userRef);let jokers=(userSnap.exists()&&!isNaN(userSnap.data().joker))?Number(userSnap.data().joker):0;const prevJ=tipSnap.exists()?tipSnap.data().joker===true:false;if(prevJ)tx.set(userRef,{joker:increment(1)},{merge:true});tx.set(tipRef,{userId:state.user.uid,compId:state.selectedCompId,raceId:state.selectedRaceId,horseId,joker:false,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}finally{setBusy(false);}};
+    document.getElementById("tip-form").onsubmit=async e=>{
+      e.preventDefault();
+      if(!state.selectedRaceId||!state.user||state.inFlight)return;
+      const horseId=getSelectedHorseId();
+      if(!horseId){alert("Select a horse");return;}
+      setBusy(true);
+      try{
+        await saveTipAndAdjustHorseCounters({ horseId, joker: false });
+        await refreshJokerCount();
+        await loadUserTips();
+        await loadRaces();
+        document.getElementById("race-card-section").classList.add("hidden");
+        document.getElementById("race-list-section").classList.remove("hidden");
+      }finally{setBusy(false);}
+    };
 
     document.getElementById("use-joker-btn").onclick=async()=>{
       if(state.jokerCount === 0) return; // Do nothing if no jokers
@@ -627,9 +721,29 @@
       if(!horseId){alert("Select a horse");return;}
       if(!confirm("Use Joker?"))return;
       setBusy(true);
-      try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const userSnap=await tx.get(userRef);let jokers=(userSnap.exists()&&!isNaN(userSnap.data().joker))?Number(userSnap.data().joker):0;const prev=tipSnap.exists()?tipSnap.data().joker===true:false;if(!prev){if(jokers<=0)throw new Error("No jokers left");tx.set(userRef,{joker:increment(-1)},{merge:true});}tx.set(tipRef,{userId:state.user.uid,compId:state.selectedCompId,raceId:state.selectedRaceId,horseId,joker:true,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}catch(err){alert(err.message);}finally{setBusy(false);}};
+      try{
+        await saveTipAndAdjustHorseCounters({ horseId, joker: true });
+        await refreshJokerCount();
+        await loadUserTips();
+        await loadRaces();
+        document.getElementById("race-card-section").classList.add("hidden");
+        document.getElementById("race-list-section").classList.remove("hidden");
+      }catch(err){alert(err.message);}finally{setBusy(false);}
+    };
 
-    document.getElementById("remove-joker-btn").onclick=async()=>{const horseId=getSelectedHorseId();if(!horseId){alert("Select a horse");return;}setBusy(true);try{const tipId=state.user.uid+"_"+state.selectedRaceId;const tipRef=doc(db,"tips",tipId);const userRef=doc(db,"users",state.user.uid);await runTransaction(db,async tx=>{const tipSnap=await tx.get(tipRef);const prev=tipSnap.exists()?tipSnap.data().joker===true:false;if(prev)tx.set(userRef,{joker:increment(1)},{merge:true});tx.set(tipRef,{userId:state.user.uid,compId:state.selectedCompId,raceId:state.selectedRaceId,horseId,joker:false,timestamp:serverTimestamp()},{merge:true});});await refreshJokerCount();await loadUserTips();await loadRaces();document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");}finally{setBusy(false);}};
+    document.getElementById("remove-joker-btn").onclick=async()=>{
+      const horseId=getSelectedHorseId();
+      if(!horseId){alert("Select a horse");return;}
+      setBusy(true);
+      try{
+        await saveTipAndAdjustHorseCounters({ horseId, joker: false });
+        await refreshJokerCount();
+        await loadUserTips();
+        await loadRaces();
+        document.getElementById("race-card-section").classList.add("hidden");
+        document.getElementById("race-list-section").classList.remove("hidden");
+      }finally{setBusy(false);}
+    };
 
     document.getElementById("exit-race-btn").onclick=()=>{if(state.inFlight)return;document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");};
 
