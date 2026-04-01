@@ -521,6 +521,7 @@ async function scrapeHorsesFromUrl() {
     horsesList.innerHTML = '';
 
     horses.forEach((horse, idx) => {
+      const safeBarrier = (horse.barrier || '').toString().match(/\d+/)?.[0] || '';
       const horseRow = document.createElement('div');
       horseRow.className = 'horse-row';
       horseRow.innerHTML = `
@@ -528,7 +529,7 @@ async function scrapeHorsesFromUrl() {
         <input type="text" placeholder="Name" class="horse-name flex-1" value="${horse.name}">
         <input type="text" placeholder="Trainer" class="horse-trainer" value="${horse.trainer}" style="width: 120px;">
         <input type="text" placeholder="Jockey" class="horse-jockey" value="${horse.jockey}" style="width: 120px;">
-        <input type="number" placeholder="Barrier" class="horse-barrier" value="${horse.barrier}" style="width: 80px;">
+        <input type="number" placeholder="Barrier" class="horse-barrier" value="${safeBarrier}" style="width: 80px;">
         <input type="text" placeholder="Weight" class="horse-weight" value="${horse.weight}" style="width: 80px;">
         <input type="text" placeholder="Silk ID" class="horse-silk-id" value="" style="width: 100px;" readonly>
         <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
@@ -1126,7 +1127,8 @@ function extractHorsesFromText(rawText) {
 
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
   const horses = [];
-  const cleanCell = (value) => value.replace(/~~|\*\*/g, '').replace(/\s+/g, ' ').trim();
+  const stripMarkdownLink = (value) => (value || '').replace(/\[([^\]]*)\]\(([^)]*)\)/g, '$1').trim();
+  const cleanCell = (value) => stripMarkdownLink(value).replace(/~~|\*\*/g, '').replace(/\s+/g, ' ').trim();
   const normalizeNumber = (value) => {
     const match = value.match(/^(\d+)([a-z])?/i);
     if (!match) {
@@ -1134,6 +1136,11 @@ function extractHorsesFromText(rawText) {
     }
     return `${match[1]}${match[2] ? match[2].toLowerCase() : ''}`;
   };
+  const normalizeBarrier = (value) => {
+    const match = cleanCell(value).match(/\b(\d{1,2})\b/);
+    return match ? match[1] : '';
+  };
+  const normalizeWeight = (value) => cleanCell(value).replace(/\s+/g, '');
 
   // Strategy 0: Parse markdown table rows (| No | Horse | Trainer | Jockey | Barrier | Weight |)
   const tableRows = lines.filter(line => line.startsWith('|') && line.includes('|'));
@@ -1160,8 +1167,8 @@ function extractHorsesFromText(rawText) {
         const name = cleanCell(cells[i + 1] || '');
         const trainer = cleanCell(cells[i + 2] || '');
         const jockey = cleanCell(cells[i + 3] || '');
-        const barrier = cleanCell(cells[i + 4] || '');
-        const weight = cleanCell(cells[i + 5] || '').replace(/\s+/g, '');
+        const barrier = normalizeBarrier(cells[i + 4] || '');
+        const weight = normalizeWeight(cells[i + 5] || '');
 
         horses.push({
           number,
@@ -1208,11 +1215,11 @@ function extractHorsesFromText(rawText) {
       }
 
       const number = normalizeNumber(numberToken);
-      const name = tokens[i + 1] || '';
-      const trainer = tokens[i + 2] || '';
-      const jockey = tokens[i + 3] || '';
-      const barrier = tokens[i + 4] || '';
-      const weight = tokens[i + 5] || '';
+      const name = cleanCell(tokens[i + 1] || '');
+      const trainer = cleanCell(tokens[i + 2] || '');
+      const jockey = cleanCell(tokens[i + 3] || '');
+      const barrier = normalizeBarrier(tokens[i + 4] || '');
+      const weight = normalizeWeight(tokens[i + 5] || '');
 
       horses.push({
         number,
@@ -1220,7 +1227,7 @@ function extractHorsesFromText(rawText) {
         trainer,
         jockey,
         barrier,
-        weight: weight.replace(/\s+/g, ''),
+        weight,
         silk: ''
       });
     }
@@ -1239,7 +1246,7 @@ function extractHorsesFromText(rawText) {
     }
 
     const number = match[1];
-    const name = match[2].trim();
+    const name = cleanCell(match[2] || '');
     const barrier = match[3] || '';
     let jockey = '';
     let trainer = '';
@@ -1261,12 +1268,12 @@ function extractHorsesFromText(rawText) {
 
       const jMatch = nextLine.match(/^J[:]?\s*(.+)$/i);
       if (jMatch) {
-        jockey = jMatch[1].trim();
+        jockey = cleanCell(jMatch[1] || '');
       }
 
       const tMatch = nextLine.match(/^T[:]?\s*(.+)$/i);
       if (tMatch) {
-        trainer = tMatch[1].trim();
+        trainer = cleanCell(tMatch[1] || '');
       }
     }
 
@@ -1301,7 +1308,7 @@ function parseHorseTable() {
         <input type="text" placeholder="Name" class="horse-name flex-1" value="${cols[1].trim()}">
         <input type="text" placeholder="Trainer" class="horse-trainer" value="${cols[2].trim()}" style="width: 120px;">
         <input type="text" placeholder="Jockey" class="horse-jockey" value="${cols[3].trim()}" style="width: 120px;">
-        <input type="number" placeholder="Barrier" class="horse-barrier" value="${cols[4].trim()}" style="width: 80px;">
+        <input type="number" placeholder="Barrier" class="horse-barrier" value="${(cols[4].trim().match(/\d+/)?.[0] || '')}" style="width: 80px;">
         <input type="text" placeholder="Weight" class="horse-weight" value="${cols[5].trim()}" style="width: 80px;">
         <input type="text" placeholder="Silk ID" class="horse-silk-id" style="width: 100px;" readonly>
         <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
