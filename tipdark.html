@@ -261,7 +261,38 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     state.pendingRaceId = urlParams.get('raceId');
-    state.selectedCompId = urlParams.get('compId') || 'default-comp'; // Default to legacy comp
+    state.selectedCompId = urlParams.get('compId') || null;
+
+    async function resolveDefaultActiveCompId(userId) {
+      const joiningsSnap = await getDocs(
+        query(
+          collection(db, "userCompJoinings"),
+          where("userId", "==", userId),
+          where("paymentStatus", "==", "completed")
+        )
+      );
+
+      const comps = [];
+      for (const joiningDoc of joiningsSnap.docs) {
+        const compId = joiningDoc.data()?.compId;
+        if (!compId) continue;
+        const compSnap = await getDoc(doc(db, "comps", compId));
+        if (!compSnap.exists()) continue;
+        const comp = compSnap.data();
+        if (comp.status !== "active") continue;
+        comps.push({ id: compId, ...comp });
+      }
+
+      if (!comps.length) return null;
+
+      comps.sort((a, b) => {
+        const aStart = a.startDate ? Date.parse(a.startDate) : 0;
+        const bStart = b.startDate ? Date.parse(b.startDate) : 0;
+        return bStart - aStart;
+      });
+
+      return comps[0].id;
+    }
 
     function showLoading(){ document.getElementById('loading-overlay').classList.remove('hidden'); }
     function hideLoading(){ document.getElementById('loading-overlay').classList.add('hidden'); }
@@ -276,6 +307,28 @@
           return; 
         }
         state.user=_user;
+
+        if (!state.selectedCompId) {
+          state.selectedCompId = await resolveDefaultActiveCompId(_user.uid);
+        }
+
+        if (!state.selectedCompId) {
+          alert("No active competition found. Join an active comp first.");
+          window.location.href = "comps.html";
+          return;
+        }
+
+        const selectedCompSnap = await getDoc(doc(db, "comps", state.selectedCompId));
+        if (!selectedCompSnap.exists() || selectedCompSnap.data()?.status !== "active") {
+          const fallbackCompId = await resolveDefaultActiveCompId(_user.uid);
+          state.selectedCompId = fallbackCompId;
+        }
+
+        if (!state.selectedCompId) {
+          alert("No active competition found. Join an active comp first.");
+          window.location.href = "comps.html";
+          return;
+        }
         
         // Check if user has joined the selected comp
         const joiningRef = doc(db, "userCompJoinings", `${_user.uid}_${state.selectedCompId}`);

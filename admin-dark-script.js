@@ -58,7 +58,7 @@ onAuthStateChanged(auth, async (user) => {
 
   // User is authenticated and is admin - load dashboard
   await loadAllComps();
-  await loadDashboardStats();
+  await loadDashboardStats(selectedAdminCompId);
   await loadRacesList();
   AOS.init();
 });
@@ -609,6 +609,90 @@ function extractHorseNumberFromRow(row) {
   return normalizeHorseNumber(firstCell.textContent || '');
 }
 
+function extractRaceNumberFromText(value) {
+  const text = (value || '').toString();
+  const raceMatch = text.match(/\brace\s*([0-9]{1,2})\b/i);
+  if (raceMatch?.[1]) {
+    return parseInt(raceMatch[1], 10);
+  }
+
+  const shortMatch = text.match(/\br\s*([0-9]{1,2})\b/i);
+  if (shortMatch?.[1]) {
+    return parseInt(shortMatch[1], 10);
+  }
+
+  return null;
+}
+
+function extractRaceNumberFromPath(path) {
+  const source = (path || '').toString();
+  if (!source) return null;
+
+  const patterns = [
+    /(?:Race(?:No|Num|Number)?|R(?:ace)?)=([0-9]{1,2})/i,
+    /(?:Race(?:No|Num|Number)?|R(?:ace)?)%3D([0-9]{1,2})/i,
+    /[?&]r=([0-9]{1,2})\b/i,
+    /[?&]Race([0-9]{1,2})\b/i
+  ];
+
+  for (const pattern of patterns) {
+    const match = source.match(pattern);
+    if (match?.[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+}
+
+function inferRaceNumberFromLinkContext(link, row, path) {
+  const fromPath = extractRaceNumberFromPath(path);
+  if (fromPath) {
+    return fromPath;
+  }
+
+  const contextCandidates = [];
+  if (row) {
+    contextCandidates.push(row.textContent || '');
+  }
+
+  const table = row?.closest('table') || link?.closest('table');
+  if (table) {
+    const caption = table.querySelector('caption');
+    if (caption?.textContent) {
+      contextCandidates.push(caption.textContent);
+    }
+
+    let prev = table.previousElementSibling;
+    let checks = 0;
+    while (prev && checks < 8) {
+      contextCandidates.push(prev.textContent || '');
+      prev = prev.previousElementSibling;
+      checks += 1;
+    }
+  }
+
+  const section = link?.closest('section, article, div');
+  if (section?.textContent) {
+    contextCandidates.push(section.textContent.slice(0, 200));
+  }
+
+  for (const candidate of contextCandidates) {
+    const raceNumber = extractRaceNumberFromText(candidate);
+    if (raceNumber) {
+      return raceNumber;
+    }
+  }
+
+  return null;
+}
+
+function getTargetRaceNumberForSilks() {
+  const raceNameInput = document.getElementById('race-name')?.value || '';
+  const selectedRaceTitle = document.getElementById('selected-race-title')?.textContent || '';
+  return extractRaceNumberFromText(raceNameInput) || extractRaceNumberFromText(selectedRaceTitle);
+}
+
 function buildProxyUrls(targetUrl, preferRaw = false) {
   const normalized = targetUrl.replace(/^https?:\/\//i, '');
   if (preferRaw) {
@@ -626,7 +710,7 @@ function buildProxyUrls(targetUrl, preferRaw = false) {
   ];
 }
 
-async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false) {
+async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false, validator = null) {
   const proxyUrls = buildProxyUrls(targetUrl, preferRaw);
   let lastError = null;
 
@@ -643,6 +727,10 @@ async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false) {
         throw new Error('Response too small / empty');
       }
 
+      if (typeof validator === 'function' && !validator(html)) {
+        throw new Error('Response missing required content');
+      }
+
       return html;
     } catch (error) {
       console.warn(`[${contextLabel}] Proxy failed:`, proxyUrl, error.message || error);
@@ -651,6 +739,43 @@ async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false) {
   }
 
   throw new Error(`All proxy fetch attempts failed for ${targetUrl}. Last error: ${lastError?.message || 'Unknown error'}`);
+}
+
+function extractNswRunnerEntriesFromHtml(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  const runnerLinks = Array.from(doc.querySelectorAll("a[onclick*='HorseFullForm.aspx']"));
+  let runnerEntries = runnerLinks.map(link => {
+    const row = link.closest('tr');
+    const number = extractHorseNumberFromRow(row);
+    const name = (link.textContent || '').trim();
+    const rowHtml = row?.innerHTML || '';
+    const rowSilkMatch = rowHtml.match(/JockeySilks\/(\d+)\.png/i);
+    const silksIdFromRow = rowSilkMatch ? rowSilkMatch[1] : null;
+    const onclick = link.getAttribute('onclick') || '';
+    const match = onclick.match(/newPopup\('([^']*HorseFullForm\.aspx[^']*)'\)/i);
+    const path = match ? match[1] : '';
+    const raceNumber = inferRaceNumberFromLinkContext(link, row, path);
+    return { name, number, path, silksIdFromRow, raceNumber };
+  }).filter(entry => entry.path);
+
+  // Fallback for transformed/proxied HTML where onclick anchors are stripped.
+  if (runnerEntries.length === 0) {
+    const pathMatches = [...html.matchAll(/HorseFullForm\.aspx\?[^\s"'<>`)]+/gi)]
+      .map(m => m[0])
+      .filter(Boolean);
+    const uniquePaths = Array.from(new Set(pathMatches));
+    runnerEntries = uniquePaths.map(path => ({
+      name: '',
+      number: '',
+      path,
+      silksIdFromRow: null,
+      raceNumber: extractRaceNumberFromPath(path)
+    }));
+  }
+
+  return { doc, runnerEntries, runnerLinkCount: runnerLinks.length };
 }
 
 async function scrapeSilksFromUrl() {
@@ -678,38 +803,48 @@ async function scrapeSilksFromUrl() {
   btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Scraping...';
 
   try {
-    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrl:list', true);
+    const hasNswRunnerSignals = (candidateHtml) => /HorseFullForm\.aspx|Acceptances\.aspx|JockeySilks\/(\d+)\.png/i.test(candidateHtml);
+    const targetRaceNumber = getTargetRaceNumberForSilks();
+    console.log('[scrapeSilksFromUrl] Target race number from form/title:', targetRaceNumber);
+
+    const html = await fetchHtmlViaProxy(url, 'scrapeSilksFromUrl:list', true, hasNswRunnerSignals);
     console.log('[scrapeSilksFromUrl] HTML length:', html.length);
-    
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
     console.log('[scrapeSilksFromUrl] HTML parsed');
 
-    const runnerLinks = Array.from(doc.querySelectorAll("a[onclick*='HorseFullForm.aspx']"));
-    console.log('[scrapeSilksFromUrl] Found', runnerLinks.length, 'runner links');
-    
-    let runnerEntries = runnerLinks.map(link => {
-      const row = link.closest('tr');
-      const number = extractHorseNumberFromRow(row);
-      const name = (link.textContent || '').trim();
-      const rowHtml = row?.innerHTML || '';
-      const rowSilkMatch = rowHtml.match(/JockeySilks\/(\d+)\.png/i);
-      const silksIdFromRow = rowSilkMatch ? rowSilkMatch[1] : null;
-      const onclick = link.getAttribute('onclick') || '';
-      const match = onclick.match(/newPopup\('([^']*HorseFullForm\.aspx[^']*)'\)/i);
-      const path = match ? match[1] : '';
-      console.log('[scrapeSilksFromUrl] Runner - Name:', name, 'Number:', number, 'Path found:', !!path);
-      return { name, number, path, silksIdFromRow };
-    }).filter(entry => entry.path);
-
-    // Fallback for transformed/proxied HTML where onclick anchors are stripped.
-    if (runnerEntries.length === 0) {
-      const pathMatches = [...html.matchAll(/HorseFullForm\.aspx\?[^\s"'<>`)]+/gi)]
-        .map(m => m[0])
-        .filter(Boolean);
-      const uniquePaths = Array.from(new Set(pathMatches));
-      runnerEntries = uniquePaths.map(path => ({ name: '', number: '', path, silksIdFromRow: null }));
+    let { runnerEntries, runnerLinkCount } = extractNswRunnerEntriesFromHtml(html);
+    console.log('[scrapeSilksFromUrl] Found', runnerLinkCount, 'runner links');
+    if (runnerLinkCount > 0) {
+      runnerEntries.forEach(entry => {
+        console.log('[scrapeSilksFromUrl] Runner - Name:', entry.name, 'Number:', entry.number, 'Path found:', !!entry.path);
+      });
+    } else {
       console.log('[scrapeSilksFromUrl] Fallback runner path extraction found', runnerEntries.length, 'paths');
+    }
+
+    if (runnerEntries.length === 0 && /StageMeeting\.aspx/i.test(url)) {
+      const acceptancesUrl = url.replace(/StageMeeting\.aspx/i, 'Acceptances.aspx');
+      console.log('[scrapeSilksFromUrl] No runners on StageMeeting page. Trying Acceptances URL:', acceptancesUrl);
+
+      const acceptancesHtml = await fetchHtmlViaProxy(
+        acceptancesUrl,
+        'scrapeSilksFromUrl:list:acceptances',
+        true,
+        hasNswRunnerSignals
+      );
+
+      const parsedAcceptances = extractNswRunnerEntriesFromHtml(acceptancesHtml);
+      runnerEntries = parsedAcceptances.runnerEntries;
+      console.log('[scrapeSilksFromUrl] Acceptances fallback found', runnerEntries.length, 'runner entries');
+    }
+
+    if (targetRaceNumber) {
+      const raceMatchedEntries = runnerEntries.filter(entry => entry.raceNumber === targetRaceNumber);
+      if (raceMatchedEntries.length > 0) {
+        console.log('[scrapeSilksFromUrl] Filtered to target race', targetRaceNumber, 'entries:', raceMatchedEntries.length);
+        runnerEntries = raceMatchedEntries;
+      } else {
+        console.warn('[scrapeSilksFromUrl] No entries carried race number', targetRaceNumber, '- continuing with all matched entries');
+      }
     }
 
     console.log('[scrapeSilksFromUrl] Filtered to', runnerEntries.length, 'runners with paths');
@@ -1980,6 +2115,16 @@ async function loadAllComps() {
       option.textContent = `${statusBadge} ${comp.name}`;
       select.appendChild(option);
     });
+
+    // Default to first active comp so completed comps are never implicit defaults.
+    const firstActiveComp = allComps.find(comp => comp.status === 'active') || null;
+    if (firstActiveComp) {
+      select.value = firstActiveComp.id;
+      selectedAdminCompId = firstActiveComp.id;
+    } else {
+      select.value = '';
+      selectedAdminCompId = null;
+    }
 
     // Keep move selector in sync when comps are changed
     if (currentRaceId) {

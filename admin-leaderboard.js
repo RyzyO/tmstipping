@@ -136,8 +136,12 @@ async function loadComps() {
             allComps.push({ id: doc.id, ...doc.data() });
         });
         
-        // Sort by name
-        allComps.sort((a, b) => a.name.localeCompare(b.name));
+        // Sort active comps first, then by name.
+        allComps.sort((a, b) => {
+            if (a.status === 'active' && b.status !== 'active') return -1;
+            if (a.status !== 'active' && b.status === 'active') return 1;
+            return a.name.localeCompare(b.name);
+        });
         
         // Populate dropdown
         compSelect.innerHTML = '<option value="">-- Select a Competition --</option>';
@@ -148,9 +152,10 @@ async function loadComps() {
             compSelect.appendChild(option);
         });
         
-        // Set first comp as default
-        if (allComps.length > 0) {
-            selectedCompId = allComps[0].id;
+        // Default to first active comp so completed comps are never implicit defaults.
+        const firstActiveComp = allComps.find(comp => comp.status === 'active') || null;
+        if (firstActiveComp) {
+            selectedCompId = firstActiveComp.id;
             compSelect.value = selectedCompId;
             await loadDataAndRender();
         }
