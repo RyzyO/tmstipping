@@ -327,6 +327,7 @@
     const db = getFirestore(app);
     const auth = getAuth(app);
     let currentUser = null;
+    let currentUserProfile = null;
     let selectedHomeCompId = null;
 
     function toggleMenu() {
@@ -406,24 +407,11 @@
 
     applyCachedHomeStats();
 
-    loadRaces();
-    
-    // Initial authenticated load (within primary auth listener)
-    await loadUserCompsToDropdown(currentUser.uid);
-
-    // Fetch user profile to display silk
-    try {
-      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-      if (userSnap.exists()) {
-        const userData = userSnap.data();
-        const silkNumber = userData.silk || 1;
-        const silkImg = document.getElementById("welcomeSilk");
-        silkImg.src = `static/silks/${silkNumber}.png`;
-        silkImg.style.display = "block";
-      }
-    } catch (err) {
-      console.log("Could not load profile silk:", err);
-    }
+    // Initial authenticated load (parallelized)
+    await Promise.all([
+      loadUserCompsToDropdown(currentUser.uid),
+      loadCurrentUserProfile(currentUser.uid)
+    ]);
 
     // --- User's Competitions (Replaced by dropdown selector) ---
     // Old loadUserComps function kept for reference but no longer used
@@ -450,22 +438,20 @@
         joiningsSnap.forEach(doc => {
           compIds.push(doc.data().compId);
         });
+        const uniqueCompIds = Array.from(new Set(compIds.filter(Boolean)));
         
         // Clear existing options except the first one
         while (select.options.length > 1) {
           select.remove(1);
         }
         
-        if (compIds.length === 0) return;
+        if (uniqueCompIds.length === 0) return;
         
-        // Fetch comp details for each compId
-        const comps = [];
-        for (const compId of compIds) {
-          const compDoc = await getDoc(doc(db, 'comps', compId));
-          if (compDoc.exists()) {
-            comps.push({ id: compId, ...compDoc.data() });
-          }
-        }
+        // Fetch comp details in parallel
+        const compSnaps = await Promise.all(uniqueCompIds.map(compId => getDoc(doc(db, 'comps', compId))));
+        const comps = compSnaps
+          .map((compDoc, idx) => compDoc.exists() ? { id: uniqueCompIds[idx], ...compDoc.data() } : null)
+          .filter(Boolean);
         
         // Filter to only active comps
         const activeComps = comps.filter(c => c.status === 'active');
@@ -499,6 +485,21 @@
         }
       } catch (error) {
         console.error('Error loading comps to dropdown:', error);
+      }
+    }
+
+    async function loadCurrentUserProfile(userId) {
+      try {
+        const userSnap = await getDoc(doc(db, "users", userId));
+        if (!userSnap.exists()) return;
+
+        currentUserProfile = userSnap.data();
+        const silkNumber = currentUserProfile.silk || 1;
+        const silkImg = document.getElementById("welcomeSilk");
+        silkImg.src = `static/silks/${silkNumber}.png`;
+        silkImg.style.display = "block";
+      } catch (err) {
+        console.log("Could not load profile silk:", err);
       }
     }
 
@@ -536,12 +537,8 @@
     // Load competition-specific stats
     async function loadCompStats(userId, compId) {
       try {
-        const [userSnap, joiningSnap] = await Promise.all([
-          getDoc(doc(db, "users", userId)),
-          getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`))
-        ]);
-
-        const userData = userSnap.exists() ? userSnap.data() : {};
+        const joiningSnap = await getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`));
+        const userData = currentUserProfile || {};
         const joining = joiningSnap.exists() ? joiningSnap.data() : {};
 
         const userName = userData.teamName || currentUser.displayName || currentUser.email || "Guest";
@@ -585,14 +582,20 @@
         return;
       }
 
-      if (currentUser) {
-        const tipsSnap = await getDocs(
-          query(
-            collection(db, "tips"),
-            where("userId", "==", currentUser.uid),
-            where("compId", "==", compId)
+      const tipsPromise = currentUser
+        ? getDocs(
+            query(
+              collection(db, "tips"),
+              where("userId", "==", currentUser.uid),
+              where("compId", "==", compId)
+            )
           )
-        );
+        : Promise.resolve(null);
+
+      const racesPromise = getDocs(query(collection(db, "races"), where("compId", "==", compId)));
+      const [tipsSnap, racesSnap] = await Promise.all([tipsPromise, racesPromise]);
+
+      if (tipsSnap) {
         tipsSnap.forEach((tipDoc) => {
           const tipData = tipDoc.data();
           if (tipData?.raceId) {
@@ -601,10 +604,6 @@
           }
         });
       }
-
-      const racesSnap = await getDocs(
-        query(collection(db, "races"), where("compId", "==", compId))
-      );
 
       const nowSydney = DateTime.now().setZone("Australia/Sydney");
       const races = [];
