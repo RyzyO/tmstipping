@@ -582,6 +582,22 @@ function buildHorseRowIndex() {
   return { byNumber, byName };
 }
 
+function resolveHorseRowForEntry(entry, indexes, runnerNumberCounts) {
+  const normalizedName = normalizeHorseName(entry.name || '');
+  const normalizedNumber = normalizeHorseNumber(entry.number || '');
+
+  if (normalizedName && indexes.byName.has(normalizedName)) {
+    return indexes.byName.get(normalizedName);
+  }
+
+  // Only trust number fallback when the scraped runner list has a unique occurrence of that number.
+  if (normalizedNumber && indexes.byNumber.has(normalizedNumber) && (runnerNumberCounts.get(normalizedNumber) || 0) === 1) {
+    return indexes.byNumber.get(normalizedNumber);
+  }
+
+  return null;
+}
+
 function extractHorseNumberFromRow(row) {
   if (!row) {
     return '';
@@ -704,32 +720,18 @@ async function scrapeSilksFromUrl() {
       return;
     }
 
-    const { byNumber, byName } = buildHorseRowIndex();
-    console.log('[scrapeSilksFromUrl] Built horse index - by number:', byNumber.size, 'by name:', byName.size);
-    
-    // Full-card links include many races; only keep entries that match horses currently loaded for this race.
-    const selectedEntriesByHorseKey = new Map();
+    const horseIndexes = buildHorseRowIndex();
+    const runnerNumberCounts = new Map();
     for (const entry of runnerEntries) {
-      const normalizedName = normalizeHorseName(entry.name || '');
-      const normalizedNumber = normalizeHorseNumber(entry.number || '');
-      const matchedRow =
-        (normalizedName && byName.get(normalizedName)) ||
-        (normalizedNumber && byNumber.get(normalizedNumber)) ||
-        null;
-
-      if (!matchedRow) continue;
-
-      const key = `${normalizeHorseNumber(matchedRow.querySelector('.horse-no')?.value || '')}|${normalizeHorseName(matchedRow.querySelector('.horse-name')?.value || '')}`;
-      if (!selectedEntriesByHorseKey.has(key)) {
-        selectedEntriesByHorseKey.set(key, { ...entry, matchedRow });
-      }
+      const key = normalizeHorseNumber(entry.number || '');
+      if (!key) continue;
+      runnerNumberCounts.set(key, (runnerNumberCounts.get(key) || 0) + 1);
     }
-
-    runnerEntries = Array.from(selectedEntriesByHorseKey.values());
-    console.log('[scrapeSilksFromUrl] Entries matched to current race:', runnerEntries.length);
+    console.log('[scrapeSilksFromUrl] Built horse index - by number:', horseIndexes.byNumber.size, 'by name:', horseIndexes.byName.size);
 
     let updated = 0;
     let missing = 0;
+    const assignedRows = new Set();
 
     for (const entry of runnerEntries) {
       console.log('[scrapeSilksFromUrl] Processing runner:', entry.name);
@@ -767,7 +769,10 @@ async function scrapeSilksFromUrl() {
         }
       }
 
-      const row = entry.matchedRow || null;
+      const row = resolveHorseRowForEntry({
+        name: entryName || entry.name,
+        number: entry.number
+      }, horseIndexes, runnerNumberCounts);
       console.log('[scrapeSilksFromUrl] Horse row found:', !!row);
 
       if (!row) {
@@ -776,11 +781,17 @@ async function scrapeSilksFromUrl() {
         continue;
       }
 
+      if (assignedRows.has(row)) {
+        console.log('[scrapeSilksFromUrl] Row already assigned, skipping duplicate runner:', entryName || entry.name || '(unknown)');
+        continue;
+      }
+
       const silkIdInput = row.querySelector('.horse-silk-id');
       console.log('[scrapeSilksFromUrl] Silk ID input element found:', !!silkIdInput);
       
       if (silkIdInput) {
         silkIdInput.value = silksId;
+        assignedRows.add(row);
         console.log('[scrapeSilksFromUrl] Set silksId:', silksId, 'for horse:', entryName || entry.name || '(unknown)');
         showNotification(`Silk found: ${entryName || entry.name || 'Horse'} (ID: ${silksId})`, 'success', 'form-notifications');
         updated += 1;
@@ -844,7 +855,7 @@ window.scrapeSilksFromUrlRA = async function() {
         const cells = Array.from(row.querySelectorAll('td'));
         if (cells.length < 2) return null;
         
-        const number = normalizeNumber((cells[0]?.textContent || '').trim());
+        const number = normalizeHorseNumber((cells[0]?.textContent || '').trim());
         const nameCell = cells[1];
         const nameLink = nameCell?.querySelector('a');
         const name = (nameLink?.textContent || nameCell?.textContent || '').trim();
