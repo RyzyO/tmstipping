@@ -818,6 +818,54 @@ async function fetchNswRunnerEntriesWithProxyFallback(targetUrl, contextLabel) {
   throw new Error(`All NSW proxy attempts failed for ${targetUrl}. Last error: ${lastError?.message || 'Unknown error'}`);
 }
 
+function buildNswXmlUrl(sourceUrl) {
+  try {
+    const parsed = new URL(sourceUrl);
+    const key = parsed.searchParams.get('Key');
+    if (!key) return null;
+    return `https://racing.racingnsw.com.au/FreeFields/XML.aspx?Key=${encodeURIComponent(key)}&stage=Acceptances`;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function fetchNswRunnerEntriesFromXml(sourceUrl, contextLabel) {
+  const xmlUrl = buildNswXmlUrl(sourceUrl);
+  if (!xmlUrl) {
+    return [];
+  }
+
+  const xmlText = await fetchHtmlViaProxy(xmlUrl, `${contextLabel}:xml`, true);
+  const xmlDoc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  const raceNodes = Array.from(xmlDoc.getElementsByTagName('race'));
+  const runnerEntries = [];
+
+  raceNodes.forEach(raceNode => {
+    const raceNumber = parseInt(raceNode.getAttribute('number') || '', 10);
+    const nominationNodes = Array.from(raceNode.getElementsByTagName('nomination'));
+
+    nominationNodes.forEach(nominationNode => {
+      const horse = (nominationNode.getAttribute('horse') || '').trim();
+      const number = (nominationNode.getAttribute('number') || '').trim();
+      const jockeyNumber = (nominationNode.getAttribute('jockeynumber') || '').trim();
+
+      if (!horse || !number || !jockeyNumber || jockeyNumber === '0') {
+        return;
+      }
+
+      runnerEntries.push({
+        name: horse,
+        number,
+        path: '',
+        silksIdFromRow: jockeyNumber,
+        raceNumber: Number.isFinite(raceNumber) ? raceNumber : null
+      });
+    });
+  });
+
+  return runnerEntries;
+}
+
 async function scrapeSilksFromUrl() {
   console.log('[scrapeSilksFromUrl] Starting...');
   const url = document.getElementById('race-silks-url').value;
@@ -874,6 +922,12 @@ async function scrapeSilksFromUrl() {
 
       runnerEntries = acceptancesEntries;
       console.log('[scrapeSilksFromUrl] Acceptances fallback found', runnerEntries.length, 'runner entries');
+    }
+
+    if (runnerEntries.length === 0) {
+      console.log('[scrapeSilksFromUrl] No HTML runner entries found. Trying XML fallback...');
+      runnerEntries = await fetchNswRunnerEntriesFromXml(url, 'scrapeSilksFromUrl:list');
+      console.log('[scrapeSilksFromUrl] XML fallback found', runnerEntries.length, 'runner entries');
     }
 
     if (targetRaceNumber) {
