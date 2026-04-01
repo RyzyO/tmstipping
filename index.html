@@ -1,27 +1,23 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TMS Tipping</title>
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Web app meta -->
-  <link rel="manifest" href="site.webmanifest" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Great Spring Tip Off - By The Mock Sports</title>
+  <link rel="icon" type="image/x-icon" href="icon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
+   <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
-  <!-- Icons & Styles -->
-  <link rel="apple-touch-icon" href="logo.jfif">
-  <link rel="apple-touch-startup-image" href="splash.png">
-  <link href="css/bootstrap.min.css" rel="stylesheet">
-  <link href="css/bootstrap-icons.css" rel="stylesheet">
-   <link href="navbar.css" rel="stylesheet">
-  <link href="css/templatemo-topic-listing.css" rel="stylesheet">
-     <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16_Pro_Max_landscape.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#fbbf24">
+
+
+    <link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16_Pro_Max_landscape.png">
 <link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16_Pro_landscape.png">
 <link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16_Plus__iPhone_15_Pro_Max__iPhone_15_Plus__iPhone_14_Pro_Max_landscape.png">
 <link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="splash_screens/iPhone_16__iPhone_15_Pro__iPhone_15__iPhone_14_Pro_landscape.png">
@@ -65,522 +61,694 @@
 <link rel="apple-touch-startup-image" media="screen and (device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash_screens/8.3__iPad_Mini_portrait.png">
 
 
-
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <style>
-    :root {
-      --gold: #FFD700;
-      --gold-dark: #bfa100;
-      --black: #181818;
-      --glass-bg: rgba(24,24,24,0.85);
-    }
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      color: #fff;
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #181818 0%, #232526 100%);
-    }
-    h1, h2, h3, h4, h5, h6, .navbar-brand, .btn {
-      font-family: 'Outfit', sans-serif;
-    }
-    .navbar {
-      background: var(--glass-bg) !important;
-      box-shadow: 0 2px 16px rgba(255,215,0,0.08), 0 0 0 2px var(--gold);
-    }
-    .navbar-brand, .navbar-nav .nav-link {
-      color: var(--gold) !important;
-      font-weight: 600;
-      font-family: 'Outfit', sans-serif; /* match results.html */
-      padding-bottom: 35px;
-      letter-spacing: 0.5px;
-      text-shadow: 0 1px 4px #000, 0 0 2px var(--gold);
-    }
-    .navbar-brand i {
-      color: var(--gold);
-      margin-right: 0.5rem;
-      font-size: 1.5rem;
-      vertical-align: middle;
-    }
-    .navbar-nav .nav-link.active, .navbar-nav .nav-link:hover, .navbar-nav .nav-link:focus {
-      color: #fff !important;
-      background: linear-gradient(90deg, var(--gold), #fffbe6);
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      text-shadow: 0 2px 8px #000;
+      background-clip: text;
     }
-    .hero-section {
-      min-height: 60vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: none;
-      position: relative;
+    .glass-effect {
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
-    .hero-card {
-      background: var(--glass-bg);
-      border-radius: 24px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.37), 0 0 0 2px var(--gold);
-      padding: 3rem 2.5rem 2.5rem;
-      max-width: 500px;
-      margin: 0 auto;
-      text-align: center;
-      animation: fadeInUp 1s ease-out both;
-      backdrop-filter: blur(8px);
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    @keyframes fadeInUp {
-      from { opacity: 0; transform: translateY(40px); }
-      to { opacity: 1; transform: translateY(0); }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+      border-color: rgba(251, 191, 36, 0.3);
     }
-    .hero-card h1 {
-      color: var(--gold);
-      font-size: 2.5rem;
-      font-weight: 700;
-      letter-spacing: 1px;
-      margin-bottom: 1.2rem;
-      text-shadow: 0 2px 8px #000, 0 0 2px var(--gold);
+    .stat-card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
+      border: 1px solid rgba(75, 85, 99, 0.4);
+      transition: all 0.3s ease;
     }
-    .hero-card h6 {
-      color: #fff;
-      font-size: 1.2rem;
-      margin-bottom: 2rem;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    .stat-card:hover {
+      border-color: rgba(251, 191, 36, 0.4);
+      transform: translateY(-2px);
     }
-    .gold-line {
-      width: 60px;
-      height: 4px;
-      background: linear-gradient(90deg, var(--gold), #fffbe6);
-      border-radius: 2px;
-      margin: 0.5rem auto 1.5rem auto;
-      box-shadow: 0 0 8px 2px var(--gold);
+    .skeleton {
+      background: linear-gradient(90deg, rgba(55, 65, 81, 0.3) 25%, rgba(75, 85, 99, 0.3) 50%, rgba(55, 65, 81, 0.3) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
     }
-    .btn-success.btn-lg {
-      font-size: 1.5rem;
-      padding: 0.75rem 2.5rem;
-      border-radius: 2rem;
-      background: linear-gradient(90deg, var(--gold), #fffbe6) !important;
-      color: #181818 !important;
-      font-weight: 700;
-      border: none;
-      transition: all 0.2s ease-in-out;
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
     }
-    .btn-success.btn-lg:hover {
-      background: linear-gradient(90deg, #fffbe6, var(--gold)) !important;
-      color: #000 !important;
-      box-shadow: 0 4px 24px rgba(255,215,0,0.25);
+    .badge {
+      background: rgba(217, 119, 6, 0.2);
+      border: 1px solid rgba(251, 191, 36, 0.3);
     }
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      background: #181818;
-      border-top: 2px solid var(--gold);
-      display: flex;
-      justify-content: space-around;
-      padding: 0.5rem 0;
-      z-index: 1000;
+    .countdown-closed {
+      background: rgba(220, 38, 38, 0.2);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
     }
-    .bottom-nav a {
-      color: var(--gold);
-      text-align: center;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-decoration: none;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+    select {
+      background-color: #111827;
+      color: #f3f4f6;
     }
-    .bottom-nav i {
-      font-size: 1.3rem;
-      margin-bottom: 0.25rem;
-    }
-    @media (max-width: 480px) {
-      .hero-card {
-        padding: 1.5rem 0.5rem;
-        max-width: 95vw;
-      }
-      .hero-card h1 { font-size: 1.4rem; }
-      .hero-card h6 { font-size: 1rem; }
-      .btn-success.btn-lg { font-size: 1.1rem; padding: 0.6rem 1.5rem; }
-    }
-
-    .navbar-brand span {
-  font-family: 'Outfit', sans-serif;
-  font-size: 1.7rem;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
-  /* Responsive font size for heading */
-  display: inline-block;
-  vertical-align: middle;
-}
-
-@media (max-width: 480px) {
-  .navbar-brand span {
-    font-size: 1.1rem;
-    white-space: normal;
-    line-height: 1.2;
-    max-width: 120px;
-    display: inline-block;
-    word-break: break-word;
-  }
-  .navbar-brand img {
-    height: 28px !important;
-    width: 28px !important;
-    margin-right: 0.3rem !important;
-  }
-}
-@media (max-width: 768px) {
-  .hero-section {
-    flex-direction: column;
-    flex-wrap: wrap;
-  }
-
-  .hero-section > .container:first-of-type {
-    order: 1;
-  }
-
-  .hero-section > .container:last-of-type {
-    order: 2;
-    margin-top: 2rem;
-  }
-}
-@media (max-width: 768px) {
-  .hero-section {
-    margin-top: 0;
-    padding-top: 4rem; /* adjust based on your navbar height */
-  }
-}
-
-
-.main-button {
-      text-align: center;
-      margin: 2rem 0 1rem 0;
-    }
-    #enableNotifications.btn-success {
-      background: linear-gradient(90deg, var(--gold), #fffbe6) !important;
-      color: #181818 !important;
-      font-weight: 700;
-      border: none;
-      border-radius: 2rem;
-      font-size: 1.2rem;
-      padding: 0.7rem 2.2rem;
-      box-shadow: 0 2px 12px rgba(255,215,0,0.12);
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    #enableNotifications.btn-success:hover {
-      background: linear-gradient(90deg, #fffbe6, var(--gold)) !important;
-      color: #000 !important;
-      box-shadow: 0 4px 24px rgba(255,215,0,0.25);
-    }
-    #notif-btn-spinner {
-      vertical-align: middle;
+    select option {
+      background-color: #111827;
+      color: #f3f4f6;
     }
   </style>
 </head>
-<body id="top">
-  <div id="loading-overlay" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2000;background:rgba(24,24,24,0);display:flex;align-items:center;justify-content:center;">
-    <div style="text-align:center;">
-      
-    </div>
-  </div>
-  <main>
-    <nav class="navbar navbar-expand-lg">
-      <div class="container">
-        <a class="navbar-brand" href="index.html">
-          <img src="logo.jfif" alt="Logo" style="height:36px;width:36px;object-fit:contain;margin-right:0.5rem;border-radius:8px;filter:drop-shadow(0 0 6px var(--gold));">
-          <span>The Great Spring Tip Off</span>
-        </a>
-        <div class="d-lg-none ms-auto me-4" id="mobile-auth-btns"></div>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-          <span class="navbar-toggler-icon"></span>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+  <!-- Navigation -->
+ <!-- Navigation -->
+<nav class="sticky top-0 z-50 glass-effect">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between items-center py-4">
+      <div class="flex items-center">
+        <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit: contain;" />
+        <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
+      </div>
+      <div class="flex items-center space-x-4">
+        <!-- Mobile menu button -->
+        <button class="md:hidden" onclick="toggleMenu()">
+          <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
         </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-lg-5 me-lg-auto">
-            <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
-            <li class="nav-item"><a class="nav-link" href="tip.html">Tip Now</a></li>
-            <li class="nav-item"><a class="nav-link" href="leaderboard.html">Leaderboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="faq.html">FAQ</a></li>
-            <li class="nav-item"><a class="nav-link" href="prizes.html">Prizes</a></li>
-            <!-- Admin link will be injected by JS if user is admin -->
-          </ul>
-          <div class="d-none d-lg-block" id="desktop-auth-btns"></div>
+        <!-- Desktop menu -->
+        <div class="hidden md:flex space-x-6">
+          <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+          <a href="comps.html" class="text-gray-300 hover:text-yellow-400 transition">Competitions</a>
+          <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+          <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+          <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
+          <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
+          <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+          <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+          <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
+          <button onclick="signOut()" class="text-gray-300 hover:text-red-400 transition font-semibold">Sign Out</button>
         </div>
       </div>
-    </nav>
+    </div>
+  </div>
+  <!-- Mobile Menu -->
+  <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
+    <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
+    <a href="comps.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Competitions</a>
+    <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+    <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+    <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
+    <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
+    <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+    <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+    <a href="profiledark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Profile</a>
+    <button onclick="signOut()" class="block w-full text-left py-2 text-red-400 hover:text-red-300 transition font-semibold">Sign Out</button>
+  </div>
+</nav>
 
-    <section class="hero-section">
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-8 col-12 mx-auto">
-            <div class="hero-card">
-              <div class="gold-line"></div>
-              <h1 id="welcome-message">Welcome to the Great Spring Tip Off</h1>
-              <h6>Compete, predict, and have fun with friends!</h6>
-              <a id="tip-now-btn" href="tip.html" class="btn btn-success btn-lg">Tip Now</a>
-              <div class="main-button">
-      <button id="enableNotifications" type="button" class="btn btn-success btn-lg" style="display:none;">
-        <span id="notif-btn-text">Enable Notifications</span>
-        <span id="notif-btn-spinner" class="spinner-border spinner-border-sm" style="display:none;margin-left:8px;" role="status" aria-hidden="true"></span>
+
+  <!-- Main Content -->
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+    <!-- Welcome Section -->
+<section class="mb-10" data-aos="fade-up">
+  <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
+    <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+    <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+    <div class="relative z-10 flex items-center justify-between gap-6">
+      <div>
+        <h2 class="text-2xl md:text-4xl font-bold mb-2">
+          Welcome back, <span id="userName" class="gradient-text">Guest</span>!
+        </h2>
+        <p class="text-base text-gray-300">Ready to make your picks for the upcoming races?</p>
+      </div>
+      <img id="welcomeSilk" src="" alt="Silk" class="hidden md:block flex-shrink-0 h-20 w-auto object-contain" style="display: none;">
+    </div>
+  </div>
+</section>
+
+<!-- Quick Select Competition -->
+<section class="mb-10" data-aos="fade-up">
+  <div class="card rounded-2xl shadow-2xl p-8 md:p-10">
+    <div class="flex flex-col md:flex-row items-center gap-4">
+      <label for="user-comp-select" class="flex items-center gap-2 font-semibold text-gray-300 whitespace-nowrap text-lg md:text-xl">
+        <i data-feather="filter" class="h-5 w-5 text-yellow-400"></i>
+        Select Competition:
+      </label>
+      <select id="user-comp-select" class="flex-1 w-full md:w-auto bg-gray-900 border border-gray-700 text-gray-100 px-4 py-2 rounded-lg focus:outline-none focus:border-yellow-400" onchange="window.handleUserCompSelectionChange()">
+        <option value="">Choose a competition...</option>
+      </select>
+      <button onclick="window.goToTipping()" class="w-full md:w-auto px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition" id="tip-now-btn" style="display: none;">
+        <i data-feather="arrow-right" class="h-4 w-4 inline mr-2"></i>
+        Tip Now
       </button>
     </div>
-            </div>
+  </div>
+</section>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+      <div class="stat-card rounded-xl shadow-lg p-6" data-aos="fade-up">
+        <div class="flex items-center justify-between mb-3">
+          <div class="bg-gradient-to-br from-yellow-500/20 to-amber-600/20 p-3 rounded-xl border border-yellow-500/30">
+            <i data-feather="award" class="h-7 w-7 text-yellow-400"></i>
+          </div>
+          <span id="leaderboard-rank" class="text-4xl font-bold text-yellow-400">-</span>
+        </div>
+        <h3 class="text-base font-semibold text-gray-200 mb-1">Leaderboard Rank</h3>
+        <p class="text-sm text-gray-400">Your current position</p>
+      </div>
+
+      <div class="stat-card rounded-xl shadow-lg p-6" data-aos="fade-up" data-aos-delay="100">
+        <div class="flex items-center justify-between mb-3">
+          <div class="bg-gradient-to-br from-green-500/20 to-emerald-600/20 p-3 rounded-xl border border-green-500/30">
+            <i data-feather="flag" class="h-7 w-7 text-green-400"></i>
+          </div>
+          <span id="wins-count" class="text-4xl font-bold text-green-400">0</span>
+        </div>
+        <h3 class="text-base font-semibold text-gray-200 mb-1">Total Wins</h3>
+        <p class="text-sm text-gray-400">Races you've picked correctly</p>
+      </div>
+
+      <div class="stat-card rounded-xl shadow-lg p-6" data-aos="fade-up" data-aos-delay="200">
+        <div class="flex items-center justify-between mb-3">
+          <div class="bg-gradient-to-br from-blue-500/20 to-cyan-600/20 p-3 rounded-xl border border-blue-500/30">
+            <i data-feather="zap" class="h-7 w-7 text-blue-400"></i>
+          </div>
+          <span id="points" class="text-4xl font-bold text-blue-400">0</span>
+        </div>
+        <h3 class="text-base font-semibold text-gray-200 mb-1">Total Points</h3>
+        <p class="text-sm text-gray-400">Accumulated score</p>
+      </div>
+    </div>
+
+    <!-- Upcoming Races -->
+    <section data-aos="fade-up">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl md:text-3xl font-bold gradient-text">Upcoming Races</h2>
+      </div>
+      <div id="raceGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Loading skeletons -->
+        <div class="card rounded-xl shadow-lg overflow-hidden skeleton-card">
+          <div class="h-36 skeleton"></div>
+          <div class="p-6 space-y-3">
+            <div class="h-6 skeleton rounded w-3/4"></div>
+            <div class="h-4 skeleton rounded w-1/2"></div>
+            <div class="h-10 skeleton rounded mt-4"></div>
+          </div>
+        </div>
+        <div class="card rounded-xl shadow-lg overflow-hidden skeleton-card hidden md:block">
+          <div class="h-36 skeleton"></div>
+          <div class="p-6 space-y-3">
+            <div class="h-6 skeleton rounded w-3/4"></div>
+            <div class="h-4 skeleton rounded w-1/2"></div>
+            <div class="h-10 skeleton rounded mt-4"></div>
+          </div>
+        </div>
+        <div class="card rounded-xl shadow-lg overflow-hidden skeleton-card hidden lg:block">
+          <div class="h-36 skeleton"></div>
+          <div class="p-6 space-y-3">
+            <div class="h-6 skeleton rounded w-3/4"></div>
+            <div class="h-4 skeleton rounded w-1/2"></div>
+            <div class="h-10 skeleton rounded mt-4"></div>
           </div>
         </div>
       </div>
-      <div class="container" id="team-box" style="display: none;">
-  <div class="row">
-    <div class="col-lg-8 col-12 mx-auto">
-      <div class="hero-card">
-        <div class="gold-line"></div>
-        <h1>Your Team</h1>
-        <h6><strong>Name:</strong> <span id="team-name">Loading...</span></h6>
-        <h6><strong>Current Rank:</strong> <span id="team-rank">...</span></h6>
-        <a href="leaderboard.html" class="btn btn-success btn-lg">View Full Leaderboard</a>
-        
-      </div>
-    </div>
-  </div>
-</div>
-
     </section>
-    
   </main>
 
+  <!-- Footer -->
+  <footer class="bg-gray-950 border-t border-gray-800 text-gray-400 py-10 mt-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex flex-col items-center md:items-start">
+          <div class="flex items-center mb-2">
+            <img src="images/logo.png" alt="Logo" class="h-6 w-6 mr-2" style="object-fit: contain;" />
+            <span class="font-semibold text-gray-300">The Mock Sports</span>
+          </div>
+          <p class="text-sm text-gray-500">&copy; 2026 All rights reserved.</p>
+        </div>
+        <div class="flex space-x-6">
+          <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on X">
+            <i data-feather="twitter" class="h-5 w-5"></i>
+          </a>
+          <a href="https://facebook.com/TheMockSports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Facebook">
+            <i data-feather="facebook" class="h-5 w-5"></i>
+          </a>
+          <a href="https://instagram.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Instagram">
+            <i data-feather="instagram" class="h-5 w-5"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
 
-  <div class="bottom-nav">
-    <a href="index.html">
-      <i class="bi bi-house-fill"></i>
-      Home
-    </a>
-    <a href="tip.html">
-      <i class="bi bi-check2-square"></i>
-      Tip
-    </a>
-    <a href="results.html">
-      <i class="bi bi-broadcast-pin"></i>
-      Results
-    </a>
-    <a href="leaderboard.html">
-      <i class="bi bi-graph-up-arrow"></i>
-      Ladder
-    </a>
-  </div>
+ <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, getDocs, collection, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
 
-   <script src="js/bootstrap.bundle.min.js"></script>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-  import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
-  import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+    const { DateTime } = luxon;
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-    authDomain: "tmstipping.firebaseapp.com",
-    projectId: "tmstipping",
-    storageBucket: "tmstipping.appspot.com",
-    messagingSenderId: "401677933527",
-    appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-    measurementId: "G-GXLRCHV687"
-  };
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-  const auth = getAuth(app);
-  const messaging = getMessaging(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    let currentUser = null;
+    let selectedHomeCompId = null;
 
-   async function initNotifications() {
-    const btnText = document.getElementById('notif-btn-text');
-    const btnSpinner = document.getElementById('notif-btn-spinner');
-    btnText.textContent = "Enabling...";
-    btnSpinner.style.display = "inline-block";
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === "granted") {
-        const token = await getToken(messaging, {
-          vapidKey: "BO4uGOEfVg5qRKLRTapkgdZJj22xf3_CBV1TlZg_jjCkvDg0qEVB46mgewqtK9MrUy1atMjlJS4DefmX7fI-IYg"
-        });
-        console.log("✅ FCM Token:", token);
-        btnText.textContent = "Enabled!";
-        setTimeout(() => {
-          btnText.textContent = "Notifications Enabled";
-        }, 1200);
-      } else {
-        btnText.textContent = "Permission Denied";
-        setTimeout(() => {
-          btnText.textContent = "Enable Notifications";
-        }, 1200);
+    function toggleMenu() {
+      const menu = document.getElementById("mobileMenu");
+      menu.classList.toggle("hidden");
+    }
+
+    function signOut() {
+      firebaseSignOut(auth).then(() => {
+        window.location.href = "landing.html";
+      }).catch((error) => {
+        console.error('Sign out error:', error);
+        alert('Error signing out. Please try again.');
+      });
+    }
+
+    window.toggleMenu = toggleMenu;
+    window.signOut = signOut;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "landing.html";
+        return;
       }
-    } catch (error) {
-      console.error("Error during initNotifications:", error);
-      btnText.textContent = "Error";
-      setTimeout(() => {
-        btnText.textContent = "Enable Notifications";
-      }, 1200);
-    }
-    btnSpinner.style.display = "none";
-  }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const button = document.getElementById('enableNotifications');
-    const btnText = document.getElementById('notif-btn-text');
-    const btnSpinner = document.getElementById('notif-btn-spinner');
+      currentUser = user;
 
-    if (!button) {
-      console.warn("Enable Notifications button not found.");
-      return;
-    }
+      const HOME_STATS_CACHE_KEY = "tmstipping:homeStats";
 
-    function updateNotifBtnVisibility() {
-      if ('Notification' in window) {
-        if (Notification.permission === 'default' || Notification.permission === 'denied') {
-          button.style.display = 'inline-flex';
-          btnText.textContent = "Enable Notifications";
-        } else {
-          button.style.display = 'none';
+      function getOrdinalSuffix(num) {
+        if (typeof num !== 'number' || num < 1) return num;
+        const j = num % 10, k = num % 100;
+        if (j === 1 && k !== 11) return num + "st";
+        if (j === 2 && k !== 12) return num + "nd";
+        if (j === 3 && k !== 13) return num + "rd";
+        return num + "th";
+      }
+
+      function formatRankForDisplay(rawRank) {
+        const rank = Number(rawRank);
+        if (!Number.isFinite(rank) || rank < 1 || rank >= 99999) {
+          return "-";
         }
-      } else {
-        button.style.display = 'none';
+        return getOrdinalSuffix(rank);
+      }
+
+    function applyCachedHomeStats() {
+      try {
+        const raw = localStorage.getItem(HOME_STATS_CACHE_KEY);
+        if (!raw) return;
+        const cached = JSON.parse(raw);
+        if (!cached) return;
+
+        if (cached.userName) {
+          document.getElementById("userName").textContent = cached.userName;
+        }
+        if (cached.rank !== undefined) {
+          document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(cached.rank);
+        }
+        if (cached.wins !== undefined) {
+          document.getElementById("wins-count").textContent = cached.wins;
+        }
+        if (cached.points !== undefined) {
+          document.getElementById("points").textContent = cached.points;
+        }
+      } catch (error) {
+        localStorage.removeItem(HOME_STATS_CACHE_KEY);
       }
     }
 
-    updateNotifBtnVisibility();
+    function saveHomeStatsToCache({ userName, rank, wins, points }) {
+      localStorage.setItem(
+        HOME_STATS_CACHE_KEY,
+        JSON.stringify({ userName, rank, wins, points, updatedAt: Date.now() })
+      );
+    }
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/firebase-messaging-sw.js')
-        .then((registration) => {
-          console.log("✅ Service Worker registered");
-          updateNotifBtnVisibility();
+    applyCachedHomeStats();
 
-          button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            await initNotifications();
-            updateNotifBtnVisibility();
-          });
-        })
-        .catch(err => {
-          console.error('Service Worker registration failed:', err);
+    loadRaces();
+    
+    // Initial authenticated load (within primary auth listener)
+    await loadUserCompsToDropdown(currentUser.uid);
+
+    // Fetch user profile to display silk
+    try {
+      const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        const silkNumber = userData.silk || 1;
+        const silkImg = document.getElementById("welcomeSilk");
+        silkImg.src = `static/silks/${silkNumber}.png`;
+        silkImg.style.display = "block";
+      }
+    } catch (err) {
+      console.log("Could not load profile silk:", err);
+    }
+
+    // --- User's Competitions (Replaced by dropdown selector) ---
+    // Old loadUserComps function kept for reference but no longer used
+    async function loadUserComps_deprecated(userId) {
+      // This function has been replaced by loadUserCompsToDropdown
+      // which uses a dropdown selector instead of cards
+    }
+
+    // Load user's competitions into dropdown selector and load default active comp stats
+    async function loadUserCompsToDropdown(userId) {
+      try {
+        const select = document.getElementById('user-comp-select');
+        if (!select) return;
+        
+        const joiningsSnap = await getDocs(
+          query(
+            collection(db, 'userCompJoinings'),
+            where('userId', '==', userId),
+            where('paymentStatus', '==', 'completed')
+          )
+        );
+        
+        const compIds = [];
+        joiningsSnap.forEach(doc => {
+          compIds.push(doc.data().compId);
         });
-    } else {
-      console.warn("Service Worker not supported in this browser.");
-      button.style.display = 'none';
+        
+        // Clear existing options except the first one
+        while (select.options.length > 1) {
+          select.remove(1);
+        }
+        
+        if (compIds.length === 0) return;
+        
+        // Fetch comp details for each compId
+        const comps = [];
+        for (const compId of compIds) {
+          const compDoc = await getDoc(doc(db, 'comps', compId));
+          if (compDoc.exists()) {
+            comps.push({ id: compId, ...compDoc.data() });
+          }
+        }
+        
+        // Filter to only active comps
+        const activeComps = comps.filter(c => c.status === 'active');
+        
+        // Sort by start date (most recent first)
+        activeComps.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
+        
+        // Also add completed comps for display
+        const completedComps = comps.filter(c => c.status !== 'active')
+          .sort((a, b) => a.name.localeCompare(b.name));
+        
+        const allComps = [...activeComps, ...completedComps];
+        
+        // Add each comp as an option
+        allComps.forEach(comp => {
+          const option = document.createElement('option');
+          option.value = comp.id;
+          const statusBadge = comp.status === 'active' ? '🎯' : '✓';
+          option.textContent = `${statusBadge} ${comp.name}`;
+          select.appendChild(option);
+        });
+        
+        // Load stats for the most recent active comp by default
+        if (activeComps.length > 0) {
+          const mostRecentActiveComp = activeComps[0];
+          selectedHomeCompId = mostRecentActiveComp.id;
+          await loadCompStats(userId, mostRecentActiveComp.id);
+          await loadRaces(mostRecentActiveComp.id);
+          select.value = mostRecentActiveComp.id;
+          document.getElementById('tip-now-btn').style.display = '';
+        }
+      } catch (error) {
+        console.error('Error loading comps to dropdown:', error);
+      }
     }
 
-    onMessage(messaging, (payload) => {
-      console.log("🔔 Foreground message received:", payload);
-      alert(`${payload.notification.title}\n${payload.notification.body}`);
-    });
-  });
+    window.handleUserCompSelectionChange = async function() {
+      const select = document.getElementById('user-comp-select');
+      const tipBtn = document.getElementById('tip-now-btn');
+      const compId = select ? select.value : null;
+      
+      if (compId) {
+        selectedHomeCompId = compId;
+        // Show the tip now button
+        tipBtn.style.display = '';
+        // Load comp-specific stats
+        await loadCompStats(currentUser.uid, compId);
+        await loadRaces(compId);
+      } else {
+        selectedHomeCompId = null;
+        // Hide the tip now button
+        tipBtn.style.display = 'none';
+        document.getElementById("leaderboard-rank").textContent = "-";
+        document.getElementById("wins-count").textContent = 0;
+        document.getElementById("points").textContent = "0.00";
+        await loadRaces();
+      }
+    };
 
+    window.goToTipping = function() {
+      const select = document.getElementById('user-comp-select');
+      const compId = select ? select.value : null;
+      if (compId) {
+        window.location.href = `tipdark.html?compId=${compId}`;
+      }
+    };
 
-  const welcomeMessage = document.getElementById('welcome-message');
-  const desktopAuthBtns = document.getElementById('desktop-auth-btns');
-  const mobileAuthBtns = document.getElementById('mobile-auth-btns');
+    // Load competition-specific stats
+    async function loadCompStats(userId, compId) {
+      try {
+        const [userSnap, joiningSnap] = await Promise.all([
+          getDoc(doc(db, "users", userId)),
+          getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`))
+        ]);
 
-  function renderAuthButtons(user) {
-    let html = '';
-    if (user) {
-      html = `
-        <span class="me-3">Hi, ${user.displayName || user.email}</span>
-        <button class="btn btn-outline-light btn-sm logout-btn">Logout</button>
-      `;
-    } else {
-      html = `
-        <a href="login.html" class="btn btn-outline-light btn-sm me-2">Login</a>
-        <a href="signup.html" class="btn btn-success btn-sm">Sign Up</a>
-      `;
-    }
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const joining = joiningSnap.exists() ? joiningSnap.data() : {};
 
-    desktopAuthBtns.innerHTML = html;
-    mobileAuthBtns.innerHTML = html;
+        const userName = userData.teamName || currentUser.displayName || currentUser.email || "Guest";
+        const userRank = joining.rank;
+        const wins = joining.wins || 0;
+        const points = Number(joining.points || 0);
 
-    setTimeout(() => {
-      document.querySelectorAll('.logout-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          try {
-            await signOut(auth);
-            window.location.href = "login.html";
-          } catch (err) {
-            console.error("Sign out error:", err);
+        // Update display
+        document.getElementById("userName").textContent = userName;
+        document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(userRank);
+        document.getElementById("wins-count").textContent = wins;
+        document.getElementById("points").textContent = points.toFixed(2);
+      } catch (error) {
+        console.error('Error loading comp stats:', error);
+        document.getElementById("leaderboard-rank").textContent = "-";
+        document.getElementById("wins-count").textContent = 0;
+        document.getElementById("points").textContent = "0";
+      }
+    };
+
+    // --- Races data ---
+    async function loadRaces(compId = selectedHomeCompId) {
+      const raceGrid = document.getElementById("raceGrid");
+      raceGrid.innerHTML = "";
+      const tipsMap = new Set();
+      const tipByRace = {};
+
+      if (!compId) {
+        raceGrid.innerHTML = `
+          <div class="col-span-full card rounded-xl p-12 text-center">
+            <div class="max-w-sm mx-auto">
+              <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+                <i data-feather="target" class="h-8 w-8 text-gray-500"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-300 mb-2">Select A Competition</h3>
+              <p class="text-gray-500 text-sm">Choose a competition to view and submit tips.</p>
+            </div>
+          </div>
+        `;
+        feather.replace();
+        return;
+      }
+
+      if (currentUser) {
+        const tipsSnap = await getDocs(
+          query(
+            collection(db, "tips"),
+            where("userId", "==", currentUser.uid),
+            where("compId", "==", compId)
+          )
+        );
+        tipsSnap.forEach((tipDoc) => {
+          const tipData = tipDoc.data();
+          if (tipData?.raceId) {
+            tipsMap.add(tipData.raceId);
+            tipByRace[tipData.raceId] = tipData;
           }
         });
+      }
+
+      const racesSnap = await getDocs(
+        query(collection(db, "races"), where("compId", "==", compId))
+      );
+
+      const nowSydney = DateTime.now().setZone("Australia/Sydney");
+      const races = [];
+
+      racesSnap.forEach(docSnap => {
+        races.push({ id: docSnap.id, ...docSnap.data() });
       });
-    }, 0);
-  }
 
-  async function loadTeamRank(user) {
-    const leaderboardSnap = await getDocs(collection(db, "leaderboard"));
-    const userSnap = await getDocs(collection(db, "users"));
-    let userTeamName = null;
-    userSnap.forEach(doc => {
-      if (doc.id === user.uid) {
-        userTeamName = doc.data().teamName;
+      races.sort((a, b) => {
+        return DateTime.fromISO(`${a.date}T${a.time}`, { zone: "Australia/Sydney" }) -
+               DateTime.fromISO(`${b.date}T${b.time}`, { zone: "Australia/Sydney" });
+      });
+
+      let shown = 0;
+      for (const race of races) {
+        const dt = DateTime.fromISO(`${race.date}T${race.time}`, { zone: "Australia/Sydney" });
+        if (dt < nowSydney) continue; // skip past races
+        shown++;
+
+        // --- Determine photo ---
+        let photo = "default.jpg";
+        const raceName = race.name?.toLowerCase() || "";
+        if (raceName.includes("valley")) photo = "valley.jpg";
+        else if (raceName.includes("randwick")) photo = "randwick.jpg";
+        else if (raceName.includes("rosehill")) photo = "rosehill.jpg";
+        else if (raceName.includes("caulfield")) photo = "caulfield.jpg";
+        else if (raceName.includes("flemington")) photo = "flemington.jpg";
+
+        // --- Countdown target (jump time) ---
+        const targetTime = dt.toMillis();
+        const timerId = `timer-${race.id}`;
+        const isClosed = targetTime <= DateTime.now().toMillis();
+        const previewUrl = (race.preview || "").trim();
+        const hasPreview = previewUrl.length > 0;
+        const tipped = tipsMap.has(race.id);
+        const tipData = tipByRace[race.id] || null;
+        const tippedHorseName = tipped
+          ? (
+              (tipData?.horseId && race.horses?.[tipData.horseId]?.name) ||
+              tipData?.horse ||
+              tipData?.horseName ||
+              ""
+            )
+          : "";
+        const actionText = tipped ? "Tip Submitted" : "Tip Now";
+        const actionClass = tipped
+          ? "bg-green-600 text-white hover:bg-green-500"
+          : "bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 hover:from-yellow-400 hover:to-amber-400 shadow-lg shadow-yellow-900/30";
+
+        const card = document.createElement("div");
+        card.className = "card rounded-xl shadow-lg overflow-hidden";
+
+        card.innerHTML = `
+          <div class="h-36 relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent z-10"></div>
+            <img src="images/${photo}" alt="Race track" class="w-full h-full object-cover" onerror="this.src='images/default.jpg'">
+            ${tipped && tippedHorseName
+              ? `<div class="absolute top-2 left-2 z-20 bg-green-600/95 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md max-w-[90%] truncate" title="Tipped: ${tippedHorseName}">Tipped: ${tippedHorseName}</div>`
+              : ""}
+          </div>
+          <div class="p-6">
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex-1">
+                <h3 class="text-lg font-bold text-gray-100 mb-1 line-clamp-2">${race.name}</h3>
+                <div class="flex items-center text-sm text-gray-400">
+                  <i data-feather="clock" class="h-4 w-4 mr-1"></i>
+                  <span>${dt.toFormat("EEE, LLL d • h:mm a")}</span>
+                </div>
+              </div>
+              <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap ml-2">${race.type || "Open"}</span>
+            </div>
+            <div class="mb-4">
+              <div id="${timerId}" class="${isClosed ? 'countdown-closed' : 'bg-gray-800/50 border border-gray-700'} text-center py-2 rounded-lg text-sm font-semibold ${isClosed ? '' : 'text-yellow-400'}"></div>
+            </div>
+            <div class="space-y-2">
+              <a href="tipdark.html?compId=${compId}&raceId=${race.id}" 
+                 class="block w-full text-center ${actionClass} font-semibold py-2.5 rounded-lg transition-all duration-200">
+                ${actionText}
+              </a>
+              ${hasPreview ? `<a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="block w-full text-center bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold py-2.5 rounded-lg hover:from-red-500 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-900/30">Preview</a>` : ""}
+            </div>
+          </div>
+        `;
+        raceGrid.appendChild(card);
+
+        // Start countdown for this race
+        startCountdown(timerId, targetTime);
       }
-    });
 
-    const leaderboard = [];
-    leaderboardSnap.forEach(doc => {
-      leaderboard.push({ id: doc.id, ...doc.data() });
-    });
-
-    leaderboard.sort((a, b) => b.points - a.points);
-    const rank = leaderboard.findIndex(entry => entry.id === user.uid) + 1;
-
-    document.getElementById("team-name").textContent = userTeamName || "Your Team";
-    document.getElementById("team-rank").textContent = rank || "-";
-  }
-
-  function insertAdminNavLink() {
-    const navUl = document.querySelector('.navbar-nav.ms-lg-5.me-lg-auto');
-    if (!navUl) return;
-    if (!navUl.querySelector('.admin-nav-item')) {
-      const li = document.createElement('li');
-      li.className = 'nav-item admin-nav-item';
-      li.innerHTML = `<a class="nav-link" href="admin.html">Admin</a>`;
-      navUl.appendChild(li);
-    }
-  }
-
-  function showLoading() {
-    document.getElementById('loading-overlay').style.display = 'flex';
-  }
-  function hideLoading() {
-    document.getElementById('loading-overlay').style.display = 'none';
-  }
-
-  onAuthStateChanged(auth, async (user) => {
-    showLoading();
-    renderAuthButtons(user);
-    welcomeMessage.textContent = user ? `Welcome, ${user.displayName || user.email}!` : "Welcome to the Great Spring Tip Off";
-
-    const tipNowBtn = document.getElementById('tip-now-btn');
-    if (tipNowBtn) {
-      tipNowBtn.href = user ? "tip.html" : "login.html";
-    }
-
-    if (user) {
-      const rtdb = getDatabase(app);
-      const adminRef = ref(rtdb, `users/${user.uid}/admin`);
-      const snapshot = await get(adminRef);
-      if (snapshot.exists() && snapshot.val() === true) {
-        insertAdminNavLink();
+      if (shown === 0) {
+        raceGrid.innerHTML = `
+          <div class="col-span-full card rounded-xl p-12 text-center">
+            <div class="max-w-sm mx-auto">
+              <div class="w-16 h-16 mx-auto mb-4 bg-gray-800 rounded-full flex items-center justify-center">
+                <i data-feather="calendar" class="h-8 w-8 text-gray-500"></i>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-300 mb-2">No Upcoming Races</h3>
+              <p class="text-gray-500 text-sm">Check back soon for new racing opportunities!</p>
+            </div>
+          </div>
+        `;
+        feather.replace();
       }
     }
 
-    const teamBox = document.getElementById('team-box');
-    if (user) {
-      teamBox.style.display = "block";
-      await loadTeamRank(user);
-    } else {
-      teamBox.style.display = "none";
-    }
-    hideLoading();
-  });
-</script>
+    // --- Countdown helper ---
+    function startCountdown(elId, targetTime) {
+      const el = document.getElementById(elId);
+      if (!el) return;
 
+      function update() {
+        const now = DateTime.now().toMillis();
+        const diff = targetTime - now;
+        if (diff <= 0) {
+          el.textContent = "⛔ Tipping Closed";
+          el.className = "countdown-closed text-center py-2 rounded-lg text-sm font-semibold";
+          clearInterval(timer);
+          return;
+        }
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        
+        let timeText = "Closes at jump in: ";
+        if (d > 0) timeText += `${d}d `;
+        if (h > 0 || d > 0) timeText += `${h}h `;
+        timeText += `${m}m ${s}s`;
+        el.textContent = timeText;
+      }
+
+      update(); // initial
+      const timer = setInterval(update, 1000);
+    }
+
+    // --- UI setup ---
+    AOS.init({ duration: 800, once: true, offset: 50 });
+
+    // Initialize feather icons
+    feather.replace();
+    
+    // Re-initialize feather icons after dynamic content loads
+    setTimeout(() => feather.replace(), 100);
+    });
+  </script>
 </body>
 </html>
