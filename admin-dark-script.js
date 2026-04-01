@@ -1580,6 +1580,58 @@ async function addHorseToRace() {
   }
 }
 
+async function recalculateRaceHorseTipCounts() {
+  if (!currentRaceId) {
+    showNotification('Select a race first', 'error', 'race-notifications');
+    return;
+  }
+
+  try {
+    const raceRef = doc(db, 'races', currentRaceId);
+    const raceSnap = await getDoc(raceRef);
+    if (!raceSnap.exists()) {
+      showNotification('Race not found', 'error', 'race-notifications');
+      return;
+    }
+
+    const race = raceSnap.data() || {};
+    const horses = { ...(race.horses || {}) };
+    const horseIds = Object.keys(horses);
+    if (!horseIds.length) {
+      showNotification('No horses in this race to recalculate', 'error', 'race-notifications');
+      return;
+    }
+
+    // Reset all counters to zero before counting tips.
+    horseIds.forEach(horseId => {
+      horses[horseId] = {
+        ...horses[horseId],
+        amt: 0
+      };
+    });
+
+    const tipsSnap = await getDocs(query(collection(db, 'tips'), where('raceId', '==', currentRaceId)));
+    let countedTips = 0;
+
+    tipsSnap.forEach(tipDoc => {
+      const tip = tipDoc.data() || {};
+      const horseId = tip?.horseId ? String(tip.horseId) : null;
+      if (!horseId || !horses[horseId]) return;
+
+      const currentAmt = Number(horses[horseId].amt || 0);
+      horses[horseId].amt = (Number.isFinite(currentAmt) ? currentAmt : 0) + 1;
+      countedTips += 1;
+    });
+
+    await updateDoc(raceRef, { horses });
+    await refreshCurrentRaceData();
+    showNotification(`Recalculated horse tip counts from ${countedTips} tip(s)`, 'success', 'race-notifications');
+  } catch (error) {
+    console.error('Error recalculating horse tip counts:', error);
+    showNotification('Error recalculating horse tip counts', 'error', 'race-notifications');
+  }
+}
+
 async function archiveRace() {
   if (!currentRaceId) return;
 
@@ -1930,6 +1982,7 @@ window.saveHorseChange = saveHorseChange;
 window.toggleHorseScratch = toggleHorseScratch;
 window.setSubstituteHorse = setSubstituteHorse;
 window.addHorseToRace = addHorseToRace;
+window.recalculateRaceHorseTipCounts = recalculateRaceHorseTipCounts;
 window.saveResults = saveResults;
 window.switchTab = switchTab;
 window.toggleMobileNav = toggleMobileNav;

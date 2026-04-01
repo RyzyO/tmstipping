@@ -732,7 +732,10 @@
             <div id="horses-tab" class="tab-content hidden">
               <div class="mb-4 flex justify-between items-center">
                 <h3 class="text-base md:text-lg font-semibold">Manage Horses</h3>
-                <button onclick="addHorseToRace()" class="btn-secondary text-xs md:text-sm"><i data-feather="plus" class="h-4 w-4"></i> Add</button>
+                <div class="flex gap-2">
+                  <button onclick="recalculateRaceHorseTipCounts()" class="btn-secondary text-xs md:text-sm"><i data-feather="bar-chart-2" class="h-4 w-4"></i> Recalculate Tip %</button>
+                  <button onclick="addHorseToRace()" class="btn-secondary text-xs md:text-sm"><i data-feather="plus" class="h-4 w-4"></i> Add</button>
+                </div>
               </div>
               <div class="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
                 <table class="horse-table">
