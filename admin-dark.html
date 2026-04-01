@@ -821,6 +821,27 @@
 
             <div id="comp-notifications"></div>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div class="form-group m-0">
+                <label for="comp-search">Search Competitions</label>
+                <input
+                  type="text"
+                  id="comp-search"
+                  placeholder="Search by name or ID..."
+                  oninput="window.handleCompManagementFilterChange()"
+                >
+              </div>
+              <div class="form-group m-0">
+                <label for="comp-filter-status">Filter by Status</label>
+                <select id="comp-filter-status" onchange="window.handleCompManagementFilterChange()">
+                  <option value="all">All</option>
+                  <option value="active">Active</option>
+                  <option value="closed">Closed</option>
+                  <option value="deleted">Deleted</option>
+                </select>
+              </div>
+            </div>
+
             <!-- Competitions List -->
             <div id="comps-list" class="space-y-4">
               <div class="text-center py-12 text-gray-400">Loading competitions...</div>
