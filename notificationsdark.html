@@ -51,9 +51,14 @@
           <h2 class="text-2xl md:text-3xl font-bold gradient-text">Notifications</h2>
           <p class="text-gray-300 mt-2">Latest race reminders and admin updates.</p>
         </div>
-        <button id="enable-notifs-btn" class="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold hover:from-yellow-400 hover:to-amber-400 transition">
-          Enable Browser Notifications
-        </button>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <button id="enable-notifs-btn" class="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold hover:from-yellow-400 hover:to-amber-400 transition">
+            Enable Browser Notifications
+          </button>
+          <button id="send-test-notif-btn" class="px-4 py-2 rounded-lg bg-gray-800 border border-gray-600 text-gray-100 font-semibold hover:border-yellow-400 hover:text-yellow-300 transition">
+            Send Me A Test
+          </button>
+        </div>
       </div>
       <p id="notif-status" class="text-sm text-gray-400 mt-3"></p>
     </section>
@@ -71,7 +76,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, onSnapshot, orderBy, query, where, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, onSnapshot, orderBy, query, where, limit, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
     import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
     import { initUserNotificationCenter, requestNotificationPermission } from "./user-notification-service.js";
@@ -100,6 +105,7 @@
     const countEl = document.getElementById("notif-count");
     const listEl = document.getElementById("notifications-list");
     const enableBtn = document.getElementById("enable-notifs-btn");
+    const sendTestBtn = document.getElementById("send-test-notif-btn");
 
     async function loadUserCompIds(userId) {
       const joinings = await getDocs(
@@ -152,6 +158,9 @@
           .map((d) => ({ id: d.id, ...d.data() }))
           .filter((n) => {
             if ((n.audienceType || "all") === "all") return true;
+            if ((n.audienceType || "all") === "user") {
+              return !!auth.currentUser?.uid && n.userId === auth.currentUser.uid;
+            }
             return !!n.compId && compIds.includes(n.compId);
           });
 
@@ -168,6 +177,28 @@
         statusEl.textContent = "Notifications enabled.";
       } else {
         statusEl.textContent = "Permission not granted.";
+      }
+    });
+
+    sendTestBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      try {
+        await addDoc(collection(db, "notifications"), {
+          title: "Test notification",
+          body: "This test notification is visible only to your account.",
+          category: "test",
+          audienceType: "user",
+          userId: user.uid,
+          createdAt: serverTimestamp(),
+          createdByUid: user.uid,
+          createdByEmail: user.email || null
+        });
+        statusEl.textContent = "Test notification sent to your account.";
+      } catch (error) {
+        console.error("Failed to send test notification:", error);
+        statusEl.textContent = "Failed to send test notification.";
       }
     });
 

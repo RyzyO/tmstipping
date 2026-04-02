@@ -129,6 +129,7 @@ export async function initUserNotificationCenter({ db, messaging, user, getRelev
       const audienceType = data.audienceType || "all";
       const isRelevant =
         audienceType === "all" ||
+        (audienceType === "user" && data.userId && data.userId === user.uid) ||
         (audienceType === "competition" && data.compId && compIds.includes(data.compId));
 
       if (!isRelevant) return;
