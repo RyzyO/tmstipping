@@ -944,6 +944,12 @@
                     <option value="">All users</option>
                   </select>
                 </div>
+                <div class="form-group">
+                  <label for="admin-notif-user-search">Individual User (optional)</label>
+                  <input type="text" id="admin-notif-user-search" placeholder="Search first, last, display or team name..." oninput="window.searchNotificationUsers()">
+                  <div id="admin-notif-user-results" class="mt-2 space-y-2"></div>
+                  <div id="admin-notif-user-selected" class="mt-2 text-sm text-yellow-300"></div>
+                </div>
                 <button onclick="sendAdminNotification()" class="btn-primary">
                   <i data-feather="send" class="h-4 w-4"></i>
                   Send Notification

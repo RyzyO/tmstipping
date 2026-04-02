@@ -29,6 +29,8 @@ let selectedAdminCompId = null;
 let allComps = [];
 let allCompsForManagement = [];
 let currentAdminUser = null;
+let notificationUsersCache = [];
+let selectedNotificationUser = null;
 
 const ADMIN_STATS_CACHE_KEY = 'tmstipping:adminStats';
 
@@ -2444,6 +2446,117 @@ function populateAdminNotificationCompOptions() {
   });
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getNotificationUserSearchText(user) {
+  const firstName = user.firstName || '';
+  const lastName = user.lastName || '';
+  const displayName = user.displayName || '';
+  const teamName = user.teamName || '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  return `${firstName} ${lastName} ${displayName} ${teamName} ${fullName}`.toLowerCase();
+}
+
+function formatNotificationUserLabel(user) {
+  if (!user) return '';
+  const firstName = user.firstName || '';
+  const lastName = user.lastName || '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName || user.displayName || user.teamName || user.email || user.id;
+}
+
+async function ensureNotificationUsersCache() {
+  if (notificationUsersCache.length) return;
+
+  const usersSnap = await getDocs(collection(db, 'users'));
+  notificationUsersCache = usersSnap.docs.map((docSnap) => {
+    const data = docSnap.data() || {};
+    return {
+      id: docSnap.id,
+      firstName: data.firstName || '',
+      lastName: data.lastName || '',
+      displayName: data.displayName || '',
+      teamName: data.teamName || '',
+      email: data.email || ''
+    };
+  });
+}
+
+function renderSelectedNotificationUser() {
+  const selectedEl = document.getElementById('admin-notif-user-selected');
+  if (!selectedEl) return;
+
+  if (!selectedNotificationUser) {
+    selectedEl.innerHTML = '';
+    return;
+  }
+
+  selectedEl.innerHTML = `Targeting user: <strong>${escapeHtml(formatNotificationUserLabel(selectedNotificationUser))}</strong> <button class="btn-secondary" style="padding:4px 8px;font-size:12px;margin-left:8px;" onclick="window.clearNotificationUserSelection()">Clear</button>`;
+}
+
+window.searchNotificationUsers = async function() {
+  const input = document.getElementById('admin-notif-user-search');
+  const resultsEl = document.getElementById('admin-notif-user-results');
+  if (!input || !resultsEl) return;
+
+  const term = (input.value || '').trim().toLowerCase();
+  if (term.length < 2) {
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  try {
+    await ensureNotificationUsersCache();
+    const matches = notificationUsersCache
+      .filter((user) => getNotificationUserSearchText(user).includes(term))
+      .slice(0, 8);
+
+    if (!matches.length) {
+      resultsEl.innerHTML = '<div class="text-xs text-gray-400">No users found.</div>';
+      return;
+    }
+
+    resultsEl.innerHTML = matches.map((user) => `
+      <button type="button" onclick="window.selectNotificationUser('${escapeHtml(user.id)}')" class="w-full text-left bg-gray-800 border border-gray-700 rounded px-3 py-2 hover:border-yellow-400 transition">
+        <div class="text-sm text-gray-100">${escapeHtml(formatNotificationUserLabel(user))}</div>
+        <div class="text-xs text-gray-400">${escapeHtml(user.email || user.id)}</div>
+      </button>
+    `).join('');
+  } catch (error) {
+    console.error('User search failed:', error);
+    resultsEl.innerHTML = '<div class="text-xs text-red-300">User search failed.</div>';
+  }
+};
+
+window.selectNotificationUser = function(userId) {
+  selectedNotificationUser = notificationUsersCache.find((user) => user.id === userId) || null;
+  const input = document.getElementById('admin-notif-user-search');
+  const resultsEl = document.getElementById('admin-notif-user-results');
+  if (input && selectedNotificationUser) {
+    input.value = formatNotificationUserLabel(selectedNotificationUser);
+  }
+  if (resultsEl) {
+    resultsEl.innerHTML = '';
+  }
+  renderSelectedNotificationUser();
+};
+
+window.clearNotificationUserSelection = function() {
+  selectedNotificationUser = null;
+  const input = document.getElementById('admin-notif-user-search');
+  const resultsEl = document.getElementById('admin-notif-user-results');
+  if (input) input.value = '';
+  if (resultsEl) resultsEl.innerHTML = '';
+  renderSelectedNotificationUser();
+};
+
 async function loadAdminNotifications() {
   const listEl = document.getElementById('admin-notifications-list');
   if (!listEl) return;
@@ -2461,7 +2574,9 @@ async function loadAdminNotifications() {
       const n = docSnap.data() || {};
       const audience = n.audienceType === 'competition'
         ? `Comp: ${allComps.find(c => c.id === n.compId)?.name || n.compId || 'Unknown'}`
-        : 'All users';
+        : n.audienceType === 'user'
+          ? `User: ${n.userDisplayName || n.userEmail || n.userId || 'Unknown'}`
+          : 'All users';
       const when = n.createdAt?.toDate
         ? DateTime.fromJSDate(n.createdAt.toDate()).setZone('Australia/Sydney').toFormat('EEE d LLL, h:mm a')
         : 'Pending...';
@@ -2496,6 +2611,7 @@ window.sendAdminNotification = async function() {
   const title = titleInput?.value?.trim() || '';
   const body = bodyInput?.value?.trim() || '';
   const compId = compSelect?.value || '';
+  const targetUser = selectedNotificationUser;
 
   if (!title || !body) {
     showNotification('Enter a title and message first', 'error', 'admin-notification-status');
@@ -2507,8 +2623,11 @@ window.sendAdminNotification = async function() {
       title,
       body,
       category: 'admin',
-      audienceType: compId ? 'competition' : 'all',
+      audienceType: targetUser ? 'user' : (compId ? 'competition' : 'all'),
       compId: compId || null,
+      userId: targetUser?.id || null,
+      userDisplayName: targetUser ? formatNotificationUserLabel(targetUser) : null,
+      userEmail: targetUser?.email || null,
       createdAt: serverTimestamp(),
       createdByUid: currentAdminUser?.uid || null,
       createdByEmail: currentAdminUser?.email || null
@@ -2517,6 +2636,7 @@ window.sendAdminNotification = async function() {
     titleInput.value = '';
     bodyInput.value = '';
     compSelect.value = '';
+    window.clearNotificationUserSelection();
 
     showNotification('Notification sent', 'success', 'admin-notification-status');
     await loadAdminNotifications();
