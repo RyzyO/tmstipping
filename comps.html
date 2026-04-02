@@ -5,11 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Competitions - The Mock Sports</title>
   <link rel="icon" type="image/x-icon" href="icon.png">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -17,143 +12,93 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" content="#fbbf24">
-
+  
+  <!-- Critical CSS inline to avoid FOUC -->
   <style>
-    :root {
-      --bg-0: #0f1419;
-      --bg-1: #1a1f2e;
-      --bg-2: #252d3d;
-      --surface: #1f2a3a;
-      --text-1: #f0f4f8;
-      --text-2: #b0b8c7;
-      --accent: #fbbf24;
-      --accent-dark: #f59e0b;
-      --accent-light: #fcd34d;
-      --radius-md: 14px;
-      --space-4: 16px;
-      --space-5: 24px;
-      --space-6: 32px;
-      --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-      --shadow-lg: 0 16px 32px rgba(0, 0, 0, 0.4);
+    html, body { 
+      margin: 0;
+      padding: 0;
     }
-
-    body {
-      background: linear-gradient(135deg, var(--bg-0) 0%, var(--bg-1) 50%, var(--bg-0) 100%);
-      background-attachment: fixed;
-      color: var(--text-1);
+    body { background-color: #111827; color: #f3f4f6; overflow: auto; }
+    body.loading {
+      overflow: hidden;
     }
-
+  </style>
+  
+  <!-- Load critical resources -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  
+  <style>
     .gradient-text {
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
-
     .glass-effect {
-      background: rgba(15, 20, 25, 0.92);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
     }
-
     .card {
-      background: linear-gradient(145deg, rgba(37, 45, 61, 0.85), rgba(26, 31, 46, 0.85));
-      border: 1px solid rgba(150, 155, 165, 0.15);
-      border-radius: var(--radius-md);
-      transition: all var(--transition);
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-
     .card:hover {
-      background: linear-gradient(145deg, rgba(42, 53, 72, 0.9), rgba(31, 42, 58, 0.9));
+      transform: translateY(-4px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
       border-color: rgba(251, 191, 36, 0.3);
-      transform: translateY(-6px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 40px rgba(251, 191, 36, 0.1);
     }
-
-    .comp-card {
-      display: flex;
-      flex-direction: column;
+    .badge {
+      background: rgba(217, 119, 6, 0.2);
+      border: 1px solid rgba(251, 191, 36, 0.3);
     }
-
-    .comp-badge {
-      display: inline-block;
-      background: rgba(251, 191, 36, 0.12);
-      border: 1px solid rgba(251, 191, 36, 0.35);
-      color: var(--accent-light);
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 0.8125rem;
-      font-weight: 600;
-      width: fit-content;
-      margin-bottom: var(--space-4);
-    }
-
-    .btn-join {
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
-      color: #111827;
-      padding: 12px 16px;
-      border-radius: 10px;
-      font-weight: 600;
-      border: none;
-      cursor: pointer;
-      transition: all var(--transition);
-      box-shadow: 0 8px 24px rgba(251, 191, 36, 0.2);
-      text-decoration: none;
-      display: inline-block;
-      width: 100%;
-      text-align: center;
-      margin-top: auto;
-    }
-
-    .btn-join:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 32px rgba(251, 191, 36, 0.3);
-    }
-
-    .btn-joined {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: white;
-      cursor: not-allowed;
-    }
-
-    .tab-button {
-      padding: 12px 24px;
-      background: transparent;
-      border: none;
-      color: var(--text-2);
-      cursor: pointer;
-      font-weight: 600;
-      transition: all var(--transition);
-      position: relative;
-    }
-
-    .tab-button.active {
-      color: var(--accent);
-    }
-
-    .tab-button.active::after {
-      content: '';
-      position: absolute;
-      bottom: -2px;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--accent);
-    }
-
     .skeleton {
-      background: linear-gradient(90deg, rgba(55, 65, 81, 0.4) 25%, rgba(75, 85, 99, 0.4) 50%, rgba(55, 65, 81, 0.4) 75%);
+      background: linear-gradient(90deg, rgba(55, 65, 81, 0.3) 25%, rgba(75, 85, 99, 0.3) 50%, rgba(55, 65, 81, 0.3) 75%);
       background-size: 200% 100%;
-      animation: shimmer 1.8s infinite;
-      border-radius: 10px;
+      animation: shimmer 1.5s infinite;
     }
-
     @keyframes shimmer {
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
-
+    select {
+      background-color: #111827;
+      color: #f3f4f6;
+    }
+    select option {
+      background-color: #111827;
+      color: #f3f4f6;
+    }
+    .tab-button {
+      padding: 8px 14px;
+      background: rgba(31, 41, 55, 0.45);
+      border: 1px solid rgba(75, 85, 99, 0.4);
+      border-radius: 10px;
+      color: #d1d5db;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      line-height: 1.2;
+      transition: all 200ms;
+      white-space: nowrap;
+    }
+    .tab-button:hover {
+      border-color: rgba(251, 191, 36, 0.4);
+      color: #f3f4f6;
+    }
+    .tab-button.active {
+      color: #111827;
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      border-color: rgba(251, 191, 36, 0.7);
+      box-shadow: 0 10px 20px -14px rgba(251, 191, 36, 0.8);
+    }
     .modal {
       display: none;
       position: fixed;
@@ -167,47 +112,31 @@
       align-items: center;
       justify-content: center;
     }
-
     .modal.active {
       display: flex;
     }
-
     .modal-content {
-      background: linear-gradient(145deg, rgba(37, 45, 61, 0.95), rgba(26, 31, 46, 0.95));
-      border: 1px solid rgba(150, 155, 165, 0.15);
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
+      border: 1px solid rgba(75, 85, 99, 0.3);
       border-radius: 16px;
       padding: 32px;
       max-width: 500px;
       width: 90%;
       box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-      animation: slideUp 0.3s ease-out;
     }
-
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
     .close-btn {
       position: absolute;
       top: 16px;
       right: 16px;
       background: none;
       border: none;
-      color: var(--text-2);
+      color: #d1d5db;
       cursor: pointer;
       font-size: 24px;
-      transition: color var(--transition);
+      transition: color 200ms;
     }
-
     .close-btn:hover {
-      color: var(--accent);
+      color: #fbbf24;
     }
   </style>
 </head>
@@ -216,35 +145,43 @@
   <!-- Navigation -->
   <nav class="sticky top-0 z-50 glass-effect">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center py-4 md:py-5">
-        <div class="flex items-center gap-3">
-          <img src="images/logo.png" alt="Logo" class="h-8 w-8" style="object-fit: contain;" />
-          <h1 class="text-lg md:text-xl font-bold gradient-text">The Mock Sports</h1>
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit: contain;" />
+          <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
         </div>
-        <div class="flex items-center space-x-2 md:space-x-6">
-          <button class="md:hidden p-2 rounded-lg hover:bg-gray-800 transition-colors" onclick="toggleMenu()">
-            <i data-feather="menu" class="h-6 w-6 text-gray-300"></i>
+        <div class="flex items-center space-x-4">
+          <button class="md:hidden" onclick="toggleMenu()">
+            <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
           </button>
-          <div class="hidden md:flex items-center space-x-1">
-            <a href="dark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Home</a>
-            <a href="comps.html" class="px-3 py-2 rounded-lg text-yellow-400 hover:bg-gray-800 transition-all duration-200">Competitions</a>
-            <a href="tipdark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Tip Now</a>
-            <a href="leaderboarddark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Leaderboard</a>
-            <a href="resultsdark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Results</a>
-            <a href="profiledark.html" class="px-3 py-2 rounded-lg text-gray-300 hover:text-yellow-400 hover:bg-gray-800 transition-all duration-200">Profile</a>
-            <button onclick="signOut()" class="px-3 py-2 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-900/20 transition-all duration-200 font-medium ml-2">Sign Out</button>
+          <div class="hidden md:flex space-x-6">
+            <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+            <a href="comps.html" class="text-yellow-400 transition">Competitions</a>
+            <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+            <a href="notificationsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Notifications</a>
+            <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+            <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
+            <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
+            <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+            <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+            <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
+            <button onclick="signOut()" class="text-gray-300 hover:text-red-400 transition font-semibold">Sign Out</button>
           </div>
         </div>
       </div>
     </div>
-    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-3 space-y-1 border-t border-gray-800/50">
-      <a href="dark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Home</a>
-      <a href="comps.html" class="block px-3 py-2.5 text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Competitions</a>
-      <a href="tipdark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Tip Now</a>
-      <a href="leaderboarddark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Leaderboard</a>
-      <a href="resultsdark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Results</a>
-      <a href="profiledark.html" class="block px-3 py-2.5 text-gray-300 hover:text-yellow-400 hover:bg-gray-800 rounded-lg transition-all">Profile</a>
-      <button onclick="signOut()" class="w-full text-left px-3 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-lg transition-all font-medium mt-2">Sign Out</button>
+    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
+      <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
+      <a href="comps.html" class="block py-2 text-yellow-400 transition">Competitions</a>
+      <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+      <a href="notificationsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Notifications</a>
+      <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+      <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
+      <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
+      <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+      <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+      <a href="profiledark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Profile</a>
+      <button onclick="signOut()" class="block w-full text-left py-2 text-red-400 hover:text-red-300 transition font-semibold">Sign Out</button>
     </div>
   </nav>
 
@@ -252,16 +189,16 @@
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
     
     <!-- Header -->
-    <section class="mb-12" data-aos="fade-up">
-      <div class="card rounded-2xl p-8 md:p-12">
+    <section class="mb-8" data-aos="fade-up">
+      <div class="card rounded-2xl p-7 md:p-9">
         <h2 class="text-3xl md:text-4xl font-bold mb-3 text-white">Competitions</h2>
         <p class="text-lg text-gray-400">Browse and join competitions to compete for prizes and glory</p>
       </div>
     </section>
 
     <!-- Tabs -->
-    <div class="mb-12 border-b border-gray-800">
-      <div class="flex gap-2 md:gap-8 overflow-x-auto">
+    <div class="mb-8 border-b border-gray-800 pb-3">
+      <div class="flex gap-2 md:gap-3 overflow-x-auto">
         <button class="tab-button active" data-tab="active" onclick="switchTab('active', this)">Active Comps</button>
         <button class="tab-button" data-tab="joined" onclick="switchTab('joined', this)">My Comps</button>
         <button class="tab-button" data-tab="past" onclick="switchTab('past', this)">Past Comps</button>
@@ -272,21 +209,21 @@
     <section id="active-section" data-aos="fade-up">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="activeCompsGrid">
         <!-- Skeleton Loading -->
-        <div class="card rounded-xl p-6 comp-card h-80">
+        <div class="card rounded-xl p-6 flex flex-col">
           <div class="skeleton h-6 w-3/4 mb-4"></div>
           <div class="skeleton h-4 w-full mb-2"></div>
           <div class="skeleton h-4 w-full mb-2"></div>
           <div class="skeleton h-4 w-1/2 mb-8"></div>
           <div class="skeleton h-12 w-full mt-auto"></div>
         </div>
-        <div class="card rounded-xl p-6 comp-card h-80 hidden md:flex flex-col">
+        <div class="card rounded-xl p-6 hidden md:flex flex-col">
           <div class="skeleton h-6 w-3/4 mb-4"></div>
           <div class="skeleton h-4 w-full mb-2"></div>
           <div class="skeleton h-4 w-full mb-2"></div>
           <div class="skeleton h-4 w-1/2 mb-8"></div>
           <div class="skeleton h-12 w-full mt-auto"></div>
         </div>
-        <div class="card rounded-xl p-6 comp-card h-80 hidden lg:flex flex-col">
+        <div class="card rounded-xl p-6 comp-card hidden lg:flex flex-col">
           <div class="skeleton h-6 w-3/4 mb-4"></div>
           <div class="skeleton h-4 w-full mb-2"></div>
           <div class="skeleton h-4 w-full mb-2"></div>
@@ -345,11 +282,11 @@
       <div id="paymentSection" class="space-y-4">
         <div id="paidCompSection" class="hidden">
           <p class="text-sm text-gray-400">To join this competition, you'll proceed to secure payment via Stripe.</p>
-          <button onclick="proceedToPayment()" class="btn-join w-full">Join & Pay $<span id="feeAmount">0</span></button>
+          <button onclick="proceedToPayment()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join & Pay $<span id="feeAmount">0</span></button>
         </div>
         <div id="freeCompSection" class="hidden">
           <p class="text-sm text-gray-400">This is a free competition. Click below to join!</p>
-          <button onclick="proceedToPayment()" class="btn-join w-full">Join Competition</button>
+          <button onclick="proceedToPayment()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join Competition</button>
         </div>
       </div>
       
@@ -361,45 +298,26 @@
   </div>
 
   <!-- Footer -->
-  <footer class="border-t border-gray-800/50 text-gray-400 py-12 mt-20">
+  <footer class="bg-gray-950 border-t border-gray-800 text-gray-400 py-10 mt-16">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-8">
-        <div>
-          <div class="flex items-center mb-3">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex flex-col items-center md:items-start">
+          <div class="flex items-center mb-2">
             <img src="images/logo.png" alt="Logo" class="h-6 w-6 mr-2" style="object-fit: contain;" />
-            <span class="font-semibold text-white text-lg">The Mock Sports</span>
+            <span class="font-semibold text-gray-300">The Mock Sports</span>
           </div>
-          <p class="text-sm text-gray-500">Compete in multiple competitions, manage your entries, and win prizes.</p>
+          <p class="text-sm text-gray-500">&copy; 2026 All rights reserved.</p>
         </div>
-        <div>
-          <h4 class="font-semibold text-white mb-4">Quick Links</h4>
-          <ul class="space-y-2 text-sm">
-            <li><a href="dark.html" class="text-gray-400 hover:text-yellow-400 transition">Home</a></li>
-            <li><a href="comps.html" class="text-gray-400 hover:text-yellow-400 transition">Competitions</a></li>
-            <li><a href="leaderboarddark.html" class="text-gray-400 hover:text-yellow-400 transition">Leaderboard</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="font-semibold text-white mb-4">Follow Us</h4>
-          <div class="flex space-x-4">
-            <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-yellow-400 transition-colors hover:scale-110">
-              <i data-feather="twitter" class="h-5 w-5"></i>
-            </a>
-            <a href="https://facebook.com/TheMockSports" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-yellow-400 transition-colors hover:scale-110">
-              <i data-feather="facebook" class="h-5 w-5"></i>
-            </a>
-            <a href="https://instagram.com/themocksports" target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-yellow-400 transition-colors hover:scale-110">
-              <i data-feather="instagram" class="h-5 w-5"></i>
-            </a>
-          </div>
-        </div>
-      </div>
-      <div class="border-t border-gray-800/30 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-        <p class="text-xs text-gray-600">&copy; 2026 The Mock Sports. All rights reserved.</p>
-        <div class="flex space-x-6 text-xs">
-          <a href="#" class="text-gray-500 hover:text-gray-400 transition">Privacy</a>
-          <a href="#" class="text-gray-500 hover:text-gray-400 transition">Terms</a>
-          <a href="contact.html" class="text-gray-500 hover:text-gray-400 transition">Contact</a>
+        <div class="flex space-x-6">
+          <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on X">
+            <i data-feather="twitter" class="h-5 w-5"></i>
+          </a>
+          <a href="https://facebook.com/TheMockSports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Facebook">
+            <i data-feather="facebook" class="h-5 w-5"></i>
+          </a>
+          <a href="https://instagram.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Instagram">
+            <i data-feather="instagram" class="h-5 w-5"></i>
+          </a>
         </div>
       </div>
     </div>
@@ -426,6 +344,8 @@
     const auth = getAuth(app);
     let currentUser = null;
     let selectedComp = null;
+    let hasInitializedPage = false;
+    let pendingAuthRedirectTimer = null;
     const JOIN_INTENT_KEY = 'tmstipping:pendingJoinIntent';
 
     function readJoinIntent() {
@@ -537,24 +457,24 @@
       for (const comp of comps) {
         const isJoined = currentUser && await checkUserJoined(currentUser.uid, comp.id);
         const card = document.createElement('div');
-        card.className = 'card rounded-xl p-6 comp-card';
+        card.className = 'card rounded-xl p-6 comp-card flex flex-col';
         
         const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
         const entryFee = (comp.entryFee || 0).toFixed(2);
         const participantCount = comp.participantCount || 0;
         
         card.innerHTML = `
-          <div class="comp-badge">${comp.status === 'active' ? '🔴 LIVE' : '✓ Closed'}</div>
+          <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium inline-block mb-3">${comp.status === 'active' ? '🔴 LIVE' : '✓ Closed'}</span>
           <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
           <p class="text-sm text-gray-400 mb-4 flex-1">${comp.description || 'Join this competition and compete for prizes'}</p>
-          <div class="space-y-2 text-sm text-gray-400 mb-6">
+          <div class="space-y-2 text-sm text-gray-400 mb-4">
             <div class="flex justify-between">
               <span>Entry Fee:</span>
-              <span class="text-accent font-bold">$${entryFee}</span>
+              <span class="text-yellow-400 font-bold">$${entryFee}</span>
             </div>
             <div class="flex justify-between">
               <span>Prize Pool:</span>
-              <span class="text-accent font-bold">$${(comp.prizePool || 0).toFixed(2)}</span>
+              <span class="text-yellow-400 font-bold">$${(comp.prizePool || 0).toFixed(2)}</span>
             </div>
             <div class="flex justify-between">
               <span>Ends:</span>
@@ -562,8 +482,8 @@
             </div>
           </div>
           ${isJoined
-            ? `<button class="btn-join btn-joined" type="button" disabled aria-disabled="true">✓ Already Joined</button>`
-            : `<button onclick="openJoinModal('${comp.id}')" class="btn-join">Join ($${entryFee})</button>`}
+            ? `<button class="w-full px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-500 transition disabled:opacity-50" type="button" disabled aria-disabled="true">✓ Already Joined</button>`
+            : `<button onclick="openJoinModal('${comp.id}')" class="w-full px-4 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join ($${entryFee})</button>`}
         `;
         grid.appendChild(card);
       }
@@ -595,7 +515,7 @@
         
         const comp = compSnap.data();
         const card = document.createElement('div');
-        card.className = 'card rounded-xl p-6 comp-card';
+        card.className = 'card rounded-xl p-6 comp-card flex flex-col';
         
         const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
         const parsedRank = Number(joining.rank);
@@ -604,13 +524,13 @@
           : '-';
         
         card.innerHTML = `
-          <div class="comp-badge text-green-400 border-green-500/50 bg-green-500/10">✓ Joined</div>
+          <span class="badge text-green-400 border-green-500/50 bg-green-500/10 px-2.5 py-1 rounded-lg text-xs font-medium inline-block mb-3">✓ Joined</span>
           <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
           <p class="text-sm text-gray-400 mb-4 flex-1">${comp.description || ''}</p>
-          <div class="space-y-2 text-sm text-gray-400 mb-6">
+          <div class="space-y-2 text-sm text-gray-400 mb-4">
             <div class="flex justify-between">
               <span>Your Rank:</span>
-              <span class="text-accent font-bold">${rankLabel}</span>
+              <span class="text-yellow-400 font-bold">${rankLabel}</span>
             </div>
             <div class="flex justify-between">
               <span>Points:</span>
@@ -621,7 +541,7 @@
               <span class="font-bold">${endDate}</span>
             </div>
           </div>
-          <a href="tipdark.html?compId=${comp.id}" class="btn-join" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+          <a href="tipdark.html?compId=${comp.id}" class="block w-full text-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500 transition">
             Go to Tips
           </a>
         `;
@@ -640,17 +560,17 @@
       grid.innerHTML = '';
       for (const comp of comps) {
         const card = document.createElement('div');
-        card.className = 'card rounded-xl p-6 comp-card opacity-75';
+        card.className = 'card rounded-xl p-6 opacity-75 flex flex-col';
         
         const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
         
         card.innerHTML = `
-          <div class="comp-badge text-gray-400 border-gray-600 bg-gray-600/10">Closed</div>
+          <span class="badge text-gray-400 border-gray-600 bg-gray-600/10 px-2.5 py-1 rounded-lg text-xs font-medium inline-block mb-3">Closed</span>
           <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
           <p class="text-sm text-gray-500 mb-4 flex-1">${comp.description || ''}</p>
-          <div class="space-y-2 text-sm text-gray-500 mb-6">
+          <div class="space-y-2 text-sm text-gray-500 mb-4">
             <div class="flex justify-between">
-              <span>Price Pool:</span>
+              <span>Prize Pool:</span>
               <span class="font-bold">$${(comp.prizePool || 0).toFixed(2)}</span>
             </div>
             <div class="flex justify-between">
@@ -658,7 +578,7 @@
               <span class="font-bold">${endDate}</span>
             </div>
           </div>
-          <a href="resultsdark.html?compId=${comp.id}" class="btn-join" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); cursor: not-allowed;">
+          <a href="resultsdark.html?compId=${comp.id}" class="block w-full text-center px-4 py-2 bg-gray-600 text-white font-semibold rounded-lg hover:bg-gray-500 transition">
             View Results
           </a>
         `;
@@ -863,15 +783,34 @@
     }
 
     onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = buildLoginRedirectUrl();
+      if (user) {
+        if (pendingAuthRedirectTimer) {
+          clearTimeout(pendingAuthRedirectTimer);
+          pendingAuthRedirectTimer = null;
+        }
+
+        currentUser = user;
+
+        if (!hasInitializedPage) {
+          hasInitializedPage = true;
+          await loadComps();
+          await processPendingJoinIntent();
+          AOS.init({ duration: 800, once: true, offset: 50 });
+          feather.replace();
+        }
         return;
       }
-      currentUser = user;
-      await loadComps();
-      await processPendingJoinIntent();
-      AOS.init({ duration: 800, once: true, offset: 50 });
-      feather.replace();
+
+      // Guard against transient null states during navigation/token refresh.
+      if (pendingAuthRedirectTimer) {
+        clearTimeout(pendingAuthRedirectTimer);
+      }
+
+      pendingAuthRedirectTimer = setTimeout(() => {
+        if (!auth.currentUser) {
+          window.location.href = buildLoginRedirectUrl();
+        }
+      }, 600);
     });
   </script>
 </body>
