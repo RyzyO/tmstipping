@@ -153,13 +153,13 @@
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
   <!-- Loading Indicator -->
-  <div id="loadingOverlay" class="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center backdrop-blur-sm" style="display: flex;">
+  <div id="loadingOverlay" class="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center backdrop-blur-sm" style="display: none;">
     <div class="flex flex-col items-center gap-4">
       <div class="relative w-16 h-16">
         <div class="absolute inset-0 rounded-full border-4 border-gray-700"></div>
         <div class="absolute inset-0 rounded-full border-4 border-transparent border-t-yellow-400 border-r-yellow-400 animate-spin"></div>
       </div>
-      <p class="text-gray-300 font-medium">Welcome Back!</p>
+      <p class="text-gray-300 font-medium">Loading...</p>
     </div>
   </div>
 
@@ -488,6 +488,12 @@
         loadingOverlay.style.display = 'none';
       }
       document.body.classList.remove('loading');
+    } else {
+      // No cached data - show loading indicator
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      if (loadingOverlay) {
+        loadingOverlay.style.display = 'flex';
+      }
     }
 
     // Initialize UI immediately (don't wait for async data)
