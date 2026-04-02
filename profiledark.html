@@ -37,11 +37,17 @@
 
     let currentUser = null;
     let selectedSilk = 1;
+    let championsSilkUnlocked = false;
+
+    const CHAMPIONS_SILK_KEY = 'champions';
+    const CHAMPIONS_SILK_IMAGE = 'static/silks/champion.png';
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUser = user;
         try {
+          championsSilkUnlocked = await loadChampionsSilkUnlock();
+          renderSilkGrid();
           await loadUserProfile();
           await loadUserStats();
           await loadUserCompsStats();
@@ -53,6 +59,55 @@
       }
     });
 
+    function isCompetitionFinished(comp) {
+      if (!comp) return false;
+
+      const status = String(comp.status || '').toLowerCase();
+      if (['finished', 'closed', 'completed', 'ended'].includes(status)) {
+        return true;
+      }
+
+      if (comp.endDate) {
+        const endDate = new Date(comp.endDate);
+        if (!Number.isNaN(endDate.getTime()) && endDate.getTime() < Date.now()) {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function isFirstPlaceRank(rankValue) {
+      const parsed = Number(rankValue);
+      return Number.isFinite(parsed) && parsed === 149;
+    }
+
+    async function loadChampionsSilkUnlock() {
+      if (!currentUser) return false;
+
+      try {
+        const joiningsSnap = await getDocs(
+          query(collection(db, 'userCompJoinings'), where('userId', '==', currentUser.uid))
+        );
+
+        for (const joinDoc of joiningsSnap.docs) {
+          const joining = joinDoc.data();
+          if (!isFirstPlaceRank(joining.rank)) continue;
+
+          const compSnap = await getDoc(doc(db, 'comps', joining.compId));
+          if (!compSnap.exists()) continue;
+
+          if (isCompetitionFinished(compSnap.data())) {
+            return true;
+          }
+        }
+      } catch (error) {
+        console.error('Error checking Champions Silk unlock:', error);
+      }
+
+      return false;
+    }
+
     async function loadUserProfile() {
       if (!currentUser) return;
       
@@ -62,6 +117,9 @@
           const userData = userDoc.data();
           document.getElementById('userName').textContent = userData.teamName || currentUser.email;
           selectedSilk = userData.silk || 1;
+          if (selectedSilk === CHAMPIONS_SILK_KEY && !championsSilkUnlocked) {
+            selectedSilk = 1;
+          }
           updateSilkSelection(selectedSilk);
           updateProfileAvatar(selectedSilk);
         } else {
@@ -175,7 +233,10 @@
       if (!avatarEl) return;
       
       if (silkNumber) {
-        avatarEl.innerHTML = `<img src="static/silks/${silkNumber}.png" alt="Silk ${silkNumber}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i data-feather=\\'user\\' class=\\'h-8 w-8 text-yellow-400\\'></i>'; feather.replace();">`;
+        const isChampionsSilk = silkNumber === CHAMPIONS_SILK_KEY;
+        const silkImage = isChampionsSilk ? CHAMPIONS_SILK_IMAGE : `static/silks/${silkNumber}.png`;
+        const silkLabel = isChampionsSilk ? 'Champions Silk' : `Silk ${silkNumber}`;
+        avatarEl.innerHTML = `<img src="${silkImage}" alt="${silkLabel}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i data-feather=\\'user\\' class=\\'h-8 w-8 text-yellow-400\\'></i>'; feather.replace();">`;
       } else {
         avatarEl.innerHTML = `<i data-feather="user" class="h-8 w-8 text-yellow-400"></i>`;
       }
@@ -341,23 +402,44 @@
       }
     };
 
-    // Initialize silk grid when page loads
-    document.addEventListener('DOMContentLoaded', () => {
+    function createSilkOption({ silkKey, imageSrc, label }) {
+      const silkOption = document.createElement('div');
+      silkOption.className = 'silk-option cursor-pointer rounded-xl p-4 border-2 border-gray-700 hover:border-yellow-400 transition-all duration-200';
+      silkOption.setAttribute('data-silk', silkKey);
+      silkOption.onclick = () => window.selectSilk(silkKey);
+      silkOption.innerHTML = `
+        <img src="${imageSrc}" alt="${label}" class="w-full h-auto rounded-lg" onerror="this.src='images/logo.png'">
+        <p class="text-center text-gray-400 text-sm mt-2">${label}</p>
+      `;
+
+      return silkOption;
+    }
+
+    function renderSilkGrid() {
       const silkGrid = document.getElementById('silkGrid');
-      if (silkGrid) {
-        for (let i = 1; i <= 32; i++) {
-          const silkOption = document.createElement('div');
-          silkOption.className = 'silk-option cursor-pointer rounded-xl p-4 border-2 border-gray-700 hover:border-yellow-400 transition-all duration-200';
-          silkOption.setAttribute('data-silk', i);
-          silkOption.onclick = () => window.selectSilk(i);
-          silkOption.innerHTML = `
-            <img src="static/silks/${i}.png" alt="Silk ${i}" class="w-full h-auto rounded-lg" onerror="this.src='images/logo.png'">
-            <p class="text-center text-gray-400 text-sm mt-2">Silk ${i}</p>
-          `;
-          silkGrid.appendChild(silkOption);
-        }
+      if (!silkGrid) return;
+
+      silkGrid.innerHTML = '';
+
+      if (championsSilkUnlocked) {
+        silkGrid.appendChild(createSilkOption({
+          silkKey: CHAMPIONS_SILK_KEY,
+          imageSrc: CHAMPIONS_SILK_IMAGE,
+          label: 'Champions Silk'
+        }));
       }
-    });
+
+      for (let i = 1; i <= 32; i++) {
+        silkGrid.appendChild(createSilkOption({
+          silkKey: i,
+          imageSrc: `static/silks/${i}.png`,
+          label: `Silk ${i}`
+        }));
+      }
+    }
+
+    // Initialize with default silks before auth resolves.
+    document.addEventListener('DOMContentLoaded', renderSilkGrid);
   </script>
 
   <style>
