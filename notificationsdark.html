@@ -159,7 +159,9 @@
           .filter((n) => {
             if ((n.audienceType || "all") === "all") return true;
             if ((n.audienceType || "all") === "user") {
-              return !!auth.currentUser?.uid && n.userId === auth.currentUser.uid;
+              const uidMatch = !!auth.currentUser?.uid && n.userId === auth.currentUser.uid;
+              const emailMatch = !!auth.currentUser?.email && !!n.userEmail && String(n.userEmail).toLowerCase() === String(auth.currentUser.email).toLowerCase();
+              return uidMatch || emailMatch;
             }
             return !!n.compId && compIds.includes(n.compId);
           });

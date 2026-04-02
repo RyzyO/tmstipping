@@ -126,10 +126,16 @@ export async function initUserNotificationCenter({ db, messaging, user, getRelev
       const data = docSnap.data() || {};
       const id = docSnap.id;
 
+      const userIdMatch = !!data.userId && data.userId === user.uid;
+      const userEmailMatch =
+        !!data.userEmail &&
+        !!user.email &&
+        String(data.userEmail).toLowerCase() === String(user.email).toLowerCase();
+
       const audienceType = data.audienceType || "all";
       const isRelevant =
         audienceType === "all" ||
-        (audienceType === "user" && data.userId && data.userId === user.uid) ||
+        (audienceType === "user" && (userIdMatch || userEmailMatch)) ||
         (audienceType === "competition" && data.compId && compIds.includes(data.compId));
 
       if (!isRelevant) return;
