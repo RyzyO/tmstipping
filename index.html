@@ -144,6 +144,7 @@
           <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
           <a href="comps.html" class="text-gray-300 hover:text-yellow-400 transition">Competitions</a>
           <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+          <a href="notificationsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Notifications</a>
           <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
           <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
           <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
@@ -160,6 +161,7 @@
     <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
     <a href="comps.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Competitions</a>
     <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+    <a href="notificationsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Notifications</a>
     <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
     <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
     <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
@@ -310,6 +312,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, doc, getDoc, getDocs, collection, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+   import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+   import { initUserNotificationCenter, scheduleRaceReminderNotifications } from "./user-notification-service.js";
 
     const { DateTime } = luxon;
 
@@ -326,9 +330,12 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    const messaging = getMessaging(app);
     let currentUser = null;
     let currentUserProfile = null;
     let selectedHomeCompId = null;
+    let userCompIds = [];
+    let stopUserNotificationCenter = null;
     const HOME_RACES_CACHE_PREFIX = 'tmstipping:homeRacesCache';
 
     function toggleMenu() {
@@ -414,6 +421,16 @@
       loadCurrentUserProfile(currentUser.uid)
     ]);
 
+    if (stopUserNotificationCenter) {
+      stopUserNotificationCenter();
+    }
+    stopUserNotificationCenter = await initUserNotificationCenter({
+      db,
+      messaging,
+      user: currentUser,
+      getRelevantCompIds: async () => userCompIds
+    });
+
     // --- User's Competitions (Replaced by dropdown selector) ---
     // Old loadUserComps function kept for reference but no longer used
     async function loadUserComps_deprecated(userId) {
@@ -440,6 +457,7 @@
           compIds.push(doc.data().compId);
         });
         const uniqueCompIds = Array.from(new Set(compIds.filter(Boolean)));
+        userCompIds = uniqueCompIds;
         
         // Clear existing options except the first one
         while (select.options.length > 1) {
@@ -763,6 +781,7 @@
       // Always refresh in background and repaint with newest data.
       const fresh = await fetchRacesAndTipsForComp(compId);
       renderRacesGrid(compId, fresh.races, fresh.tipsMap, fresh.tipByRace);
+      scheduleRaceReminderNotifications(fresh.races, { compId });
       if (currentUser) {
         writeHomeRacesCache(currentUser.uid, compId, fresh.races, fresh.tipByRace);
       }

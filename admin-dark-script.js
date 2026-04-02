@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
+import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where, addDoc, serverTimestamp, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
 
 // Initialize Firebase
@@ -28,6 +28,7 @@ let sortedDatesCache = [];
 let selectedAdminCompId = null;
 let allComps = [];
 let allCompsForManagement = [];
+let currentAdminUser = null;
 
 const ADMIN_STATS_CACHE_KEY = 'tmstipping:adminStats';
 
@@ -56,11 +57,13 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   applyCachedAdminStats();
+  currentAdminUser = user;
 
   // User is authenticated and is admin - load dashboard
   await loadAllComps();
   await loadDashboardStats(selectedAdminCompId);
   await loadRacesList();
+  await loadAdminNotifications();
   AOS.init();
 });
 
@@ -338,6 +341,8 @@ async function selectRace(raceId) {
   // Show details panel
   document.getElementById('no-selection').classList.add('hidden');
   document.getElementById('new-race-panel').classList.add('hidden');
+  document.getElementById('comps-panel')?.classList.add('hidden');
+  document.getElementById('notifications-panel')?.classList.add('hidden');
   document.getElementById('race-details-panel').classList.remove('hidden');
 
   // Populate fields
@@ -2380,6 +2385,8 @@ async function loadAllComps() {
       const race = allRaces.find(r => r.id === currentRaceId);
       await populateMoveRaceCompSelect(race?.compId || null);
     }
+
+    populateAdminNotificationCompOptions();
   } catch (error) {
     console.error('Error loading competitions:', error);
   }
@@ -2396,16 +2403,126 @@ window.handleCompSelectionChange = async function() {
 
 // ============ COMPETITIONS MANAGEMENT ============
 window.switchMainTab = function(tab) {
-  // Hide all main panels
-  document.getElementById('race-details-panel').classList.add('hidden');
-  document.getElementById('comps-panel').classList.add('hidden');
+  const racePanel = document.getElementById('race-details-panel');
+  const noSelectionPanel = document.getElementById('no-selection');
+  const newRacePanel = document.getElementById('new-race-panel');
+  const compsPanel = document.getElementById('comps-panel');
+  const notificationsPanel = document.getElementById('notifications-panel');
+
+  racePanel?.classList.add('hidden');
+  noSelectionPanel?.classList.add('hidden');
+  newRacePanel?.classList.add('hidden');
+  compsPanel?.classList.add('hidden');
+  notificationsPanel?.classList.add('hidden');
   
-  // Show selected panel
   if (tab === 'comps') {
-    document.getElementById('comps-panel').classList.remove('hidden');
+    compsPanel?.classList.remove('hidden');
     loadCompsManagement();
+  } else if (tab === 'notifications') {
+    notificationsPanel?.classList.remove('hidden');
+    populateAdminNotificationCompOptions();
+    loadAdminNotifications();
   } else {
-    document.getElementById('race-details-panel').classList.remove('hidden');
+    if (currentRaceId) {
+      racePanel?.classList.remove('hidden');
+    } else {
+      noSelectionPanel?.classList.remove('hidden');
+    }
+  }
+};
+
+function populateAdminNotificationCompOptions() {
+  const select = document.getElementById('admin-notif-comp');
+  if (!select) return;
+
+  select.innerHTML = '<option value="">All users</option>';
+  allComps.forEach((comp) => {
+    const option = document.createElement('option');
+    option.value = comp.id;
+    option.textContent = comp.name || comp.id;
+    select.appendChild(option);
+  });
+}
+
+async function loadAdminNotifications() {
+  const listEl = document.getElementById('admin-notifications-list');
+  if (!listEl) return;
+
+  try {
+    const snap = await getDocs(query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(30)));
+
+    if (snap.empty) {
+      listEl.innerHTML = '<div class="text-sm text-gray-400">No notifications sent yet.</div>';
+      return;
+    }
+
+    listEl.innerHTML = '';
+    snap.forEach((docSnap) => {
+      const n = docSnap.data() || {};
+      const audience = n.audienceType === 'competition'
+        ? `Comp: ${allComps.find(c => c.id === n.compId)?.name || n.compId || 'Unknown'}`
+        : 'All users';
+      const when = n.createdAt?.toDate
+        ? DateTime.fromJSDate(n.createdAt.toDate()).setZone('Australia/Sydney').toFormat('EEE d LLL, h:mm a')
+        : 'Pending...';
+
+      const row = document.createElement('div');
+      row.className = 'bg-gray-800 rounded-lg border border-gray-700 p-3';
+      row.innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="font-semibold text-gray-100">${n.title || 'Notification'}</div>
+            <div class="text-sm text-gray-300 mt-1">${n.body || ''}</div>
+            <div class="text-xs text-gray-500 mt-2">${audience}</div>
+          </div>
+          <div class="text-xs text-gray-500 whitespace-nowrap">${when}</div>
+        </div>
+      `;
+      listEl.appendChild(row);
+    });
+
+    feather.replace();
+  } catch (error) {
+    console.error('Error loading admin notifications:', error);
+    listEl.innerHTML = '<div class="text-sm text-red-300">Could not load notifications.</div>';
+  }
+}
+
+window.sendAdminNotification = async function() {
+  const titleInput = document.getElementById('admin-notif-title');
+  const bodyInput = document.getElementById('admin-notif-body');
+  const compSelect = document.getElementById('admin-notif-comp');
+
+  const title = titleInput?.value?.trim() || '';
+  const body = bodyInput?.value?.trim() || '';
+  const compId = compSelect?.value || '';
+
+  if (!title || !body) {
+    showNotification('Enter a title and message first', 'error', 'admin-notification-status');
+    return;
+  }
+
+  try {
+    await addDoc(collection(db, 'notifications'), {
+      title,
+      body,
+      category: 'admin',
+      audienceType: compId ? 'competition' : 'all',
+      compId: compId || null,
+      createdAt: serverTimestamp(),
+      createdByUid: currentAdminUser?.uid || null,
+      createdByEmail: currentAdminUser?.email || null
+    });
+
+    titleInput.value = '';
+    bodyInput.value = '';
+    compSelect.value = '';
+
+    showNotification('Notification sent', 'success', 'admin-notification-status');
+    await loadAdminNotifications();
+  } catch (error) {
+    console.error('Error sending admin notification:', error);
+    showNotification('Failed to send notification', 'error', 'admin-notification-status');
   }
 };
 

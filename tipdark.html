@@ -89,6 +89,7 @@
             <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
             <a href="comps.html" class="text-gray-300 hover:text-yellow-400 transition">Competitions</a>
             <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+            <a href="notificationsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Notifications</a>
             <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
             <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
             <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
@@ -103,6 +104,7 @@
       <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
       <a href="comps.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Competitions</a>
       <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+      <a href="notificationsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Notifications</a>
       <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
       <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
       <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
@@ -242,6 +244,8 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
     import { getFirestore, collection, doc, setDoc, getDocs, getDoc, query, where, runTransaction, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
     import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+    import { initUserNotificationCenter, scheduleRaceReminderNotifications } from "./user-notification-service.js";
     const { DateTime } = luxon;
 
     const firebaseConfig = {
@@ -256,8 +260,10 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    const messaging = getMessaging(app);
 
     const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{}, pendingRaceId:null, selectedCompId:null };
+    let stopUserNotificationCenter = null;
     const TIP_RACES_CACHE_PREFIX = 'tmstipping:tipRacesCache';
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -340,6 +346,17 @@
           window.location.href = "comps.html";
           return;
         }
+
+        if (stopUserNotificationCenter) {
+          stopUserNotificationCenter();
+        }
+        stopUserNotificationCenter = await initUserNotificationCenter({
+          db,
+          messaging,
+          user: state.user,
+          getRelevantCompIds: async () => (state.selectedCompId ? [state.selectedCompId] : [])
+        });
+
         await refreshJokerCount(); await loadUserTips(); await loadRaces();
       }finally{ setBusy(false); }
     });
@@ -551,6 +568,7 @@
       Object.entries(fresh.tipByRace).forEach(([raceId, tip]) => { state.userTipsCache[raceId] = tip; });
 
       renderTipRacesGrid(races, fresh.tipsMap, fresh.tipByRace);
+      scheduleRaceReminderNotifications(races, { compId: state.selectedCompId });
       writeTipRacesCache(state.user?.uid, state.selectedCompId, races, fresh.tipByRace);
     }
 

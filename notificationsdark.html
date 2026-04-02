@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Notifications - The Great Spring Tip Off</title>
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <style>
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col">
+  <nav class="sticky top-0 z-50 glass-effect">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <img src="images/logo.png" alt="Logo" class="h-8 w-8 mr-2" style="object-fit: contain;" />
+          <h1 class="text-xl font-bold gradient-text">The Great Spring Tip Off</h1>
+        </div>
+        <div class="hidden md:flex space-x-6">
+          <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+          <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+          <a href="notificationsdark.html" class="text-yellow-400">Notifications</a>
+          <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1">
+    <section class="card rounded-2xl p-6 mb-6">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 class="text-2xl md:text-3xl font-bold gradient-text">Notifications</h2>
+          <p class="text-gray-300 mt-2">Latest race reminders and admin updates.</p>
+        </div>
+        <button id="enable-notifs-btn" class="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold hover:from-yellow-400 hover:to-amber-400 transition">
+          Enable Browser Notifications
+        </button>
+      </div>
+      <p id="notif-status" class="text-sm text-gray-400 mt-3"></p>
+    </section>
+
+    <section class="card rounded-2xl p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Notification History</h3>
+        <span id="notif-count" class="text-sm text-gray-400">0</span>
+      </div>
+      <div id="notifications-list" class="space-y-3">
+        <div class="text-sm text-gray-400">Loading notifications...</div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, onSnapshot, orderBy, query, where, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+    import { initUserNotificationCenter, requestNotificationPermission } from "./user-notification-service.js";
+
+    const { DateTime } = luxon;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const messaging = getMessaging(app);
+
+    let compIds = [];
+    let stopCenter = null;
+
+    const statusEl = document.getElementById("notif-status");
+    const countEl = document.getElementById("notif-count");
+    const listEl = document.getElementById("notifications-list");
+    const enableBtn = document.getElementById("enable-notifs-btn");
+
+    async function loadUserCompIds(userId) {
+      const joinings = await getDocs(
+        query(
+          collection(db, "userCompJoinings"),
+          where("userId", "==", userId),
+          where("paymentStatus", "==", "completed")
+        )
+      );
+      return Array.from(new Set(joinings.docs.map((d) => d.data()?.compId).filter(Boolean)));
+    }
+
+    function renderNotifications(items) {
+      countEl.textContent = `${items.length}`;
+
+      if (!items.length) {
+        listEl.innerHTML = '<div class="text-sm text-gray-400">No notifications yet.</div>';
+        return;
+      }
+
+      listEl.innerHTML = "";
+      for (const n of items) {
+        const when = n.createdAt?.toDate
+          ? DateTime.fromJSDate(n.createdAt.toDate()).setZone("Australia/Sydney").toFormat("EEE d LLL, h:mm a")
+          : "Pending...";
+
+        const audience = n.audienceType === "competition" ? "Competition update" : "Global update";
+
+        const row = document.createElement("div");
+        row.className = "bg-gray-800 rounded-lg border border-gray-700 p-4";
+        row.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="font-semibold text-gray-100">${n.title || "Notification"}</div>
+              <div class="text-sm text-gray-300 mt-1">${n.body || ""}</div>
+              <div class="text-xs text-gray-500 mt-2">${audience}</div>
+            </div>
+            <div class="text-xs text-gray-500 whitespace-nowrap">${when}</div>
+          </div>
+        `;
+        listEl.appendChild(row);
+      }
+      feather.replace();
+    }
+
+    function watchNotificationHistory() {
+      const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(120));
+      onSnapshot(q, (snap) => {
+        const filtered = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((n) => {
+            if ((n.audienceType || "all") === "all") return true;
+            return !!n.compId && compIds.includes(n.compId);
+          });
+
+        renderNotifications(filtered);
+      });
+    }
+
+    enableBtn.addEventListener("click", async () => {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      const result = await requestNotificationPermission({ db, user, messaging });
+      if (result.ok) {
+        statusEl.textContent = "Notifications enabled.";
+      } else {
+        statusEl.textContent = "Permission not granted.";
+      }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      compIds = await loadUserCompIds(user.uid);
+      statusEl.textContent = Notification.permission === "granted"
+        ? "Notifications are enabled for this browser."
+        : "Enable browser notifications to receive race alerts.";
+
+      if (stopCenter) stopCenter();
+      stopCenter = await initUserNotificationCenter({
+        db,
+        messaging,
+        user,
+        getRelevantCompIds: async () => compIds
+      });
+
+      watchNotificationHistory();
+    });
+
+    feather.replace();
+  </script>
+</body>
+</html>
