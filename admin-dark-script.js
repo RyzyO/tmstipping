@@ -1114,9 +1114,10 @@ async function loadRaceHorses(race) {
   }
 
   Object.entries(race.horses).forEach(([idx, horse]) => {
+    const horseNumber = horse.no ?? horse.number ?? '';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><input type="text" value="${horse.no}" data-field="no" data-idx="${idx}" style="width: 60px;"></td>
+      <td><input type="text" value="${horseNumber}" data-field="no" data-idx="${idx}" style="width: 60px;"></td>
       <td><input type="text" value="${horse.name}" data-field="name" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.trainer || ''}" data-field="trainer" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.jockey || ''}" data-field="jockey" data-idx="${idx}"></td>
@@ -1136,7 +1137,7 @@ async function saveHorseChange(btn) {
 
   const inputs = btn.parentElement.parentElement.querySelectorAll('input');
   const idx = inputs[0].dataset.idx;
-  const no = inputs[0].value;
+  const horseNumber = inputs[0].value;
   const name = inputs[1].value;
   const trainer = inputs[2].value;
   const jockey = inputs[3].value;
@@ -1147,7 +1148,7 @@ async function saveHorseChange(btn) {
   try {
     const raceRef = doc(db, 'races', currentRaceId);
     await updateDoc(raceRef, {
-      [`horses.${idx}`]: { no, name, trainer, jockey, barrier, weight, silkDesc }
+      [`horses.${idx}`]: { no: horseNumber, number: horseNumber, name, trainer, jockey, barrier, weight, silkDesc }
     });
     showNotification('Horse updated', 'success', 'race-notifications');
   } catch (error) {
@@ -1164,7 +1165,16 @@ async function addHorseToRace() {
 
   try {
     await updateDoc(doc(db, 'races', currentRaceId), {
-      [`horses.${newIdx}`]: { no: newIdx + 1, name: '', trainer: '', jockey: '', barrier: '', weight: '', silkDesc: '' }
+      [`horses.${newIdx}`]: {
+        no: String(newIdx + 1),
+        number: String(newIdx + 1),
+        name: '',
+        trainer: '',
+        jockey: '',
+        barrier: '',
+        weight: '',
+        silkDesc: ''
+      }
     });
 
     const raceSnap = await getDoc(doc(db, 'races', currentRaceId));
@@ -1189,7 +1199,7 @@ async function loadResultsForm() {
     Object.entries(race.horses).forEach(([idx, horse]) => {
       const option = document.createElement('option');
       option.value = idx;
-      option.textContent = `${horse.no} - ${horse.name}`;
+      option.textContent = `${horse.no ?? horse.number ?? ''} - ${horse.name}`;
       select.appendChild(option);
     });
   });
@@ -1200,12 +1210,19 @@ async function loadResultsForm() {
   const snap = await getDocs(q);
   if (snap.docs.length > 0) {
     const result = snap.docs[0].data();
-    if (result.winner) document.getElementById('winner-horse-id').value = result.winner.idx || '';
-    if (result.place1) document.getElementById('place1-horse-id').value = result.place1.idx || '';
-    if (result.place2) document.getElementById('place2-horse-id').value = result.place2.idx || '';
-    if (result.winner?.points) document.getElementById('winner-points').value = result.winner.points;
-    if (result.place1?.points) document.getElementById('place1-points').value = result.place1.points;
-    if (result.place2?.points) document.getElementById('place2-points').value = result.place2.points;
+    document.getElementById('winner-horse-id').value = result.winner?.idx || result.winningHorseId || '';
+    document.getElementById('place1-horse-id').value = result.place1?.idx || result.place1HorseId || '';
+    document.getElementById('place2-horse-id').value = result.place2?.idx || result.place2HorseId || '';
+
+    if (result.winner?.points !== undefined || result.points !== undefined) {
+      document.getElementById('winner-points').value = result.winner?.points ?? result.points;
+    }
+    if (result.place1?.points !== undefined || result.place1Points !== undefined) {
+      document.getElementById('place1-points').value = result.place1?.points ?? result.place1Points;
+    }
+    if (result.place2?.points !== undefined || result.place2Points !== undefined) {
+      document.getElementById('place2-points').value = result.place2?.points ?? result.place2Points;
+    }
   }
 }
 
@@ -1217,29 +1234,34 @@ async function saveResults() {
   const winnerIdx = document.getElementById('winner-horse-id').value;
   const place1Idx = document.getElementById('place1-horse-id').value;
   const place2Idx = document.getElementById('place2-horse-id').value;
+  const winnerPoints = parseInt(document.getElementById('winner-points').value, 10) || 10;
+  const place1Points = parseInt(document.getElementById('place1-points').value, 10) || 5;
+  const place2Points = parseInt(document.getElementById('place2-points').value, 10) || 2;
 
   try {
-    const resultsRef = collection(db, 'results');
-    const q = query(resultsRef, where('raceId', '==', currentRaceId));
-    const snap = await getDocs(q);
-
     const result = {
       raceId: currentRaceId,
       raceName: race.name,
-      winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx].name, points: parseInt(document.getElementById('winner-points').value) || 10 } : null,
-      place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx].name, points: parseInt(document.getElementById('place1-points').value) || 5 } : null,
-      place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx].name, points: parseInt(document.getElementById('place2-points').value) || 2 } : null,
-      createdAt: new Date().toISOString()
+      compId: race.compId || selectedAdminCompId || null,
+      winningHorseId: winnerIdx || null,
+      points: winnerPoints,
+      place1HorseId: place1Idx || null,
+      place1Points,
+      place2HorseId: place2Idx || null,
+      place2Points,
+      winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx].name, points: winnerPoints } : null,
+      place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx].name, points: place1Points } : null,
+      place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx].name, points: place2Points } : null,
+      updatedAt: serverTimestamp()
     };
 
-    if (snap.docs.length > 0) {
-      await updateDoc(snap.docs[0].ref, result);
-    } else {
-      await setDoc(doc(resultsRef), result);
-    }
+    await setDoc(doc(db, 'results', currentRaceId), result, { merge: true });
 
-    // Calculate leaderboard
-    await calculateAndSaveLeaderboard();
+    // Recalculate points for this competition only
+    await calculateAndSaveLeaderboard(race.compId || selectedAdminCompId || null);
+
+    // Refresh dashboard cards after leaderboard update
+    await loadDashboardStats(selectedAdminCompId);
 
     showNotification('Results saved and leaderboard updated!', 'success', 'race-notifications');
   } catch (error) {
@@ -1248,39 +1270,74 @@ async function saveResults() {
   }
 }
 
-async function calculateAndSaveLeaderboard() {
+async function calculateAndSaveLeaderboard(compId) {
   try {
-    const resultsRef = collection(db, 'results');
-    const resultsSnap = await getDocs(resultsRef);
-    const leaderboardMap = {};
+    if (!compId) {
+      console.warn('Skipping leaderboard recalculation: missing compId');
+      return;
+    }
 
-    resultsSnap.docs.forEach(doc => {
-      const result = doc.data();
-      const tipsRef = collection(db, 'tips');
-      getDocs(query(tipsRef, where('raceId', '==', result.raceId))).then(tipsSnap => {
-        tipsSnap.docs.forEach(tipDoc => {
-          const tip = tipDoc.data();
-          const userId = tip.userId;
+    const [racesSnap, tipsSnap, joiningsSnap, resultsSnap] = await Promise.all([
+      getDocs(query(collection(db, 'races'), where('compId', '==', compId))),
+      getDocs(query(collection(db, 'tips'), where('compId', '==', compId))),
+      getDocs(query(collection(db, 'userCompJoinings'), where('compId', '==', compId))),
+      getDocs(collection(db, 'results'))
+    ]);
 
-          if (!leaderboardMap[userId]) {
-            leaderboardMap[userId] = { userId, points: 0, wins: 0 };
-          }
+    const raceIds = new Set(racesSnap.docs.map(d => d.id));
+    const resultsByRaceId = {};
+    const userPoints = {};
 
-          if (tip.horseId == result.winner?.idx) {
-            leaderboardMap[userId].points += result.winner.points;
-            leaderboardMap[userId].wins += 1;
-          } else if (tip.horseId == result.place1?.idx || tip.horseId == result.place2?.idx) {
-            leaderboardMap[userId].points += 3;
-          }
-        });
-      });
+    joiningsSnap.docs.forEach(joinDoc => {
+      const joining = joinDoc.data();
+      if (joining.userId) {
+        userPoints[joining.userId] = 0;
+      }
     });
 
-    const leaderboardRef = collection(db, 'leaderboard');
+    resultsSnap.docs.forEach(resultDoc => {
+      const result = resultDoc.data();
+      const raceId = resultDoc.id || result.raceId;
+      if (raceIds.has(raceId)) {
+        resultsByRaceId[raceId] = result;
+      }
+    });
+
+    tipsSnap.docs.forEach(tipDoc => {
+      const tip = tipDoc.data();
+      if (!raceIds.has(tip.raceId)) return;
+
+      const result = resultsByRaceId[tip.raceId];
+      if (!result) return;
+
+      const winningHorseId = result.winningHorseId ?? result.winner?.idx ?? null;
+      const place1HorseId = result.place1HorseId ?? result.place1?.idx ?? null;
+      const place2HorseId = result.place2HorseId ?? result.place2?.idx ?? null;
+      const winningPoints = Number(result.points ?? result.winner?.points ?? 0) || 0;
+      const place1Points = Number(result.place1Points ?? result.place1?.points ?? 0) || 0;
+      const place2Points = Number(result.place2Points ?? result.place2?.points ?? 0) || 0;
+
+      let pointsEarned = 0;
+      if (tip.horseId == winningHorseId) pointsEarned += winningPoints;
+      if (tip.horseId == place1HorseId) pointsEarned += place1Points;
+      if (tip.horseId == place2HorseId) pointsEarned += place2Points;
+      if (tip.joker && pointsEarned > 0) pointsEarned *= 2;
+
+      if (!userPoints[tip.userId]) {
+        userPoints[tip.userId] = 0;
+      }
+      userPoints[tip.userId] += pointsEarned;
+    });
+
     const batch = writeBatch(db);
 
-    Object.values(leaderboardMap).forEach(entry => {
-      batch.set(doc(leaderboardRef, entry.userId), entry, { merge: true });
+    joiningsSnap.docs.forEach(joinDoc => {
+      const joining = joinDoc.data();
+      const points = Number((userPoints[joining.userId] || 0).toFixed(2));
+      batch.update(joinDoc.ref, {
+        points,
+        leaderboardUpdatedAt: serverTimestamp()
+      });
     });
 
     await batch.commit();
@@ -1314,6 +1371,7 @@ async function loadRaceTips(race) {
       if (isPaid) paidTipsCount++;
 
       const horse = race.horses?.[tip.horseId];
+      const horseNumber = horse?.no ?? horse?.number ?? '—';
       const userSnap = await getDoc(doc(db, 'users', tip.userId));
       const userName = userSnap.data()?.name || 'Unknown User';
 
@@ -1325,7 +1383,7 @@ async function loadRaceTips(race) {
           ${isPaid ? '<span class="text-yellow-400 text-xs">PAID</span>' : ''}
         </div>
         <div class="text-gray-300">
-          ${horse ? `${horse.no} - ${horse.name}` : 'Unknown Horse'}
+          ${horse ? `${horseNumber} - ${horse.name}` : 'Unknown Horse'}
         </div>
       `;
       tipsList.appendChild(tipEl);
