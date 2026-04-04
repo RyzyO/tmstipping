@@ -261,11 +261,41 @@
 
     const urlParams = new URLSearchParams(window.location.search);
     state.pendingRaceId = urlParams.get('raceId');
-    state.selectedCompId = urlParams.get('compId') || 'default-comp'; // Default to legacy comp
+    state.selectedCompId = urlParams.get('compId') || null;
 
     function showLoading(){ document.getElementById('loading-overlay').classList.remove('hidden'); }
     function hideLoading(){ document.getElementById('loading-overlay').classList.add('hidden'); }
     function setBusy(b){ state.inFlight=b; if(b) showLoading(); else hideLoading(); }
+
+    async function resolveCompIdForSession(user){
+      if(state.selectedCompId) return state.selectedCompId;
+
+      // If opened from a race card (raceId in URL), derive its comp first.
+      if(state.pendingRaceId){
+        const raceSnap = await getDoc(doc(db, "races", state.pendingRaceId));
+        if(raceSnap.exists()){
+          const raceData = raceSnap.data();
+          if(raceData.compId){
+            state.selectedCompId = raceData.compId;
+            return state.selectedCompId;
+          }
+        }
+      }
+
+      // Otherwise fall back to the first joined competition.
+      const joiningsSnap = await getDocs(query(collection(db, "userCompJoinings"), where("userId", "==", user.uid)));
+      for(const joiningDoc of joiningsSnap.docs){
+        const compId = joiningDoc.data()?.compId;
+        if(compId){
+          state.selectedCompId = compId;
+          return state.selectedCompId;
+        }
+      }
+
+      // Legacy fallback for old races without compId.
+      state.selectedCompId = 'default-comp';
+      return state.selectedCompId;
+    }
 
     onAuthStateChanged(auth, async (_user)=>{
       setBusy(true);
@@ -276,12 +306,13 @@
           return; 
         }
         state.user=_user;
+        await resolveCompIdForSession(_user);
         
         // Check if user has joined the selected comp
         const joiningRef = doc(db, "userCompJoinings", `${_user.uid}_${state.selectedCompId}`);
         const joiningSnap = await getDoc(joiningRef);
         
-        if(!joiningSnap.exists()) {
+        if(state.selectedCompId !== 'default-comp' && !joiningSnap.exists()) {
           alert("You haven't joined this competition yet. Please join first.");
           window.location.href = "comps.html";
           return;
