@@ -1234,9 +1234,9 @@ async function saveResults() {
   const winnerIdx = document.getElementById('winner-horse-id').value;
   const place1Idx = document.getElementById('place1-horse-id').value;
   const place2Idx = document.getElementById('place2-horse-id').value;
-  const winnerPoints = parseInt(document.getElementById('winner-points').value, 10) || 10;
-  const place1Points = parseInt(document.getElementById('place1-points').value, 10) || 5;
-  const place2Points = parseInt(document.getElementById('place2-points').value, 10) || 2;
+  const winnerPoints = parseFloat(document.getElementById('winner-points').value) || 10;
+  const place1Points = parseFloat(document.getElementById('place1-points').value) || 5;
+  const place2Points = parseFloat(document.getElementById('place2-points').value) || 2;
 
   try {
     const result = {
