@@ -390,7 +390,19 @@
     }
 
     function buildLoginRedirectUrl() {
-      const returnPath = `${window.location.pathname}${window.location.search}`;
+      const returnUrl = new URL(`${window.location.pathname}${window.location.search}`, window.location.origin);
+      const pendingIntent = readJoinIntent() || readJoinIntentFromUrl();
+
+      if (pendingIntent?.compId) {
+        returnUrl.searchParams.set('joinCompId', pendingIntent.compId);
+        if (pendingIntent.prompt) {
+          returnUrl.searchParams.set('joinPrompt', '1');
+        } else {
+          returnUrl.searchParams.delete('joinPrompt');
+        }
+      }
+
+      const returnPath = `${returnUrl.pathname}${returnUrl.search}`;
       return `login.html?redirect=${encodeURIComponent(returnPath)}`;
     }
 

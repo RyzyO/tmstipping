@@ -16,6 +16,19 @@
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 
   <style>
+    html, body {
+      min-height: 100%;
+      overflow-x: hidden;
+    }
+    body {
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch;
+    }
+    @supports (height: 100dvh) {
+      body {
+        min-height: 100dvh;
+      }
+    }
     .gradient-text {
       background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
       -webkit-background-clip: text;
@@ -159,6 +172,7 @@
         <div class="text-center">
           <p class="text-gray-400 text-sm mb-3">Don't have an account?</p>
           <a 
+            id="signup-link"
             href="signup.html" 
             class="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg border-2 border-yellow-500 text-yellow-400 font-semibold hover:bg-yellow-500 hover:text-gray-900 transition-all"
           >
@@ -209,6 +223,7 @@
     const errorMessage = document.getElementById('error-message');
     const forgotPasswordLink = document.getElementById('forgot-password');
     const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+    const signupLink = document.getElementById('signup-link');
 
     function getSafeRedirectTarget() {
       if (!redirectParam) return 'dark.html';
@@ -219,6 +234,10 @@
         return redirectParam;
       }
       return redirectParam.substring(1);
+    }
+
+    if (signupLink && redirectParam) {
+      signupLink.href = `signup.html?redirect=${encodeURIComponent(redirectParam)}`;
     }
 
     loginForm.addEventListener('submit', async (e) => {
