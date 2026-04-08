@@ -1609,11 +1609,6 @@ async function loadRaceHorses(race) {
     return;
   }
 
-  let substituteHorseId = null;
-  Object.entries(race.horses).forEach(([horseId, horse]) => {
-    if (horse.substitute) substituteHorseId = horseId;
-  });
-
   const sortedHorses = Object.entries(race.horses).sort((a, b) => {
     const aNo = Number(a[1].no ?? a[1].number ?? 0);
     const bNo = Number(b[1].no ?? b[1].number ?? 0);
@@ -1672,8 +1667,8 @@ async function saveHorseChange(btn) {
     await updateDoc(raceRef, {
       [`horses.${idx}`]: {
         ...existingHorse,
-        no,
-        number: no,
+        no: horseNumber,
+        number: horseNumber,
         name,
         trainer,
         jockey,
@@ -1754,13 +1749,16 @@ async function addHorseToRace() {
 
   const race = allRaces.find(r => r.id === currentRaceId);
   const horses = race.horses || {};
-  const newIdx = Math.max(...Object.keys(horses).map(Number), -1) + 1;
+  const numericKeys = Object.keys(horses)
+    .map(key => Number(key))
+    .filter(value => Number.isFinite(value));
+  const newIdx = numericKeys.length ? String(Math.max(...numericKeys) + 1) : doc(collection(db, '_')).id;
 
   try {
     await updateDoc(doc(db, 'races', currentRaceId), {
       [`horses.${newIdx}`]: {
-        no: newIdx + 1,
-        number: String(newIdx + 1),
+        no: String(numericKeys.length ? Number(newIdx) + 1 : ''),
+        number: String(numericKeys.length ? Number(newIdx) + 1 : ''),
         name: '',
         trainer: '',
         jockey: '',
