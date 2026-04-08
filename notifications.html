@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Notifications - The Great Spring Tip Off</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <link href="css/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #151b2f;
+      --panel-2: #1d2540;
+      --text: #f3f6ff;
+      --muted: #9fb0d4;
+      --gold: #fbbf24;
+      --line: rgba(251, 191, 36, 0.25);
+    }
+
+    body {
+      background: radial-gradient(circle at 10% 10%, #24315a 0, var(--bg) 45%) fixed;
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .card-panel {
+      background: linear-gradient(160deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .navbar {
+      background: rgba(8, 12, 25, 0.9);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(8px);
+    }
+
+    .navbar-brand, .nav-link {
+      color: var(--text) !important;
+    }
+
+    .nav-link:hover {
+      color: var(--gold) !important;
+    }
+
+    .status {
+      color: var(--muted);
+      min-height: 1.5rem;
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg sticky-top">
+    <div class="container">
+      <a class="navbar-brand d-flex align-items-center" href="index.html">
+        <img src="logo.jfif" alt="Logo" style="height:32px;width:32px;border-radius:8px;object-fit:cover;margin-right:.6rem;">
+        <span>The Great Spring Tip Off</span>
+      </a>
+      <button class="navbar-toggler btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <i class="bi bi-list"></i>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="index.html">Home</a></li>
+          <li class="nav-item"><a class="nav-link" href="notifications.html">Notifications</a></li>
+          <li class="nav-item"><a class="nav-link" href="tip.html">Tip Now</a></li>
+          <li class="nav-item"><a class="nav-link" href="leaderboard.html">Leaderboard</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card-panel p-4 p-md-5">
+          <h1 class="h3 mb-2">Notifications</h1>
+          <p class="mb-4" style="color:var(--muted);">Enable push alerts, then send a cloud test notification.</p>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <button id="enableNotifications" type="button" class="btn btn-success">
+              <span id="notif-btn-text">Enable Notifications</span>
+              <span id="notif-btn-spinner" class="spinner-border spinner-border-sm" style="display:none;margin-left:8px;" role="status" aria-hidden="true"></span>
+            </button>
+            <button id="testCloudNotification" type="button" class="btn btn-outline-light" style="display:none;">
+              Test Cloud Notification
+            </button>
+          </div>
+
+          <div id="notif-status" class="status"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { getFirestore, doc, setDoc, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+    import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+    import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
+      authDomain: "tmstipping.firebaseapp.com",
+      projectId: "tmstipping",
+      storageBucket: "tmstipping.appspot.com",
+      messagingSenderId: "401677933527",
+      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
+      measurementId: "G-GXLRCHV687"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const messaging = getMessaging(app);
+    const functions = getFunctions(app, "us-central1");
+
+    const enableBtn = document.getElementById("enableNotifications");
+    const testBtn = document.getElementById("testCloudNotification");
+    const btnText = document.getElementById("notif-btn-text");
+    const btnSpinner = document.getElementById("notif-btn-spinner");
+    const statusEl = document.getElementById("notif-status");
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    async function saveFcmTokenForCurrentUser(token) {
+      if (!token || !auth.currentUser) return;
+      await setDoc(doc(db, "users", auth.currentUser.uid), {
+        fcmTokens: arrayUnion(token),
+        notificationSettings: {
+          enabled: true,
+          updatedAt: serverTimestamp()
+        }
+      }, { merge: true });
+    }
+
+    async function enableNotifications() {
+      btnText.textContent = "Enabling...";
+      btnSpinner.style.display = "inline-block";
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          setStatus("Notification permission not granted.");
+          return;
+        }
+
+        const token = await getToken(messaging, {
+          vapidKey: "BO4uGOEfVg5qRKLRTapkgdZJj22xf3_CBV1TlZg_jjCkvDg0qEVB46mgewqtK9MrUy1atMjlJS4DefmX7fI-IYg"
+        });
+
+        await saveFcmTokenForCurrentUser(token);
+        setStatus("Notifications enabled and token saved.");
+        btnText.textContent = "Notifications Enabled";
+      } catch (error) {
+        console.error(error);
+        setStatus("Failed to enable notifications.");
+      } finally {
+        btnSpinner.style.display = "none";
+      }
+    }
+
+    async function sendCloudTest() {
+      testBtn.disabled = true;
+      const originalText = testBtn.textContent;
+      testBtn.textContent = "Sending...";
+      try {
+        const call = httpsCallable(functions, "sendNotificationTest");
+        const result = await call({
+          title: "Cloud test notification",
+          body: "This was sent from Cloud Functions."
+        });
+        const success = result?.data?.successCount || 0;
+        const failed = result?.data?.failureCount || 0;
+        setStatus(`Cloud test complete. Success: ${success}, Failed: ${failed}`);
+      } catch (error) {
+        console.error(error);
+        setStatus("Cloud test failed. Make sure functions are deployed.");
+      } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = originalText;
+      }
+    }
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/firebase-messaging-sw.js").catch((err) => {
+        console.error("Service worker registration failed:", err);
+      });
+    }
+
+    onMessage(messaging, (payload) => {
+      const title = payload?.notification?.title || "Notification";
+      const body = payload?.notification?.body || "";
+      alert(`${title}\n${body}`);
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setStatus("Please log in to enable and test notifications.");
+        testBtn.style.display = "none";
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        try {
+          const token = await getToken(messaging, {
+            vapidKey: "BO4uGOEfVg5qRKLRTapkgdZJj22xf3_CBV1TlZg_jjCkvDg0qEVB46mgewqtK9MrUy1atMjlJS4DefmX7fI-IYg"
+          });
+          await saveFcmTokenForCurrentUser(token);
+          testBtn.style.display = "inline-block";
+          enableBtn.style.display = "none";
+          setStatus("Ready. You can run a cloud test notification.");
+        } catch (error) {
+          console.error(error);
+          setStatus("Could not refresh token. Click Enable Notifications.");
+        }
+      } else {
+        enableBtn.style.display = "inline-block";
+        testBtn.style.display = "none";
+      }
+    });
+
+    enableBtn.addEventListener("click", enableNotifications);
+    testBtn.addEventListener("click", sendCloudTest);
+  </script>
+</body>
+</html>

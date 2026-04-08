@@ -1656,7 +1656,7 @@ async function saveHorseChange(btn) {
 
   const inputs = btn.parentElement.parentElement.querySelectorAll('input');
   const idx = inputs[0].dataset.idx;
-  const no = inputs[0].value;
+  const horseNumber = inputs[0].value;
   const name = inputs[1].value;
   const trainer = inputs[2].value;
   const jockey = inputs[3].value;
@@ -1923,6 +1923,9 @@ async function saveResults() {
   const winnerIdx = document.getElementById('winner-horse-id').value;
   const place1Idx = document.getElementById('place1-horse-id').value;
   const place2Idx = document.getElementById('place2-horse-id').value;
+  const winnerPoints = parseFloat(document.getElementById('winner-points').value) || 10;
+  const place1Points = parseFloat(document.getElementById('place1-points').value) || 5;
+  const place2Points = parseFloat(document.getElementById('place2-points').value) || 2;
 
   try {
     const resultsRef = collection(db, 'results');
@@ -1949,14 +1952,13 @@ async function saveResults() {
       createdAt: new Date().toISOString()
     };
 
-    if (snap.docs.length > 0) {
-      await updateDoc(snap.docs[0].ref, result);
-    } else {
-      await setDoc(doc(resultsRef), result);
-    }
+    await setDoc(doc(db, 'results', currentRaceId), result, { merge: true });
 
-    // Calculate leaderboard
-    await calculateAndSaveLeaderboard();
+    // Recalculate points for this competition only
+    await calculateAndSaveLeaderboard(race.compId || selectedAdminCompId || null);
+
+    // Refresh dashboard cards after leaderboard update
+    await loadDashboardStats(selectedAdminCompId);
 
     showNotification('Results saved and leaderboard updated!', 'success', 'race-notifications');
   } catch (error) {
@@ -1965,7 +1967,7 @@ async function saveResults() {
   }
 }
 
-async function calculateAndSaveLeaderboard() {
+async function calculateAndSaveLeaderboard(compId) {
   try {
     const resultsRef = collection(db, 'results');
     const resultsSnap = await getDocs(resultsRef);
@@ -2119,6 +2121,7 @@ async function loadRaceTips(race) {
       if (isPaid) paidTipsCount++;
 
       const horse = race.horses?.[tip.horseId];
+      const horseNumber = horse?.no ?? horse?.number ?? '—';
       const userSnap = await getDoc(doc(db, 'users', tip.userId));
       const userName = userSnap.data()?.name || 'Unknown User';
 
@@ -2130,7 +2133,7 @@ async function loadRaceTips(race) {
           ${isPaid ? '<span class="text-yellow-400 text-xs">PAID</span>' : ''}
         </div>
         <div class="text-gray-300">
-          ${horse ? `${horse.no} - ${horse.name}` : 'Unknown Horse'}
+          ${horse ? `${horseNumber} - ${horse.name}` : 'Unknown Horse'}
         </div>
       `;
       tipsList.appendChild(tipEl);
