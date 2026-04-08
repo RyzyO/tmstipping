@@ -2,7 +2,8 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/fireba
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where, addDoc, serverTimestamp, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
-import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
+import { getFunctions } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
+import { setupNotificationListener, sendAdminNotification } from './js/user-notification-service.js';
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -20,6 +21,9 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
 const functions = getFunctions(app, 'us-central1');
+
+// Only one notification handler per page
+setupNotificationListener(true);
 
 // Global State
 let currentRaceId = null;
@@ -2622,8 +2626,7 @@ window.sendAdminNotification = async function() {
   }
 
   try {
-    const callSendAdminNotification = httpsCallable(functions, 'sendAdminNotification');
-    await callSendAdminNotification({
+    await sendAdminNotification(functions, {
       title,
       body,
       audienceType: targetUser ? 'user' : (compId ? 'competition' : 'all'),

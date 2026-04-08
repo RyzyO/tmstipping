@@ -178,7 +178,20 @@ async function sendSelfTestNotification(request) {
   };
 }
 
-exports.sendAdminNotification = onCall({ region: REGION }, async (request) => {
+exports.sendAdminNotification = onCall({ region: REGION }, async (request, response) => {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    response.set('Access-Control-Allow-Origin', '*');
+    response.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    response.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.status(204).send('');
+    return;
+  }
+
+  // Set CORS headers for all responses
+  response.set('Access-Control-Allow-Origin', '*');
+  response.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "You must be logged in.");
