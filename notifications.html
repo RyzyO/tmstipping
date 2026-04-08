@@ -169,11 +169,21 @@
       const originalText = testBtn.textContent;
       testBtn.textContent = "Sending...";
       try {
-        const call = httpsCallable(functions, "sendNotificationTest");
-        const result = await call({
-          title: "Cloud test notification",
-          body: "This was sent from Cloud Functions."
-        });
+        let result;
+        try {
+          const call = httpsCallable(functions, "sendUserTestNotification");
+          result = await call({
+            title: "Cloud test notification",
+            body: "This was sent from Cloud Functions."
+          });
+        } catch (primaryError) {
+          const fallbackCall = httpsCallable(functions, "sendNotificationTest");
+          result = await fallbackCall({
+            title: "Cloud test notification",
+            body: "This was sent from Cloud Functions."
+          });
+          console.warn("Used fallback test notification function:", primaryError);
+        }
         const success = result?.data?.successCount || 0;
         const failed = result?.data?.failureCount || 0;
         setStatus(`Cloud test complete. Success: ${success}, Failed: ${failed}`);

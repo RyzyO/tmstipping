@@ -10,44 +10,13 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 import { getToken, onMessage } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
+import { getApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js";
 
 const VAPID_KEY = "BO4uGOEfVg5qRKLRTapkgdZJj22xf3_CBV1TlZg_jjCkvDg0qEVB46mgewqtK9MrUy1atMjlJS4DefmX7fI-IYg";
-const RACE_REMINDER_PREFIX = "tmstipping:raceReminder";
 
 let foregroundMessageBound = false;
-const pendingRaceTimers = new Map();
-
-function getSydneyMillis(date, time) {
-  if (!date || !time) return NaN;
-
-  if (window?.luxon?.DateTime) {
-    const dt = window.luxon.DateTime.fromFormat(
-      `${date} ${time.substring(0, 5)}`,
-      "yyyy-MM-dd HH:mm",
-      { zone: "Australia/Sydney" }
-    );
-    return dt.isValid ? dt.toMillis() : NaN;
-  }
-
-  const fallback = new Date(`${date}T${time}`);
-  return Number.isFinite(fallback.getTime()) ? fallback.getTime() : NaN;
-}
-
-function rememberReminderSent(reminderId) {
-  try {
-    localStorage.setItem(`${RACE_REMINDER_PREFIX}:${reminderId}`, "1");
-  } catch {
-    // no-op
-  }
-}
-
-function hasReminderBeenSent(reminderId) {
-  try {
-    return localStorage.getItem(`${RACE_REMINDER_PREFIX}:${reminderId}`) === "1";
-  } catch {
-    return false;
-  }
-}
+let lastReminderSyncFingerprint = "";
 
 function showBrowserNotification(title, body) {
   if (!("Notification" in window) || Notification.permission !== "granted") {
@@ -168,53 +137,33 @@ export async function requestNotificationPermission({ db, user, messaging }) {
 }
 
 export function scheduleRaceReminderNotifications(races, options = {}) {
-  const list = Array.isArray(races) ? races : [];
-  const now = Date.now();
-  const compId = options.compId || "any";
+  const list = (Array.isArray(races) ? races : [])
+    .filter((race) => !!race?.id && !!race?.date && !!race?.time)
+    .map((race) => ({
+      raceId: race.id,
+      name: race.name || "",
+      date: race.date,
+      time: String(race.time).substring(0, 5),
+      compId: race.compId || options.compId || null
+    }));
 
-  for (const race of list) {
-    if (!race?.id || !race?.date || !race?.time) continue;
+  if (!list.length) return;
 
-    const jumpAt = getSydneyMillis(race.date, race.time);
-    if (!Number.isFinite(jumpAt)) continue;
+  const fingerprint = JSON.stringify(
+    list.map((race) => `${race.compId || "none"}:${race.raceId}:${race.date}:${race.time}`)
+  );
+  if (fingerprint === lastReminderSyncFingerprint) {
+    return;
+  }
+  lastReminderSyncFingerprint = fingerprint;
 
-    const reminderAt = jumpAt - 5 * 60 * 1000;
-    const reminderId = `${compId}:${race.id}:${race.date}:${race.time}`;
-    const timerKey = `${RACE_REMINDER_PREFIX}:${reminderId}`;
-
-    if (hasReminderBeenSent(reminderId)) continue;
-
-    const fireReminder = () => {
-      if (hasReminderBeenSent(reminderId)) return;
-
-      const title = `Race starts in 5 minutes`;
-      const raceName = race.name || "Upcoming race";
-      showBrowserNotification(title, `${raceName} jumps at ${race.time.substring(0, 5)} (Sydney)`);
-      rememberReminderSent(reminderId);
-      pendingRaceTimers.delete(timerKey);
-    };
-
-    if (now >= reminderAt && now < jumpAt) {
-      fireReminder();
-      continue;
-    }
-
-    if (reminderAt <= now) {
-      continue;
-    }
-
-    const delay = reminderAt - now;
-    const maxDelay = 24 * 60 * 60 * 1000;
-
-    if (delay > maxDelay) {
-      continue;
-    }
-
-    if (pendingRaceTimers.has(timerKey)) {
-      continue;
-    }
-
-    const timeoutId = setTimeout(fireReminder, delay);
-    pendingRaceTimers.set(timerKey, timeoutId);
+  try {
+    const functions = getFunctions(getApp(), "us-central1");
+    const syncReminders = httpsCallable(functions, "upsertRaceReminderSubscriptions");
+    syncReminders({ races: list }).catch((error) => {
+      console.warn("Unable to sync race reminder subscriptions:", error);
+    });
+  } catch (error) {
+    console.warn("Unable to initialize Cloud Functions for race reminders:", error);
   }
 }

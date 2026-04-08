@@ -408,7 +408,7 @@
 
       currentUser = user;
 
-      const HOME_STATS_CACHE_KEY = "tmstipping:homeStats";
+      const HOME_STATS_CACHE_PREFIX = "tmstipping:homeStats";
 
       function getOrdinalSuffix(num) {
         if (typeof num !== 'number' || num < 1) return num;
@@ -427,9 +427,13 @@
         return getOrdinalSuffix(rank);
       }
 
-    function applyCachedHomeStats() {
+    function getHomeStatsCacheKey(userId, compId) {
+      return `${HOME_STATS_CACHE_PREFIX}:${userId || 'anon'}:${compId || 'none'}`;
+    }
+
+    function applyCachedHomeStats(userId, compId) {
       try {
-        const raw = localStorage.getItem(HOME_STATS_CACHE_KEY);
+        const raw = localStorage.getItem(getHomeStatsCacheKey(userId, compId));
         if (!raw) return;
         const cached = JSON.parse(raw);
         if (!cached) return;
@@ -444,29 +448,33 @@
           document.getElementById("wins-count").textContent = cached.wins;
         }
         if (cached.points !== undefined) {
-          document.getElementById("points").textContent = cached.points;
+          document.getElementById("points").textContent = Number(cached.points || 0).toFixed(2);
         }
       } catch (error) {
-        localStorage.removeItem(HOME_STATS_CACHE_KEY);
+        localStorage.removeItem(getHomeStatsCacheKey(userId, compId));
       }
     }
 
-    function saveHomeStatsToCache({ userName, rank, wins, points }) {
+    function saveHomeStatsToCache({ userId, compId, userName, rank, wins, points }) {
       localStorage.setItem(
-        HOME_STATS_CACHE_KEY,
+        getHomeStatsCacheKey(userId, compId),
         JSON.stringify({ userName, rank, wins, points, updatedAt: Date.now() })
       );
     }
 
     // Apply cached content IMMEDIATELY - DO NOT AWAIT
-    applyCachedHomeStats();
+    applyCachedHomeStats(currentUser?.uid, selectedHomeCompId);
 
     // Check if we have ANY cached data (stats or races) - if so, hide loading indicator immediately for instant load
     const hasCachedData = (() => {
       try {
         // Check for cached stats
-        const statsRaw = localStorage.getItem(HOME_STATS_CACHE_KEY);
-        if (statsRaw) return true;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(HOME_STATS_CACHE_PREFIX)) {
+            return true;
+          }
+        }
         
         // Also check for any cached races (user might have navigated away before first load completed)
         for (let i = 0; i < localStorage.length; i++) {
@@ -662,14 +670,39 @@
     // Load competition-specific stats
     async function loadCompStats(userId, compId) {
       try {
-        const joiningSnap = await getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`));
+        applyCachedHomeStats(userId, compId);
+
+        const [joiningSnap, compJoiningsSnap] = await Promise.all([
+          getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`)),
+          getDocs(
+            query(
+              collection(db, 'userCompJoinings'),
+              where('compId', '==', compId),
+              where('paymentStatus', '==', 'completed')
+            )
+          )
+        ]);
+
         const userData = currentUserProfile || {};
         const joining = joiningSnap.exists() ? joiningSnap.data() : {};
 
         const userName = userData.teamName || currentUser.displayName || currentUser.email || "Guest";
-        const userRank = joining.rank;
-        const wins = joining.wins || 0;
+        const wins = Number(joining.wins ?? joining.winners ?? 0) || 0;
         const points = Number(joining.points || 0);
+
+        const sortedEntries = compJoiningsSnap.docs
+          .map((docSnap) => docSnap.data() || {})
+          .filter((entry) => !!entry.userId)
+          .sort((a, b) => {
+            const pointsDiff = Number(b.points || 0) - Number(a.points || 0);
+            if (pointsDiff !== 0) return pointsDiff;
+            return Number(b.wins ?? b.winners ?? 0) - Number(a.wins ?? a.winners ?? 0);
+          });
+
+        let userRank = sortedEntries.findIndex((entry) => entry.userId === userId) + 1;
+        if (!userRank) {
+          userRank = Number(joining.rank || 0) || null;
+        }
 
         // Update display
         document.getElementById("userName").textContent = userName;
@@ -678,7 +711,7 @@
         document.getElementById("points").textContent = points.toFixed(2);
         
         // Save to cache for instant loads on return visits
-        saveHomeStatsToCache({ userName, rank: userRank, wins, points });
+        saveHomeStatsToCache({ userId, compId, userName, rank: userRank, wins, points });
       } catch (error) {
         console.error('Error loading comp stats:', error);
         document.getElementById("leaderboard-rank").textContent = "-";

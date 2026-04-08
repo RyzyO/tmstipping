@@ -2,6 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/fireba
 import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
 import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where, addDoc, serverTimestamp, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
 
 // Initialize Firebase
 const firebaseConfig = {
@@ -18,6 +19,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
+const functions = getFunctions(app, 'us-central1');
 
 // Global State
 let currentRaceId = null;
@@ -2620,18 +2622,15 @@ window.sendAdminNotification = async function() {
   }
 
   try {
-    await addDoc(collection(db, 'notifications'), {
+    const callSendAdminNotification = httpsCallable(functions, 'sendAdminNotification');
+    await callSendAdminNotification({
       title,
       body,
-      category: 'admin',
       audienceType: targetUser ? 'user' : (compId ? 'competition' : 'all'),
       compId: compId || null,
       userId: targetUser?.id || null,
       userDisplayName: targetUser ? formatNotificationUserLabel(targetUser) : null,
-      userEmail: targetUser?.email || null,
-      createdAt: serverTimestamp(),
-      createdByUid: currentAdminUser?.uid || null,
-      createdByEmail: currentAdminUser?.email || null
+      userEmail: targetUser?.email || null
     });
 
     titleInput.value = '';
