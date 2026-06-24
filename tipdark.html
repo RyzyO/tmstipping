@@ -9,7 +9,6 @@
   <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
   <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -188,11 +187,11 @@
               Submit Your Tip
             </button>
             <div class="flex gap-3">
-              <button type="button" id="use-joker-btn" class="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold py-2.5 rounded-lg hover:from-violet-500 hover:to-purple-500 transition-all shadow-lg shadow-purple-900/30 hidden flex items-center justify-center gap-2">
+              <button type="button" id="use-joker-btn" class="flex-1 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold py-2.5 rounded-lg hover:from-violet-500 hover:to-purple-500 transition-all shadow-lg shadow-purple-900/30 hidden items-center justify-center gap-2">
                 <i data-feather="zap" class="h-4 w-4"></i>
                 Use Joker (<span id="joker-count">0</span>)
               </button>
-              <button type="button" id="remove-joker-btn" class="flex-1 border-2 border-yellow-500 text-yellow-400 font-semibold py-2.5 rounded-lg hover:bg-yellow-500 hover:text-gray-900 transition-all hidden flex items-center justify-center gap-2">
+              <button type="button" id="remove-joker-btn" class="flex-1 border-2 border-yellow-500 text-yellow-400 font-semibold py-2.5 rounded-lg hover:bg-yellow-500 hover:text-gray-900 transition-all hidden items-center justify-center gap-2">
                 <i data-feather="x-circle" class="h-4 w-4"></i>
                 Remove Joker
               </button>
@@ -673,7 +672,8 @@
         const useJokerBtn = document.getElementById("use-joker-btn");
         const shouldShowUseJoker = !isLocked && !prevJoker;
         useJokerBtn.classList.toggle("hidden", !shouldShowUseJoker);
-        
+        useJokerBtn.classList.toggle("flex", shouldShowUseJoker);
+
         if(shouldShowUseJoker) {
           if(state.jokerCount === 0) {
             useJokerBtn.className = "flex-1 bg-gradient-to-r from-gray-600 to-gray-700 text-gray-400 font-semibold py-2.5 rounded-lg cursor-not-allowed flex items-center justify-center gap-2";
@@ -683,8 +683,11 @@
             useJokerBtn.disabled = false;
           }
         }
-        
-        document.getElementById("remove-joker-btn").classList.toggle("hidden",isLocked||!prevJoker);
+
+        const removeJokerBtn = document.getElementById("remove-joker-btn");
+        const shouldShowRemoveJoker = !isLocked && prevJoker;
+        removeJokerBtn.classList.toggle("hidden", !shouldShowRemoveJoker);
+        removeJokerBtn.classList.toggle("flex", shouldShowRemoveJoker);
         feather.replace();
       } finally {
         if(!useCached) setBusy(false);
@@ -777,6 +780,17 @@
           tx.get(raceRef)
         ]);
 
+        // Server-side race-lock check: reject if jump time has passed
+        if (raceSnap.exists()) {
+          const rd = raceSnap.data();
+          if (rd.date && rd.time) {
+            const jumpMs = new Date(rd.date + "T" + rd.time).getTime();
+            if (Date.now() >= jumpMs) {
+              throw new Error("Tipping is closed — this race has already jumped.");
+            }
+          }
+        }
+
         const prevTip = tipSnap.exists() ? tipSnap.data() : null;
         const prevHorseId = prevTip?.horseId ? String(prevTip.horseId) : null;
         const prevJoker = prevTip?.joker === true;
@@ -840,15 +854,14 @@
       try{
         await saveTipAndAdjustHorseCounters({ horseId, joker: false });
         await refreshJokerCount();
-        await loadUserTips();
         await loadRaces();
         document.getElementById("race-card-section").classList.add("hidden");
         document.getElementById("race-list-section").classList.remove("hidden");
-      }finally{setBusy(false);}
+      }catch(err){alert(err.message);}finally{setBusy(false);}
     };
 
     document.getElementById("use-joker-btn").onclick=async()=>{
-      if(state.jokerCount === 0) return; // Do nothing if no jokers
+      if(state.jokerCount === 0) return;
       const horseId=getSelectedHorseId();
       if(!horseId){alert("Select a horse");return;}
       if(!confirm("Use Joker?"))return;
@@ -856,7 +869,6 @@
       try{
         await saveTipAndAdjustHorseCounters({ horseId, joker: true });
         await refreshJokerCount();
-        await loadUserTips();
         await loadRaces();
         document.getElementById("race-card-section").classList.add("hidden");
         document.getElementById("race-list-section").classList.remove("hidden");
@@ -870,11 +882,10 @@
       try{
         await saveTipAndAdjustHorseCounters({ horseId, joker: false });
         await refreshJokerCount();
-        await loadUserTips();
         await loadRaces();
         document.getElementById("race-card-section").classList.add("hidden");
         document.getElementById("race-list-section").classList.remove("hidden");
-      }finally{setBusy(false);}
+      }catch(err){alert(err.message);}finally{setBusy(false);}
     };
 
     document.getElementById("exit-race-btn").onclick=()=>{if(state.inFlight)return;document.getElementById("race-card-section").classList.add("hidden");document.getElementById("race-list-section").classList.remove("hidden");};

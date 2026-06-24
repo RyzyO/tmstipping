@@ -738,8 +738,9 @@
       if (!wasCompleted) {
         const compRef = doc(db, "comps", selectedComp.id);
         const compData = await getDoc(compRef);
+        const existingCount = compData.exists() ? (compData.data().participantCount || 0) : 0;
         await setDoc(compRef, {
-          participantCount: (compData.data().participantCount || 0) + 1
+          participantCount: existingCount + 1
         }, { merge: true });
       }
 
