@@ -585,10 +585,46 @@
                 </div>
               </div>
 
+              <!-- RA Unified Importer -->
+              <div class="border-t border-gray-700 pt-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <i data-feather="download-cloud" class="h-5 w-5 text-yellow-400"></i>
+                  Import from Racing Australia
+                </h3>
+                <p class="text-gray-400 text-sm mb-3">Paste a Racing Australia form URL — all races from the meeting will be listed for selection. Silks, last 10, prizemoney and form data are fetched automatically.</p>
+                <div class="flex gap-2 mb-4">
+                  <input type="url" id="ra-import-url" class="flex-1" style="background:rgba(17,24,39,0.9);border:1px solid rgba(75,85,99,0.3);color:#e5e7eb;padding:10px 12px;border-radius:6px;font-size:0.875rem;" placeholder="https://racingaustralia.horse/FreeFields/Form.aspx?Key=2026Jun26%2CNSW%2CTamworth">
+                  <button type="button" onclick="loadRAMeeting()" class="btn-secondary whitespace-nowrap" id="ra-load-btn">
+                    <i data-feather="search" class="h-4 w-4"></i>
+                    Load Races
+                  </button>
+                </div>
+                <!-- Fetch status line -->
+                <div id="ra-fetch-status" class="hidden mb-3 flex items-center gap-2 text-sm text-gray-400">
+                  <i data-feather="loader" class="h-4 w-4 animate-spin text-yellow-400 flex-shrink-0"></i>
+                  <span id="ra-fetch-msg">Connecting…</span>
+                </div>
+                <!-- Race picker grid -->
+                <div id="ra-race-picker" class="hidden mb-4">
+                  <p class="text-sm font-semibold text-yellow-400 mb-3">Select a race:</p>
+                  <div id="ra-race-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3"></div>
+                </div>
+                <!-- Enrichment progress bar -->
+                <div id="ra-enrich-status" class="hidden mt-2 p-3 rounded-lg bg-gray-800 border border-gray-700">
+                  <div class="flex items-center gap-2 text-sm text-yellow-400 mb-2">
+                    <i data-feather="loader" class="h-4 w-4 animate-spin"></i>
+                    <span id="ra-enrich-msg">Fetching data…</span>
+                  </div>
+                  <div class="h-1 bg-gray-700 rounded-full">
+                    <div id="ra-enrich-bar" class="h-full bg-yellow-400 rounded-full transition-all duration-300" style="width:0%"></div>
+                  </div>
+                </div>
+              </div>
+
               <div class="border-t border-gray-700 pt-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
                   <i data-feather="link" class="h-5 w-5 text-yellow-400"></i>
-                  Import Horses from URL
+                  Import Horses from URL (Legacy)
                 </h3>
                 <p class="text-gray-400 text-sm mb-3">Paste a URL to a racing fields page (e.g., justhorseracing.com.au)</p>
                 <div class="flex gap-2 mb-4">

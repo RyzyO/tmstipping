@@ -721,12 +721,26 @@
           silkUrl = h.silkUrl || `https://content.tab.com.au/content/dam/tab-corp/silks/${venueName}/${h.number}.png`;
         }
         
+        // Last 10 form chars coloured by result
+        const last10Html = h.last10 ? renderLast10(h.last10) : '';
+        // Form history rows (up to 5 most recent)
+        const formRows = (h.formHistory||[]).slice(0,5).map(f=>`
+          <tr class="border-t border-gray-700/50">
+            <td class="py-1 pr-2 text-gray-400 whitespace-nowrap">${f.date||''}</td>
+            <td class="py-1 pr-2 text-gray-300 whitespace-nowrap">${f.track||''}</td>
+            <td class="py-1 pr-2 text-gray-400 whitespace-nowrap">${f.dist||''}</td>
+            <td class="py-1 pr-2 font-semibold whitespace-nowrap ${resultColour(f.pos)}">${f.pos||''}</td>
+            <td class="py-1 pr-2 text-gray-400 whitespace-nowrap">${f.margin||''}</td>
+            <td class="py-1 text-gray-400 truncate max-w-[100px]">${f.winner||''}</td>
+          </tr>`).join('');
+        const hasForm = formRows.length > 0;
+
         d.innerHTML=`
           <div class="flex items-start gap-3">
             <div class="flex-shrink-0 flex flex-col items-center">
               <div class="w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600 flex items-center justify-center relative">
-                <img src="${silkUrl}" 
-                     alt="Silk ${h.number}" 
+                <img src="${silkUrl}"
+                     alt="Silk ${h.number}"
                      class="w-full h-full object-cover silk-img"
                      style="display: block; object-position: top center;"
                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
@@ -742,10 +756,34 @@
                 <span class="font-bold text-gray-100 text-base">${h.name}${h.barrier ? ` (${h.barrier})` : ''}</span>
                 <span class="hidden md:inline-flex ml-auto text-xs font-semibold px-2 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 whitespace-nowrap">${tipPct}% tipped</span>
               </div>
-              <div class="text-sm text-gray-400 leading-relaxed">
+              <div class="text-sm text-gray-400 leading-relaxed mb-1">
                 <div class="mb-0.5"><span class="font-semibold text-gray-300">J</span> ${h.jockey||"Unknown"} ${h.weight?h.weight:''}</div>
                 <div><span class="font-semibold text-gray-300">T</span> ${h.trainer||"Unknown"}</div>
               </div>
+              ${(last10Html||h.prizemoney) ? `
+              <div class="flex flex-wrap items-center gap-2 mt-1">
+                ${last10Html ? `<div class="flex items-center gap-1"><span class="text-xs text-gray-500 mr-0.5">Last 10</span>${last10Html}</div>` : ''}
+                ${h.prizemoney ? `<span class="text-xs text-emerald-400 font-semibold">${h.prizemoney}</span>` : ''}
+              </div>` : ''}
+              ${hasForm ? `
+              <div class="mt-2">
+                <button type="button" onclick="event.stopPropagation();toggleForm(this)" class="text-xs text-gray-500 hover:text-yellow-400 transition flex items-center gap-1 mb-1">
+                  <i data-feather="chevron-down" class="h-3 w-3"></i> Recent form
+                </button>
+                <div class="form-table hidden">
+                  <table class="text-xs w-full">
+                    <thead><tr class="text-gray-500">
+                      <th class="text-left pr-2 pb-1 font-normal">Date</th>
+                      <th class="text-left pr-2 pb-1 font-normal">Track</th>
+                      <th class="text-left pr-2 pb-1 font-normal">Dist</th>
+                      <th class="text-left pr-2 pb-1 font-normal">Pos</th>
+                      <th class="text-left pr-2 pb-1 font-normal">Marg</th>
+                      <th class="text-left pb-1 font-normal">Winner</th>
+                    </tr></thead>
+                    <tbody>${formRows}</tbody>
+                  </table>
+                </div>
+              </div>` : ''}
             </div>
           </div>
         `;
@@ -761,6 +799,34 @@
       });
     }
     function getSelectedHorseId(){const sel=document.querySelector(".horse-row.selected");return sel?sel.dataset.horseId:null;}
+
+    // Render last-10 form string as coloured bubbles (1=win green, 2=place blue, x=DNF red, else gray)
+    function renderLast10(str){
+      return (str||'').split('').map(c=>{
+        const colour = c==='1'?'bg-green-500 text-white'
+                     : c==='2'||c==='3'?'bg-blue-500 text-white'
+                     : c.toLowerCase()==='x'?'bg-red-500 text-white'
+                     : 'bg-gray-600 text-gray-300';
+        return `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${colour}">${c}</span>`;
+      }).join('');
+    }
+
+    // Return a Tailwind text colour class based on finishing position
+    function resultColour(pos){
+      const n=parseInt(pos,10);
+      if(n===1) return 'text-green-400';
+      if(n===2||n===3) return 'text-blue-400';
+      if(!n||isNaN(n)) return 'text-gray-500';
+      return 'text-gray-300';
+    }
+
+    // Toggle the recent form table open/closed
+    window.toggleForm=function(btn){
+      const table=btn.nextElementSibling;
+      const open=table.classList.toggle('hidden');
+      const icon=btn.querySelector('i[data-feather]');
+      if(icon){icon.setAttribute('data-feather', open?'chevron-down':'chevron-up'); feather.replace();}
+    };
 
     function normalizeHorseTipCount(value){
       const num = Number(value);

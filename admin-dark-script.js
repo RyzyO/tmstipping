@@ -709,20 +709,35 @@ function getTargetRaceNumberForSilks() {
 }
 
 function buildProxyUrls(targetUrl, preferRaw = false) {
-  const normalized = targetUrl.replace(/^https?:\/\//i, '');
-  if (preferRaw) {
-    return [
-      `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-      `https://r.jina.ai/http://${normalized}`
-    ];
-  }
+  // Use the original URL as-is for proxies that accept it as a query param.
+  // For Jina, keep the original scheme (https://) — using http:// causes redirect
+  // issues on sites that only serve HTTPS.
+  const jinaUrl = `https://r.jina.ai/${targetUrl}`;
+  // encodeURIComponent double-encodes already-encoded params (e.g. %2C → %252C).
+  // Use a safe encoder that only encodes characters that would break the outer URL.
+  const safeEncode = (u) => u.replace(/ /g, '%20').replace(/#/g, '%23');
+  const corsProxyUrl    = `https://corsproxy.io/?${safeEncode(targetUrl)}`;
+  const allOriginsUrl   = `https://api.allorigins.win/raw?url=${safeEncode(targetUrl)}`;
 
-  return [
-    `https://r.jina.ai/http://${normalized}`,
-    `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
-  ];
+  if (preferRaw) {
+    return [corsProxyUrl, allOriginsUrl, jinaUrl];
+  }
+  return [jinaUrl, corsProxyUrl, allOriginsUrl];
+}
+
+// Fetch with an AbortController timeout so hung requests don't block forever.
+async function fetchWithTimeout(url, timeoutMs = 25000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+    clearTimeout(timer);
+    return resp;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === 'AbortError') throw new Error(`Timed out after ${timeoutMs / 1000}s`);
+    throw err;
+  }
 }
 
 async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false, validator = null) {
@@ -732,12 +747,13 @@ async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false, val
   for (const proxyUrl of proxyUrls) {
     try {
       console.log(`[${contextLabel}] Trying proxy:`, proxyUrl);
-      const response = await fetch(proxyUrl, { cache: 'no-store' });
+      const response = await fetchWithTimeout(proxyUrl, 25000);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
       const html = await response.text();
+      console.log(`[${contextLabel}] Got response (${html.length} chars) from:`, proxyUrl);
       if (!html || html.length < 200) {
         throw new Error('Response too small / empty');
       }
@@ -1502,10 +1518,15 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
     const jockey = row.querySelector('.horse-jockey').value;
     const barrier = row.querySelector('.horse-barrier').value;
     const weight = row.querySelector('.horse-weight').value;
-    const silksId = row.querySelector('.horse-silk-id')?.value || '';
+    const silksId     = row.querySelector('.horse-silk-id')?.value || '';
+    const last10      = row.dataset.last10 || '';
+    const prizemoney  = row.dataset.prizemoney || '';
+    const formHistory = row.dataset.formHistory
+      ? (() => { try { return JSON.parse(row.dataset.formHistory); } catch { return undefined; } })()
+      : undefined;
 
     if (horseName) {
-      horses[idx] = {
+      const horseData = {
         number: no || idx + 1,
         name: horseName,
         trainer,
@@ -1515,6 +1536,10 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
         silksId,
         amt: 0
       };
+      if (last10)             horseData.last10       = last10;
+      if (prizemoney)         horseData.prizemoney   = prizemoney;
+      if (formHistory?.length) horseData.formHistory = formHistory;
+      horses[idx] = horseData;
     }
   });
 
@@ -2089,9 +2114,11 @@ async function loadRaceTips(race) {
     const q = query(tipsRef, where('raceId', '==', currentRaceId));
     const tipsSnap = await getDocs(q);
 
-    document.getElementById('race-tips-count').textContent = tipsSnap.size;
+    const tipsCountEl = document.getElementById('race-tips-count');
+    const tipsList    = document.getElementById('tips-list');
+    if (!tipsCountEl || !tipsList) return; // elements not present in this view
 
-    const tipsList = document.getElementById('tips-list');
+    tipsCountEl.textContent = tipsSnap.size;
     tipsList.innerHTML = '';
 
     const paidUsersSet = new Set();
@@ -2143,7 +2170,7 @@ async function loadRaceTips(race) {
       tipsList.appendChild(tipEl);
     }
 
-    document.getElementById('race-tips-count').textContent = paidTipsCount;
+    if (tipsCountEl) tipsCountEl.textContent = paidTipsCount;
   } catch (error) {
     console.error('Error loading tips:', error);
   }
@@ -2980,3 +3007,628 @@ window.copyCompetitionJoinLink = async function(compId) {
     showNotification('Could not copy link. Try again.', 'error', 'comp-notifications');
   }
 };
+
+// ============================================================
+// RACING AUSTRALIA UNIFIED IMPORTER
+// ============================================================
+
+let raScrapedRaces = [];
+
+window.loadRAMeeting = async function() {
+  const rawUrl = (document.getElementById('ra-import-url')?.value || '').trim();
+  if (!rawUrl) {
+    showNotification('Please enter a Racing Australia URL', 'error', 'form-notifications');
+    return;
+  }
+  // Strip any #fragment — it's a client-side anchor and causes proxy failures (413/CORS)
+  const url = rawUrl.split('#')[0];
+
+  const btn       = document.getElementById('ra-load-btn');
+  const statusEl  = document.getElementById('ra-fetch-status');
+  const msgEl     = document.getElementById('ra-fetch-msg');
+
+  const setStatus = (msg) => { if (msgEl) msgEl.textContent = msg; };
+  const showStatus = () => { statusEl?.classList.remove('hidden'); feather.replace(); };
+  const hideStatus = () => statusEl?.classList.add('hidden');
+
+  btn.disabled = true;
+  btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Loading...';
+  document.getElementById('ra-race-picker')?.classList.add('hidden');
+  showStatus();
+  feather.replace();
+
+  // Tick through status messages so the user can see live progress
+  const phases = [
+    [0,    'Trying Jina AI proxy…'],
+    [5000, 'Still fetching via Jina (can take up to 25s)…'],
+    [12000,'Jina slow — will try corsproxy if it times out…'],
+    [20000,'Almost at timeout, one more moment…'],
+  ];
+  const phaseTimers = phases.map(([delay, msg]) => setTimeout(() => setStatus(msg), delay));
+  const clearPhases = () => phaseTimers.forEach(clearTimeout);
+
+  try {
+    setStatus('Trying Jina AI proxy…');
+    console.log('[ra-meeting] Fetching:', url);
+    // Use Jina-first order (preferRaw=false) for the full meeting page —
+    // corsproxy 413s on large pages and allorigins has CORS issues from localhost.
+    const html = await fetchHtmlViaProxy(url, 'ra-meeting', false);
+
+    clearPhases();
+    setStatus(`Got response (${(html.length / 1024).toFixed(0)} KB) — parsing races…`);
+    console.log('[ra-meeting] Response length:', html.length, 'chars');
+    console.log('[ra-meeting] First 500 chars:\n', html.slice(0, 500));
+    // Find first occurrence of "Race" to understand structure
+    const raceIdx = html.search(/\bRace\s+\d/i);
+    // Find the SECOND occurrence of "Race N" (first is nav bar) to see actual section structure
+    const firstRaceIdx = html.search(/\bRace\s+\d/i);
+    const secondRaceIdx = firstRaceIdx >= 0 ? html.slice(firstRaceIdx + 10).search(/\bRace\s+\d/i) : -1;
+    const actualRaceIdx = secondRaceIdx >= 0 ? firstRaceIdx + 10 + secondRaceIdx : firstRaceIdx;
+    if (actualRaceIdx >= 0) console.log('[ra-meeting] Race section context (chars', actualRaceIdx, '–', actualRaceIdx + 1500, '):\n', html.slice(actualRaceIdx, actualRaceIdx + 1500));
+    else console.warn('[ra-meeting] No "Race N" pattern found anywhere in response');
+    const races = parseRAMeetingPage(html, url);
+    console.log('[ra-meeting] Parsed races:', races.length, races.map(r => `Race ${r.raceNum}: ${r.horses.length} horses`));
+
+    if (!races.length) {
+      showNotification('No races found on this page. Check the URL or try a different proxy.', 'error', 'form-notifications');
+      return;
+    }
+
+    raScrapedRaces = races;
+    renderRARacePicker(races);
+    document.getElementById('ra-race-picker').classList.remove('hidden');
+    showNotification(`Found ${races.length} race${races.length !== 1 ? 's' : ''} — select one below.`, 'success', 'form-notifications');
+  } catch (err) {
+    clearPhases();
+    showNotification('Error loading meeting: ' + err.message, 'error', 'form-notifications');
+    console.error('[loadRAMeeting]', err);
+  } finally {
+    clearPhases();
+    hideStatus();
+    btn.disabled = false;
+    btn.innerHTML = '<i data-feather="search" class="h-4 w-4"></i> Load Races';
+    feather.replace();
+  }
+};
+
+function parseDateFromRAKey(dateStr) {
+  // "2026Jun26" → "2026-06-26"
+  const m = dateStr.match(/^(\d{4})([A-Za-z]{3})(\d{1,2})$/);
+  if (m) {
+    const mo = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                 jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12' }[m[2].toLowerCase()] || '01';
+    return `${m[1]}-${mo}-${m[3].padStart(2,'0')}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+  return '';
+}
+
+function parseTimeFrom12h(str) {
+  const m = (str || '').match(/(\d{1,2}):(\d{2})\s*(am|pm)/i);
+  if (!m) return '';
+  let h = parseInt(m[1], 10);
+  if (m[3].toLowerCase() === 'pm' && h < 12) h += 12;
+  if (m[3].toLowerCase() === 'am' && h === 12) h = 0;
+  return `${String(h).padStart(2,'0')}:${m[2]}`;
+}
+
+// Parses Jina AI plain-text output for a Racing Australia form page.
+//
+// Actual format (tab-separated, NOT markdown pipe tables):
+//   Race 1 - 11:45AM RACE NAME (1000 METRES)
+//   Of $30,000.1st $15,000, ...
+//   No\tLast 10\tHorse\tTrainer\tJockey\tBarrier\tWeight\t...
+//   1\t14\tSWEET LEAF          ← horse number, last10, name on one line
+//   \tTrainer Name\tJockey (a2/55kg)\t10\t58.5kg\t...  ← continuation with tab prefix
+//   2\t2x\tBIG LON
+//   \tDavid Hatch\tGrody Spokes\t6\t57.5kg\t...
+function parseRAMeetingFromMarkdown(md, meetingUrl) {
+  const keyMatch = meetingUrl.match(/Key=([^&#]+)/i);
+  const keyDecoded = decodeURIComponent(keyMatch?.[1] || '');
+  const meetingDate = parseDateFromRAKey(keyDecoded.split(',')[0] || '');
+
+  const races = [];
+  const lines = md.split('\n');
+
+  // Race heading: "Race N - HH:MMam NAME (DISTm)"
+  // Note: navigation line "Race 1 Race 2 Race 3..." has no dash so won't match
+  const RACE_HDR = /^Race\s+(\d+)\s*[-–]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(.*)/i;
+  const COL_HDR  = /^No\t/i;
+  // Data row: starts with a number (possibly followed by letter), then tab
+  const DATA_ROW = /^(\d+[a-z]?)\t([^\t]*)\t(.+)/i;
+  // Continuation row: starts with a tab (trainer / jockey / barrier / weight)
+  const CONT_ROW = /^\t(.+)/;
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const raceM = line.match(RACE_HDR);
+
+    if (!raceM) { i++; continue; }
+
+    // ── Found a race heading ──────────────────────────────────────────
+    const raceNum  = parseInt(raceM[1], 10);
+    const timeStr  = raceM[2].trim();
+    const restHead = raceM[3].trim();
+
+    // Distance: "(1000 METRES)" or "1000m" at the end of the heading
+    const distM    = restHead.match(/\((\d{3,5})\s*METRES?\)/i) || restHead.match(/\b(\d{3,5})\s*m\b/i);
+    const distance = distM ? distM[1] + 'm' : '';
+
+    // Race name: everything in heading before the distance paren
+    const raceName = restHead.replace(/\s*\(\d{3,5}\s*METRES?\)\s*/i, '').trim();
+
+    // Prize: scan next ~6 lines for "Of $NN,NNN"
+    let prize = '';
+    for (let j = i + 1; j < Math.min(i + 7, lines.length); j++) {
+      const pm = lines[j].match(/Of\s+\$([\d,]+)/i);
+      if (pm) { prize = '$' + pm[1]; break; }
+    }
+
+    // Scan forward to find the column header row
+    let tableStart = -1;
+    for (let j = i + 1; j < Math.min(i + 20, lines.length); j++) {
+      if (COL_HDR.test(lines[j])) { tableStart = j + 1; break; }
+    }
+
+    const horses = [];
+
+    if (tableStart >= 0) {
+      let j = tableStart;
+      while (j < lines.length) {
+        const dataM = lines[j].match(DATA_ROW);
+
+        if (dataM) {
+          const number  = dataM[1].trim();
+          const last10  = dataM[2].trim();
+          const namePart = dataM[3].trim()
+            .replace(/\s*\(NZ\)\s*/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          // Look ahead for the continuation line (starts with tab)
+          let trainer = '', jockey = '', barrier = '', weight = '';
+          let k = j + 1;
+          // Skip any blank lines between the name line and the continuation
+          while (k < lines.length && lines[k] === '') k++;
+          const contM = k < lines.length ? lines[k].match(CONT_ROW) : null;
+          if (contM) {
+            const parts = contM[1].split('\t');
+            // parts: [trainer, jockey, barrier, weight, probable_weight?, ...]
+            trainer = (parts[0] || '').trim();
+            const jockeyRaw = (parts[1] || '').trim();
+            jockey  = jockeyRaw.replace(/\s*\([^)]*\)\s*/g, '').trim();
+            barrier = ((parts[2] || '').match(/\d+/) || [''])[0];
+            weight  = (parts[3] || '').replace(/\s*kg\s*/gi, '').trim();
+            j = k + 1; // advance past the continuation line
+          } else {
+            j++;
+          }
+
+          if (namePart) {
+            horses.push({ number, name: namePart, last10, trainer, jockey, barrier, weight, horseHref: '' });
+          }
+        } else if (RACE_HDR.test(lines[j])) {
+          // Hit the next race heading — stop parsing this race's horses
+          break;
+        } else {
+          j++;
+        }
+      }
+      i = j; // resume outer loop from where inner loop stopped
+    } else {
+      i++;
+    }
+
+    if (horses.length) {
+      races.push({
+        raceNum,
+        name: raceName || `Race ${raceNum}`,
+        date: meetingDate,
+        time: parseTimeFrom12h(timeStr),
+        distance,
+        prize,
+        horses,
+        sourceUrl: meetingUrl
+      });
+    }
+  }
+
+  return races.sort((a, b) => a.raceNum - b.raceNum);
+}
+
+function parseRAMeetingPage(html, meetingUrl) {
+  // Jina AI proxy returns markdown, not HTML. Detect by absence of <html> tag.
+  if (!/<html[\s>]/i.test(html)) {
+    return parseRAMeetingFromMarkdown(html, meetingUrl);
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  const keyMatch = meetingUrl.match(/Key=([^&]+)/i);
+  const keyDecoded = decodeURIComponent(keyMatch?.[1] || '');
+  const meetingDate = parseDateFromRAKey(keyDecoded.split(',')[0] || '');
+
+  const races = [];
+
+  // Strategy 1: find named anchors <a name="RaceN"> or elements id="RaceN"
+  const raceAnchors = Array.from(doc.querySelectorAll('a[name], [id]'))
+    .filter(el => /^Race\d+$/i.test(el.getAttribute('name') || el.id || ''));
+
+  for (const anchor of raceAnchors) {
+    const idStr = anchor.getAttribute('name') || anchor.id;
+    const raceNum = parseInt(idStr.replace(/\D/g, ''), 10);
+    if (!raceNum) continue;
+
+    let raceTitle = '';
+    let raceTime = '';
+    let raceDistance = '';
+    let racePrize = '';
+    let table = null;
+
+    // Walk forward from the anchor looking for a heading then a table.
+    // The anchor is often inline inside a heading, so start from its
+    // parent and then move through siblings.
+    const start = anchor.parentElement || anchor;
+    let el = start.nextElementSibling || start.parentElement?.nextElementSibling;
+    let steps = 0;
+
+    while (el && steps < 20) {
+      // Stop if we hit the next race section
+      const elId = el.getAttribute?.('name') || el.id || '';
+      if (/^Race\d+$/i.test(elId) && elId !== idStr) break;
+      if (el.querySelector?.('a[name^="Race"]') &&
+          el.querySelector('a[name^="Race"]') !== anchor) {
+        const inner = el.querySelector('a[name^="Race"]');
+        if ((inner.getAttribute('name') || '') !== idStr) break;
+      }
+
+      const tag = (el.tagName || '').toLowerCase();
+      const text = el.textContent || '';
+
+      if (/^h[1-6]$/.test(tag)) {
+        if (!raceTime) {
+          const tm = text.match(/(\d{1,2}:\d{2}\s*(?:am|pm))/i);
+          if (tm) raceTime = parseTimeFrom12h(tm[1]);
+        }
+        if (!raceDistance) {
+          const dm = text.match(/\b(\d{3,5})\s*[Mm]\b/);
+          if (dm) raceDistance = dm[1] + 'm';
+        }
+        if (!racePrize) {
+          const pm = text.match(/\$([\d,]+)/);
+          if (pm) racePrize = '$' + pm[1];
+        }
+        if (!raceTitle) {
+          // Heading text is typically: "Race N (N) TIME - RACE NAME - DISTm - $PRIZE"
+          const parts = text.replace(/\s+/g, ' ').split(/\s*[-–]\s*/);
+          const namePart = parts.find(p => {
+            const t = p.trim();
+            return t.length > 3
+              && !/^\d+$/.test(t)
+              && !/^\$/.test(t)
+              && !/^\d+m$/i.test(t)
+              && !/^\d{1,2}:\d{2}/.test(t)
+              && !/^Race\s*\d/i.test(t);
+          });
+          if (namePart) raceTitle = namePart.trim();
+        }
+      }
+
+      if (tag === 'table' && !table) {
+        if (el.querySelectorAll('tr').length >= 3) table = el;
+      }
+
+      if (table) break;
+      el = el.nextElementSibling;
+      steps++;
+    }
+
+    if (!table) continue;
+    const horses = parseRAHorsesFromTable(table);
+    if (!horses.length) continue;
+
+    races.push({
+      raceNum,
+      name: raceTitle || `Race ${raceNum}`,
+      date: meetingDate,
+      time: raceTime,
+      distance: raceDistance,
+      prize: racePrize,
+      horses,
+      sourceUrl: meetingUrl
+    });
+  }
+
+  // Strategy 2: no anchors — scan all tables and infer race sections from
+  // preceding headings.
+  if (!races.length) {
+    const tables = Array.from(doc.querySelectorAll('table'));
+    for (const table of tables) {
+      if (table.querySelectorAll('tr').length < 3) continue;
+
+      let raceNum = races.length + 1;
+      let raceTitle = '', raceTime = '', raceDistance = '', racePrize = '';
+      let prev = table.previousElementSibling;
+      let steps = 0;
+      while (prev && steps < 6) {
+        const txt = prev.textContent || '';
+        const rm = txt.match(/\bRace\s*(\d+)\b/i);
+        if (rm) {
+          raceNum = parseInt(rm[1], 10);
+          const tm = txt.match(/(\d{1,2}:\d{2}\s*(?:am|pm))/i);
+          if (tm) raceTime = parseTimeFrom12h(tm[1]);
+          const dm = txt.match(/\b(\d{3,5})\s*[Mm]\b/);
+          if (dm) raceDistance = dm[1] + 'm';
+          const pm = txt.match(/\$([\d,]+)/);
+          if (pm) racePrize = '$' + pm[1];
+          break;
+        }
+        prev = prev.previousElementSibling;
+        steps++;
+      }
+
+      const horses = parseRAHorsesFromTable(table);
+      if (!horses.length) continue;
+
+      races.push({ raceNum, name: raceTitle || `Race ${raceNum}`, date: meetingDate,
+                   time: raceTime, distance: raceDistance, prize: racePrize,
+                   horses, sourceUrl: meetingUrl });
+    }
+  }
+
+  return races.sort((a, b) => a.raceNum - b.raceNum);
+}
+
+function parseRAHorsesFromTable(table) {
+  const horses = [];
+  const rows = Array.from(table.querySelectorAll('tr'));
+
+  // Detect header row
+  const headerRow = rows.find(r => r.querySelectorAll('th').length > 0);
+  const headers = headerRow
+    ? Array.from(headerRow.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase())
+    : [];
+
+  // Map headers to column indices; fall back to positional defaults for RA layout:
+  // [0]=No, [1]=Last10, [2]=Horse, [3]=Trainer, [4]=Jockey, [5]=Barrier, [6]=Weight
+  const col = (patterns, fallback) => {
+    const idx = headers.findIndex(h => patterns.some(p => p.test(h)));
+    return idx >= 0 ? idx : fallback;
+  };
+  const cNo      = col([/^no\.?$/, /^#$/, /^num/],              0);
+  const cLast10  = col([/last\s*10/, /\bl10\b/, /^form$/],      1);
+  const cHorse   = col([/horse/, /^name$/],                      2);
+  const cTrainer = col([/trainer/],                              3);
+  const cJockey  = col([/jockey/, /rider/],                      4);
+  const cBarrier = col([/barrier/, /\bgate\b/, /\bbar\b/],      5);
+  const cWeight  = col([/\bweight\b/, /\bwgt\b/, /^kg$/],       6);
+
+  const dataRows = rows.filter(r => r.querySelectorAll('td').length >= 3);
+
+  for (const row of dataRows) {
+    const cells = Array.from(row.querySelectorAll('td'));
+
+    const number = normalizeHorseNumber((cells[cNo]?.textContent || '').trim());
+    if (!number) continue;
+
+    const last10Raw = (cells[cLast10]?.textContent || '').trim();
+    // last10 is a short alphanumeric form string, not a horse name
+    const last10 = /^[0-9xX.\s-]{1,12}$/.test(last10Raw) ? last10Raw : '';
+
+    // Horse name — find the cell with a link to HorseFullForm
+    let horseName = '';
+    let horseHref = '';
+    const horseCell = cells[cHorse];
+    if (horseCell) {
+      const link = horseCell.querySelector('a');
+      if (link) {
+        horseName = (link.textContent || '').trim().replace(/\s*\(NZ\)\s*/gi, '').replace(/\s+/g, ' ').trim();
+        const href    = link.getAttribute('href') || '';
+        const onclick = link.getAttribute('onclick') || '';
+        const hm = (href + '|' + onclick).match(/HorseFullForm\.aspx\?([^"'\s|]*)/i);
+        if (hm) horseHref = hm[1];
+      } else {
+        horseName = (horseCell.textContent || '').trim().replace(/\s*\(NZ\)\s*/gi, '').trim();
+      }
+    }
+    if (!horseName) continue;
+
+    const trainer = (cells[cTrainer]?.textContent || '').replace(/\s+/g, ' ').trim();
+
+    // Jockey: "Nick Palmer (a2/55kg)" → strip the parenthetical
+    const jockeyRaw = (cells[cJockey]?.textContent || '').trim();
+    const jockey = jockeyRaw.replace(/\s*\([^)]*\)\s*/g, '').trim();
+
+    const barrier = ((cells[cBarrier]?.textContent || '').match(/\d+/) || [''])[0];
+    const weight  = (cells[cWeight]?.textContent || '').trim().replace(/\s*kg\s*/gi, '').trim();
+
+    horses.push({ number, name: horseName, last10, trainer, jockey, barrier, weight, horseHref });
+  }
+
+  return horses;
+}
+
+function renderRARacePicker(races) {
+  const grid = document.getElementById('ra-race-grid');
+  grid.innerHTML = '';
+
+  races.forEach((race, idx) => {
+    const card = document.createElement('div');
+    card.className = 'cursor-pointer rounded-lg p-3 border border-gray-600 bg-gray-800 hover:border-yellow-500 transition-all';
+    card.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="flex-shrink-0 w-9 h-9 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center font-bold text-gray-900 text-sm">${race.raceNum}</div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-gray-100 text-sm leading-snug">${escHtml(race.name)}</p>
+          <div class="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+            ${race.time     ? `<span class="text-xs text-gray-400">${race.time}</span>` : ''}
+            ${race.distance ? `<span class="text-xs text-blue-400">${race.distance}</span>` : ''}
+            ${race.prize    ? `<span class="text-xs text-green-400">${race.prize}</span>` : ''}
+          </div>
+          <p class="text-xs text-gray-500 mt-1">${race.horses.length} runners</p>
+        </div>
+      </div>`;
+    card.onclick = () => window.selectRARace(idx);
+    grid.appendChild(card);
+  });
+
+  feather.replace();
+}
+
+function escHtml(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+window.selectRARace = function(idx) {
+  const race = raScrapedRaces[idx];
+  if (!race) return;
+
+  // Highlight the selected card
+  Array.from(document.querySelectorAll('#ra-race-grid > div')).forEach((c, i) => {
+    const selected = i === idx;
+    c.classList.toggle('border-yellow-500', selected);
+    c.classList.toggle('bg-yellow-500/10', selected);
+    c.classList.toggle('border-gray-600', !selected);
+    c.classList.toggle('bg-gray-800', !selected);
+  });
+
+  // Fill race meta fields
+  if (race.date)     document.getElementById('race-date').value     = race.date;
+  if (race.time)     document.getElementById('race-time').value     = race.time;
+  if (race.distance) document.getElementById('race-distance').value = race.distance;
+  document.getElementById('race-name').value = `Race ${race.raceNum} - ${race.name}`;
+
+  // Build the horses list
+  const horsesList = document.getElementById('horses-list');
+  horsesList.innerHTML = '';
+
+  race.horses.forEach(horse => {
+    const row = document.createElement('div');
+    row.className = 'horse-row';
+    row.dataset.last10      = horse.last10 || '';
+    row.dataset.horseHref   = horse.horseHref || '';
+    row.innerHTML = `
+      <input type="text"   placeholder="No"      class="horse-no"      value="${escHtml(horse.number)}"  style="width:60px;">
+      <input type="text"   placeholder="Name"    class="horse-name flex-1" value="${escHtml(horse.name)}">
+      <input type="text"   placeholder="Trainer" class="horse-trainer"  value="${escHtml(horse.trainer)}" style="width:120px;">
+      <input type="text"   placeholder="Jockey"  class="horse-jockey"   value="${escHtml(horse.jockey)}"  style="width:120px;">
+      <input type="number" placeholder="Barrier" class="horse-barrier"  value="${escHtml(horse.barrier)}" style="width:80px;">
+      <input type="text"   placeholder="Weight"  class="horse-weight"   value="${escHtml(horse.weight)}"  style="width:80px;">
+      <input type="text"   placeholder="Silk ID" class="horse-silk-id"  value=""                           style="width:100px;" readonly>
+      <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
+    `;
+    horsesList.appendChild(row);
+  });
+
+  showNotification(`Race ${race.raceNum} loaded — fetching silks and form data in background…`, 'success', 'form-notifications');
+  enrichRAHorsesInBackground(race.horses, race.sourceUrl);
+};
+
+async function enrichRAHorsesInBackground(horses, sourceUrl) {
+  const statusEl  = document.getElementById('ra-enrich-status');
+  const msgEl     = document.getElementById('ra-enrich-msg');
+  const barEl     = document.getElementById('ra-enrich-bar');
+
+  const enrichable = horses.filter(h => h.horseHref);
+  if (!enrichable.length) return;
+
+  statusEl.classList.remove('hidden');
+  barEl.style.width = '0%';
+  feather.replace();
+
+  let done = 0;
+
+  for (const horse of enrichable) {
+    msgEl.textContent = `Fetching ${horse.name}… (${done + 1} / ${enrichable.length})`;
+    barEl.style.width = `${Math.round((done / enrichable.length) * 100)}%`;
+
+    try {
+      const horseUrl = new URL(
+        `FreeFields/HorseFullForm.aspx?${horse.horseHref}`,
+        'https://www.racingaustralia.horse'
+      ).href;
+      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, true);
+
+      // Silk ID
+      const silkM = horseHtml.match(/JockeySilks\/(\d+)\.png/i);
+      if (silkM) horse.silksId = silkM[1];
+
+      // Prizemoney — several label patterns used on RA pages
+      const prizeM = horseHtml.match(/(?:total\s+)?prize\s*money[^$\d]*\$([\d,]+)/i)
+                  || horseHtml.match(/\$([\d,]+)\s+prize\s*money/i);
+      if (prizeM) horse.prizemoney = '$' + prizeM[1].replace(/,/g, '');
+
+      // Form history table
+      horse.formHistory = parseRAHorseFormHistory(horseHtml);
+
+    } catch (err) {
+      console.warn(`[enrichRA] ${horse.name}:`, err.message);
+    }
+
+    // Update the matching DOM row
+    const rows = Array.from(document.querySelectorAll('#horses-list .horse-row'));
+    for (const row of rows) {
+      const nameVal = row.querySelector('.horse-name')?.value || '';
+      const noVal   = row.querySelector('.horse-no')?.value   || '';
+      const nameMatch = normalizeHorseName(nameVal) === normalizeHorseName(horse.name);
+      const noMatch   = normalizeHorseNumber(noVal) === normalizeHorseNumber(horse.number);
+      if (!nameMatch && !noMatch) continue;
+
+      const silkInput = row.querySelector('.horse-silk-id');
+      if (silkInput && horse.silksId) silkInput.value = horse.silksId;
+      row.dataset.last10       = horse.last10 || '';
+      if (horse.prizemoney)    row.dataset.prizemoney   = horse.prizemoney;
+      if (horse.formHistory?.length) row.dataset.formHistory = JSON.stringify(horse.formHistory);
+      break;
+    }
+
+    done++;
+  }
+
+  barEl.style.width = '100%';
+  msgEl.textContent = `Done — silks and form data loaded for ${done} horse${done !== 1 ? 's' : ''}.`;
+  feather.replace();
+  setTimeout(() => statusEl.classList.add('hidden'), 5000);
+}
+
+function parseRAHorseFormHistory(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const history = [];
+
+  for (const table of doc.querySelectorAll('table')) {
+    const headers = Array.from(table.querySelectorAll('th')).map(th => th.textContent.trim().toLowerCase());
+    const hasDate = headers.some(h => h.includes('date'));
+    const hasPos  = headers.some(h => /pos|place|fin|result/.test(h));
+    if (!hasDate || !hasPos) continue;
+
+    const dataRows = Array.from(table.querySelectorAll('tbody tr, tr'))
+      .filter(r => r.querySelectorAll('td').length >= 4);
+
+    for (const row of dataRows) {
+      const cells = Array.from(row.querySelectorAll('td'));
+      const entry = {};
+      headers.forEach((h, i) => {
+        const val = (cells[i]?.textContent || '').replace(/\s+/g, ' ').trim();
+        if (h.includes('date'))                          entry.date    = val;
+        else if (/venue|track|course/.test(h))          entry.track   = val;
+        else if (h.includes('dist'))                     entry.dist    = val;
+        else if (/pos|fin|place|result/.test(h))        entry.pos     = val;
+        else if (/jockey|rider/.test(h))                entry.jockey  = val;
+        else if (/weight|wgt/.test(h))                  entry.weight  = val;
+        else if (/barrier|gate/.test(h))                entry.barrier = val;
+        else if (h.includes('winner'))                  entry.winner  = val;
+        else if (/margin|marg/.test(h))                 entry.margin  = val;
+        else if (/class|grade/.test(h))                 entry.class   = val;
+        else if (h.includes('prize') || h.includes('$')) entry.prize  = val;
+      });
+      if (entry.date) history.push(entry);
+    }
+
+    if (history.length) break;
+  }
+
+  return history.slice(0, 10);
+}
