@@ -70,7 +70,7 @@
     }
   </style>
 </head>
-<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- Navigation -->
   <nav class="sticky top-0 z-50 glass-effect">
@@ -751,9 +751,9 @@
               <span class="md:hidden mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 whitespace-nowrap">${tipPct}%</span>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="flex items-baseline gap-3 mb-1">
-                <span class="font-bold text-yellow-400 text-lg">#${h.number}</span>
-                <span class="font-bold text-gray-100 text-base">${h.name}${h.barrier ? ` (${h.barrier})` : ''}</span>
+              <div class="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 mb-1">
+                <span class="font-bold text-yellow-400 text-lg flex-shrink-0">#${h.number}</span>
+                <span class="font-bold text-gray-100 text-base min-w-0 break-words">${h.name}${h.barrier ? ` (${h.barrier})` : ''}</span>
                 <span class="hidden md:inline-flex ml-auto text-xs font-semibold px-2 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 whitespace-nowrap">${tipPct}% tipped</span>
               </div>
               <div class="text-sm text-gray-400 leading-relaxed mb-1">
@@ -770,8 +770,8 @@
                 <button type="button" onclick="event.stopPropagation();toggleForm(this)" class="text-xs text-gray-500 hover:text-yellow-400 transition flex items-center gap-1 mb-1">
                   <i data-feather="chevron-down" class="h-3 w-3"></i> Recent form
                 </button>
-                <div class="form-table hidden">
-                  <table class="text-xs w-full">
+                <div class="form-table hidden overflow-x-auto">
+                  <table class="text-xs w-full min-w-[320px]">
                     <thead><tr class="text-gray-500">
                       <th class="text-left pr-2 pb-1 font-normal">Date</th>
                       <th class="text-left pr-2 pb-1 font-normal">Track</th>
