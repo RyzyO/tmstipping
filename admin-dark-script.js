@@ -3212,6 +3212,20 @@ function parseRAMeetingFromMarkdown(md, meetingUrl) {
           // Hit the next race heading — stop parsing this race's horses
           break;
         } else {
+          // Check for a horse detail card header (e.g. "1SWEET LEAF ..." — digit immediately followed by uppercase)
+          const cardM = lines[j].match(/^(\d+[a-z]?)([A-Z])/);
+          if (cardM) {
+            const cardNum = cardM[1];
+            for (let k = j + 1; k < Math.min(j + 15, lines.length); k++) {
+              if (RACE_HDR.test(lines[k])) break;
+              const pm = lines[k].match(/Prizemoney:\s*\$([\d,]+)/i);
+              if (pm) {
+                const h = horses.find(hh => hh.number === cardNum);
+                if (h) h.prizemoney = '$' + pm[1];
+                break;
+              }
+            }
+          }
           j++;
         }
       }
@@ -3509,6 +3523,7 @@ window.selectRARace = function(idx) {
     row.className = 'horse-row';
     row.dataset.last10      = horse.last10 || '';
     row.dataset.horseHref   = horse.horseHref || '';
+    row.dataset.prizemoney  = horse.prizemoney || race.prize || '';
     row.innerHTML = `
       <input type="text"   placeholder="No"      class="horse-no"      value="${escHtml(horse.number)}"  style="width:60px;">
       <input type="text"   placeholder="Name"    class="horse-name flex-1" value="${escHtml(horse.name)}">

@@ -376,17 +376,17 @@
           return;
         }
 
-        if (stopUserNotificationCenter) {
-          stopUserNotificationCenter();
-        }
-        stopUserNotificationCenter = await initUserNotificationCenter({
+        // Start notification center in background — don't block page load on FCM setup
+        if (stopUserNotificationCenter) stopUserNotificationCenter();
+        initUserNotificationCenter({
           db,
           messaging,
           user: state.user,
           getRelevantCompIds: async () => (state.selectedCompId ? [state.selectedCompId] : [])
-        });
+        }).then(stop => { stopUserNotificationCenter = stop; }).catch(err => console.warn('[notifications]', err));
 
-        await refreshJokerCount(); await loadUserTips(); await loadRaces();
+        // Parallelize independent data fetches (loadRaces already fetches tips internally)
+        await Promise.all([refreshJokerCount(), loadRaces()]);
       }finally{ setBusy(false); }
     });
 
