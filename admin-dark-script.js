@@ -709,20 +709,17 @@ function getTargetRaceNumberForSilks() {
 }
 
 function buildProxyUrls(targetUrl, preferRaw = false) {
-  // Use the original URL as-is for proxies that accept it as a query param.
-  // For Jina, keep the original scheme (https://) — using http:// causes redirect
-  // issues on sites that only serve HTTPS.
-  const jinaUrl = `https://r.jina.ai/${targetUrl}`;
-  // encodeURIComponent double-encodes already-encoded params (e.g. %2C → %252C).
-  // Use a safe encoder that only encodes characters that would break the outer URL.
-  const safeEncode = (u) => u.replace(/ /g, '%20').replace(/#/g, '%23');
-  const corsProxyUrl    = `https://corsproxy.io/?${safeEncode(targetUrl)}`;
-  const allOriginsUrl   = `https://api.allorigins.win/raw?url=${safeEncode(targetUrl)}`;
+  const jinaUrl       = `https://r.jina.ai/${targetUrl}`;
+  // allorigins needs the full target URL encoded so its own ?url= param isn't split
+  // by any ? or & in the target. encodeURIComponent handles already-encoded sequences
+  // safely: %2C in the target becomes %252C in the outer URL, which allorigins decodes
+  // back to %2C before forwarding — RA then decodes that to the actual comma.
+  const allOriginsUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
 
   if (preferRaw) {
-    return [corsProxyUrl, allOriginsUrl, jinaUrl];
+    return [allOriginsUrl, jinaUrl];
   }
-  return [jinaUrl, corsProxyUrl, allOriginsUrl];
+  return [jinaUrl, allOriginsUrl];
 }
 
 // Fetch with an AbortController timeout so hung requests don't block forever.
@@ -3039,10 +3036,10 @@ window.loadRAMeeting = async function() {
 
   // Tick through status messages so the user can see live progress
   const phases = [
-    [0,    'Trying Jina AI proxy…'],
-    [5000, 'Still fetching via Jina (can take up to 25s)…'],
-    [12000,'Jina slow — will try corsproxy if it times out…'],
-    [20000,'Almost at timeout, one more moment…'],
+    [0,    'Fetching meeting page…'],
+    [5000, 'Still fetching (can take up to 25s)…'],
+    [12000,'Taking a while — trying fallback proxy…'],
+    [20000,'Almost there…'],
   ];
   const phaseTimers = phases.map(([delay, msg]) => setTimeout(() => setStatus(msg), delay));
   const clearPhases = () => phaseTimers.forEach(clearTimeout);
@@ -3122,6 +3119,98 @@ function parseTimeFrom12h(str) {
 //   \tTrainer Name\tJockey (a2/55kg)\t10\t58.5kg\t...  ← continuation with tab prefix
 //   2\t2x\tBIG LON
 //   \tDavid Hatch\tGrody Spokes\t6\t57.5kg\t...
+// Parses Acceptances.aspx markdown, which Jina renders as a pipe table:
+//   | Race 1 - 4:15PM NAME (1800 METRES)... |
+//   | No | Last 10 | Horse | Trainer | Jockey | Barrier | Weight | ... |
+//   | 1 | 82 | [BON RIVIERE](url HorseFullForm.aspx?...) | [Tom Dougall](url) | ... |
+// Horse names are links to HorseFullForm, so horseHref comes straight from here.
+function parseRAAcceptancesFromMarkdown(md, meetingUrl) {
+  const keyMatch = meetingUrl.match(/Key=([^&#]+)/i);
+  const keyDecoded = decodeURIComponent(keyMatch?.[1] || '');
+  const meetingDate = parseDateFromRAKey(keyDecoded.split(',')[0] || '');
+
+  const RACE_HDR = /Race\s+(\d+)\s*[-–]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(.*)/i;
+
+  // Strip [text](url) → capture both; href is the full HorseFullForm URL when present
+  const parseCell = (cell) => {
+    const m = cell.match(/\[([^\]]*)\]\(([^)]*)\)/);
+    if (m) {
+      const url = m[2].trim();
+      const isHorse = /HorseFullForm\.aspx/i.test(url);
+      return { text: m[1].trim(), href: isHorse ? url : '' };
+    }
+    return { text: cell.trim(), href: '' };
+  };
+
+  const splitPipeRow = (line) => line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(c => c.trim());
+
+  const races = [];
+  const lines = md.split('\n');
+  let current = null;       // race being built
+  let cols = null;          // header column index map
+
+  for (const line of lines) {
+    if (!line.includes('|')) continue;
+    const cells = splitPipeRow(line);
+
+    // Race heading row (single meaningful cell containing "Race N - TIME ...")
+    const headText = cells.find(c => RACE_HDR.test(c));
+    if (headText) {
+      const hm = headText.match(RACE_HDR);
+      if (hm) {
+        if (current && current.horses.length) races.push(current);
+        const raceNum = parseInt(hm[1], 10);
+        const timeStr = hm[2].trim();
+        let rest = hm[3].replace(/Times displayed.*$/i, '').trim();
+        const distM = rest.match(/\((\d{3,5})\s*METRES?\)/i) || rest.match(/\b(\d{3,5})\s*m\b/i);
+        const distance = distM ? distM[1] + 'm' : '';
+        const name = rest.replace(/\s*\(\d{3,5}\s*METRES?\)\s*/i, '').trim();
+        current = {
+          raceNum, name: name || `Race ${raceNum}`, date: meetingDate,
+          time: parseTimeFrom12h(timeStr), distance, prize: '',
+          horses: [], sourceUrl: meetingUrl,
+        };
+        cols = null;
+      }
+      continue;
+    }
+
+    // Column header row
+    if (/(^|\|)\s*No\s*(\||$)/i.test(line) && /Horse/i.test(line)) {
+      cols = {};
+      cells.forEach((c, i) => {
+        const t = c.toLowerCase();
+        if (t === 'no') cols.no = i;
+        else if (t.includes('last')) cols.last10 = i;
+        else if (t === 'horse') cols.horse = i;
+        else if (t === 'trainer') cols.trainer = i;
+        else if (t === 'jockey') cols.jockey = i;
+        else if (t.includes('barrier')) cols.barrier = i;
+        else if (t === 'weight') cols.weight = i;
+      });
+      continue;
+    }
+
+    // Data row — first cell is a runner number, and we have a race + columns
+    if (current && cols && /^\d+[a-z]?$/i.test(cells[cols.no] || '')) {
+      const number = (cells[cols.no] || '').trim();
+      const horseCell = parseCell(cells[cols.horse] || '');
+      const name = horseCell.text.replace(/\s*\(NZ\)\s*/gi, '').replace(/\s+/g, ' ').trim();
+      if (!name) continue;
+      const last10Raw = (cells[cols.last10] || '').trim();
+      const last10 = /^[0-9xX.\s-]{1,12}$/.test(last10Raw) ? last10Raw : '';
+      const trainer = parseCell(cells[cols.trainer] || '').text;
+      const jockey = parseCell(cells[cols.jockey] || '').text.replace(/\s*\([^)]*\)\s*/g, '').trim();
+      const barrier = ((cells[cols.barrier] || '').match(/\d+/) || [''])[0];
+      const weight = (cells[cols.weight] || '').replace(/\s*kg\s*/gi, '').trim();
+      current.horses.push({ number, name, last10, trainer, jockey, barrier, weight, horseHref: horseCell.href });
+    }
+  }
+
+  if (current && current.horses.length) races.push(current);
+  return races.sort((a, b) => a.raceNum - b.raceNum);
+}
+
 function parseRAMeetingFromMarkdown(md, meetingUrl) {
   const keyMatch = meetingUrl.match(/Key=([^&#]+)/i);
   const keyDecoded = decodeURIComponent(keyMatch?.[1] || '');
@@ -3254,7 +3343,10 @@ function parseRAMeetingFromMarkdown(md, meetingUrl) {
 function parseRAMeetingPage(html, meetingUrl) {
   // Jina AI proxy returns markdown, not HTML. Detect by absence of <html> tag.
   if (!/<html[\s>]/i.test(html)) {
-    return parseRAMeetingFromMarkdown(html, meetingUrl);
+    // Form.aspx renders as tab-separated markdown; Acceptances.aspx as a pipe table.
+    let races = parseRAMeetingFromMarkdown(html, meetingUrl);
+    if (!races.length) races = parseRAAcceptancesFromMarkdown(html, meetingUrl);
+    return races;
   }
 
   const parser = new DOMParser();
@@ -3541,13 +3633,59 @@ window.selectRARace = function(idx) {
   enrichRAHorsesInBackground(race.horses, race.sourceUrl);
 };
 
+// Fetch the raw meeting HTML and map each runner's normalized name → HorseFullForm
+// query string (horseHref). Names are unique across a meeting, so this is collision-free.
+async function fetchRAHorseHrefs(meetingUrl) {
+  const html = await fetchHtmlViaProxy(meetingUrl.split('#')[0], 'ra-href-resolve', true);
+  const map = new Map();
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+
+  // Each runner name is an <a> linking to HorseFullForm.aspx (via href or onclick)
+  const links = doc.querySelectorAll('a');
+  for (const a of links) {
+    const href    = a.getAttribute('href') || '';
+    const onclick = a.getAttribute('onclick') || '';
+    const m = (href + '|' + onclick).match(/HorseFullForm\.aspx\?([^"'\s|)]+)/i);
+    if (!m) continue;
+    const name = (a.textContent || '').trim();
+    const key = normalizeHorseName(name);
+    if (key && !map.has(key)) map.set(key, m[1]);
+  }
+
+  // Fallback for proxied HTML where anchors are flattened: pair each HorseFullForm
+  // query with the nearest preceding capitalised horse name isn't reliable, so we
+  // only use the anchor-based map above. If empty, the caller degrades gracefully.
+  return map;
+}
+
 async function enrichRAHorsesInBackground(horses, sourceUrl) {
   const statusEl  = document.getElementById('ra-enrich-status');
   const msgEl     = document.getElementById('ra-enrich-msg');
   const barEl     = document.getElementById('ra-enrich-bar');
 
+  // Races are parsed from Jina markdown, which has no horse links — so horseHref
+  // is empty. Resolve it from the raw meeting HTML (allorigins) so we can fetch
+  // each horse's form page for silks + prizemoney. Best-effort: if the raw proxy
+  // is unavailable, silks simply won't populate but the rest still works.
+  if (!horses.some(h => h.horseHref) && sourceUrl) {
+    statusEl.classList.remove('hidden');
+    if (msgEl) msgEl.textContent = 'Resolving horse links for silks…';
+    feather.replace();
+    try {
+      const hrefByName = await fetchRAHorseHrefs(sourceUrl);
+      for (const h of horses) {
+        const key = normalizeHorseName(h.name);
+        if (key && hrefByName.has(key)) h.horseHref = hrefByName.get(key);
+      }
+    } catch (err) {
+      console.warn('[enrichRA] could not resolve horse hrefs:', err.message);
+    }
+  }
+
   const enrichable = horses.filter(h => h.horseHref);
-  if (!enrichable.length) return;
+  if (!enrichable.length) { statusEl.classList.add('hidden'); return; }
 
   statusEl.classList.remove('hidden');
   barEl.style.width = '0%';
@@ -3560,10 +3698,11 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
     barEl.style.width = `${Math.round((done / enrichable.length) * 100)}%`;
 
     try {
-      const horseUrl = new URL(
-        `FreeFields/HorseFullForm.aspx?${horse.horseHref}`,
-        'https://www.racingaustralia.horse'
-      ).href;
+      // horseHref may be a full URL (from Acceptances markdown, path /InteractiveForm/…)
+      // or just a query string (legacy HTML parse, path /FreeFields/…).
+      const horseUrl = /^https?:\/\//i.test(horse.horseHref)
+        ? horse.horseHref
+        : new URL(`FreeFields/HorseFullForm.aspx?${horse.horseHref}`, 'https://www.racingaustralia.horse').href;
       const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, true);
 
       // Silk ID
@@ -3667,7 +3806,7 @@ window.openRAMeetingBrowser = async function() {
   feather.replace();
 
   try {
-    const html = await fetchHtmlViaProxy('https://racingaustralia.horse/home.aspx', 'ra-browser', true);
+    const html = await fetchHtmlViaProxy('https://racingaustralia.horse/home.aspx', 'ra-browser', false);
     let meetings = parseRAHomeMeetings(html);
     if (!meetings.length) meetings = parseRAHomeMeetingsMarkdown(html);
     if (!meetings.length) { statusEl.textContent = 'No meetings found — try again shortly.'; return; }
@@ -3741,79 +3880,79 @@ function parseRAHomeMeetings(html) {
 }
 
 function parseRAHomeMeetingsMarkdown(text) {
-  // Fallback: parse Jina reader markdown / plain-text output of home.aspx.
-  // The table renders as lines like:
-  //   THURSDAY 25 JUN
-  //   NSW: Casino, Wyong
-  //   VIC: Bendigo
-  // OR as a markdown pipe table:
-  //   | NSW | VIC | QLD | ...
-  //   | Casino | Bendigo | ...
+  // Jina returns markdown where links look like [VenueName](https://...Form.aspx?Key=...)
+  // and state headers look like [NSW](/FreeFields/Calendar.aspx?State=NSW)
   const meetings = [];
   const lines = text.split(/\r?\n/);
 
-  // Detect if it's a pipe table
-  const hasPipeTable = lines.some(l => l.trim().startsWith('|') && RA_STATES.some(s => l.includes(s)));
+  // Helper: extract text and URL from a markdown cell that may contain [text](url)
+  const mdLinks = (cell) => {
+    const results = [];
+    const re = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let m;
+    while ((m = re.exec(cell)) !== null) results.push({ text: m[1].trim(), url: m[2].trim() });
+    if (!results.length) {
+      // plain text, no link
+      const t = cell.trim();
+      if (t) results.push({ text: t, url: null });
+    }
+    return results;
+  };
 
-  if (hasPipeTable) {
-    // Parse markdown pipe table
-    let colState = {};
-    let currentDate = null;
-    let currentDateStr = null;
+  // Extract plain text from a cell (strip markdown links)
+  const cellText = (cell) => cell.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
 
-    for (const line of lines) {
-      const dateMatch = line.match(/([A-Z]+DAY)\s+(\d{1,2})\s+([A-Z]{3})/i);
-      if (dateMatch) {
-        currentDate = line.trim();
-        currentDateStr = buildRADateKey(dateMatch[2], dateMatch[3]);
-        colState = {};
-        continue;
-      }
+  const hasPipeTable = lines.some(l => l.trim().startsWith('|'));
+  if (!hasPipeTable) return meetings;
 
-      if (!line.trim().startsWith('|')) continue;
-      const cells = line.split('|').map(c => c.trim()).filter(c => c && c !== '---' && !/^[-:]+$/.test(c));
-      if (!cells.length) continue;
+  const dateRe = /([A-Z]+DAY)\s+(\d{1,2})\s+([A-Z]{3})/i;
 
-      // Header row — detect state columns
-      if (RA_STATES.some(s => cells.includes(s))) {
-        colState = {};
-        cells.forEach((c, i) => { if (RA_STATES.includes(c)) colState[i] = c; });
-        continue;
-      }
+  let colState = {};   // col index → state abbreviation
+  let currentDate = null;
 
-      if (!currentDateStr || !Object.keys(colState).length) continue;
+  for (const line of lines) {
+    const isPipeRow = line.trim().startsWith('|');
 
-      cells.forEach((cell, i) => {
-        const state = colState[i];
-        if (!state || !cell) return;
-        cell.split(/[,\n]/).forEach(v => {
-          const venue = v.trim();
-          if (venue) meetings.push({ date: currentDate, dateKey: currentDateStr, state, venue });
-        });
+    // A non-pipe line that contains a date is a standalone date header
+    if (!isPipeRow) {
+      const dm = line.match(dateRe);
+      if (dm) currentDate = line.replace(/[|*_#]/g, '').trim();
+      continue;
+    }
+
+    // Split pipe row into cells (drop leading/trailing empties from the split)
+    const rawCells = line.split('|').slice(1, -1);
+    if (!rawCells.length) continue;
+    if (rawCells.every(c => /^[-:\s]+$/.test(c))) continue; // separator row
+
+    const texts = rawCells.map(c => cellText(c));
+
+    // Header row: cells whose plain text matches state codes
+    if (RA_STATES.some(s => texts.includes(s))) {
+      colState = {};
+      texts.forEach((t, i) => { if (RA_STATES.includes(t)) colState[i] = t; });
+      continue;
+    }
+
+    // Data row — the date lives in the FIRST cell of the same row as the venues
+    const firstCellDate = texts[0]?.match(dateRe);
+    if (firstCellDate) currentDate = texts[0].trim();
+
+    if (!currentDate || !Object.keys(colState).length) continue;
+
+    rawCells.forEach((cell, i) => {
+      const state = colState[i];
+      if (!state) return; // skips the date column (index not in colState)
+      mdLinks(cell).forEach(({ text: venue, url }) => {
+        if (!venue || venue === '\\' || venue.length < 2) return;
+        // A real meeting links to Form.aspx / Acceptances.aspx; postponed ones link to home.aspx
+        let resolvedUrl = null;
+        if (url && (url.includes('Form.aspx') || url.includes('Acceptances.aspx'))) {
+          resolvedUrl = url.startsWith('http') ? url : 'https://racingaustralia.horse' + url;
+        }
+        meetings.push({ date: currentDate, state, venue: venue.replace(/\\$/, '').trim(), url: resolvedUrl, postponed: !resolvedUrl });
       });
-    }
-  } else {
-    // Plain text / label format: look for date lines then "STATE Venue1 Venue2" lines
-    let currentDate = null;
-    let currentDateStr = null;
-    for (const line of lines) {
-      const dateMatch = line.match(/([A-Z]+DAY)\s+(\d{1,2})\s+([A-Z]{3})/i);
-      if (dateMatch) {
-        currentDate = line.trim();
-        currentDateStr = buildRADateKey(dateMatch[2], dateMatch[3]);
-        continue;
-      }
-      if (!currentDateStr) continue;
-      // Look for "STATE Venue" or "STATE: Venue1, Venue2"
-      const stateMatch = line.match(/^(NSW|VIC|QLD|WA|SA|TAS|ACT|NT)[:\s]+(.+)/i);
-      if (stateMatch) {
-        const state = stateMatch[1].toUpperCase();
-        stateMatch[2].split(/[,;]/).forEach(v => {
-          const venue = v.trim();
-          if (venue) meetings.push({ date: currentDate, dateKey: currentDateStr, state, venue });
-        });
-      }
-    }
+    });
   }
 
   return meetings;
