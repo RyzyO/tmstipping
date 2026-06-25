@@ -591,7 +591,13 @@
                   <i data-feather="download-cloud" class="h-5 w-5 text-yellow-400"></i>
                   Import from Racing Australia
                 </h3>
-                <p class="text-gray-400 text-sm mb-3">Paste a Racing Australia form URL — all races from the meeting will be listed for selection. Silks, last 10, prizemoney and form data are fetched automatically.</p>
+                <p class="text-gray-400 text-sm mb-3">Paste a Racing Australia form URL — or browse upcoming meetings below. Silks, last 10, prizemoney and form data are fetched automatically.</p>
+                <div class="flex gap-2 mb-2">
+                  <button type="button" onclick="openRAMeetingBrowser()" class="btn-secondary whitespace-nowrap" id="ra-browse-btn">
+                    <i data-feather="calendar" class="h-4 w-4"></i>
+                    Browse Meetings
+                  </button>
+                </div>
                 <div class="flex gap-2 mb-4">
                   <input type="url" id="ra-import-url" class="flex-1" style="background:rgba(17,24,39,0.9);border:1px solid rgba(75,85,99,0.3);color:#e5e7eb;padding:10px 12px;border-radius:6px;font-size:0.875rem;" placeholder="https://racingaustralia.horse/FreeFields/Form.aspx?Key=2026Jun26%2CNSW%2CTamworth">
                   <button type="button" onclick="loadRAMeeting()" class="btn-secondary whitespace-nowrap" id="ra-load-btn">
@@ -1030,5 +1036,20 @@
   </footer>
 
   <script type="module" src="admin-dark-script.js?v=20260401d"></script>
+
+  <!-- RA Meeting Browser Modal -->
+  <div id="ra-browser-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);overflow-y:auto;" onclick="if(event.target===this)closeRAMeetingBrowser()">
+    <div style="max-width:860px;margin:40px auto;background:#111827;border:1px solid rgba(75,85,99,0.4);border-radius:12px;padding:24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h2 style="font-size:1.125rem;font-weight:600;color:#e5e7eb;display:flex;align-items:center;gap:8px;">
+          <i data-feather="calendar" style="width:18px;height:18px;color:#facc15;"></i>
+          Australian Thoroughbred Racing — Next 7 Days
+        </h2>
+        <button onclick="closeRAMeetingBrowser()" style="color:#9ca3af;background:none;border:none;cursor:pointer;font-size:1.25rem;line-height:1;">&#x2715;</button>
+      </div>
+      <div id="ra-browser-status" style="color:#9ca3af;font-size:0.875rem;margin-bottom:12px;">Loading meetings…</div>
+      <div id="ra-browser-content"></div>
+    </div>
+  </div>
 </body>
 </html>

@@ -740,7 +740,7 @@ async function fetchWithTimeout(url, timeoutMs = 25000) {
   }
 }
 
-async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false, validator = null) {
+window.fetchHtmlViaProxy = async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false, validator = null) {
   const proxyUrls = buildProxyUrls(targetUrl, preferRaw);
   let lastError = null;
 
@@ -3523,7 +3523,7 @@ window.selectRARace = function(idx) {
     row.className = 'horse-row';
     row.dataset.last10      = horse.last10 || '';
     row.dataset.horseHref   = horse.horseHref || '';
-    row.dataset.prizemoney  = horse.prizemoney || race.prize || '';
+    row.dataset.prizemoney  = horse.prizemoney || '';
     row.innerHTML = `
       <input type="text"   placeholder="No"      class="horse-no"      value="${escHtml(horse.number)}"  style="width:60px;">
       <input type="text"   placeholder="Name"    class="horse-name flex-1" value="${escHtml(horse.name)}">
@@ -3571,8 +3571,8 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
       if (silkM) horse.silksId = silkM[1];
 
       // Prizemoney — several label patterns used on RA pages
-      const prizeM = horseHtml.match(/(?:total\s+)?prize\s*money[^$\d]*\$([\d,]+)/i)
-                  || horseHtml.match(/\$([\d,]+)\s+prize\s*money/i);
+      const prizeM = horseHtml.match(/total\s+prize\s*money[^$\d]*\$([\d,]+)/i)
+                  || horseHtml.match(/\$([\d,]+)\s+total\s+prize\s*money/i);
       if (prizeM) horse.prizemoney = '$' + prizeM[1].replace(/,/g, '');
 
       // Form history table
@@ -3646,4 +3646,319 @@ function parseRAHorseFormHistory(html) {
   }
 
   return history.slice(0, 10);
+}
+
+// ── Racing Australia Meeting Browser ─────────────────────────────────────────
+
+const RA_STATES = ['NSW','VIC','QLD','WA','SA','TAS','ACT','NT'];
+let raBrowserMeetingsCache = null;
+const STATE_COLOURS = {
+  NSW:'#3b82f6', VIC:'#8b5cf6', QLD:'#ef4444', WA:'#f97316',
+  SA:'#10b981',  TAS:'#06b6d4', ACT:'#ec4899', NT:'#f59e0b',
+};
+
+window.openRAMeetingBrowser = async function() {
+  const modal = document.getElementById('ra-browser-modal');
+  const statusEl = document.getElementById('ra-browser-status');
+  const contentEl = document.getElementById('ra-browser-content');
+  modal.style.display = 'block';
+  contentEl.innerHTML = '';
+  statusEl.textContent = 'Fetching meetings from Racing Australia…';
+  feather.replace();
+
+  try {
+    const html = await fetchHtmlViaProxy('https://racingaustralia.horse/home.aspx', 'ra-browser', true);
+    let meetings = parseRAHomeMeetings(html);
+    if (!meetings.length) meetings = parseRAHomeMeetingsMarkdown(html);
+    if (!meetings.length) { statusEl.textContent = 'No meetings found — try again shortly.'; return; }
+    statusEl.textContent = '';
+    raBrowserMeetingsCache = meetings;
+    renderRAMeetingBrowser(meetings, contentEl);
+    feather.replace();
+  } catch (err) {
+    statusEl.textContent = 'Failed to load meetings: ' + err.message;
+  }
+};
+
+window.closeRAMeetingBrowser = function() {
+  document.getElementById('ra-browser-modal').style.display = 'none';
+};
+
+function parseRAHomeMeetings(html) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const meetings = [];
+
+  // Find the schedule table — has <th> links to Calendar.aspx for each state
+  let table = null;
+  for (const t of doc.querySelectorAll('table')) {
+    if (t.querySelector('a[href*="Calendar.aspx?State="]')) { table = t; break; }
+  }
+  if (!table) return meetings;
+
+  // Map column index → state from the header row
+  const colState = {};
+  const headerRow = table.querySelector('tr');
+  if (headerRow) {
+    headerRow.querySelectorAll('th,td').forEach((cell, i) => {
+      const a = cell.querySelector('a[href*="State="]');
+      if (a) {
+        const m = a.href.match(/State=([A-Z]+)/);
+        if (m) colState[i] = m[1];
+      }
+    });
+  }
+
+  // Walk data rows (class="rows")
+  for (const row of table.querySelectorAll('tr.rows')) {
+    const cells = Array.from(row.querySelectorAll('td'));
+    if (!cells.length) continue;
+
+    // First cell is the date
+    const dateText = cells[0]?.querySelector('span')?.textContent?.trim() || cells[0]?.textContent?.trim() || '';
+    if (!dateText) continue;
+
+    // Each subsequent cell = one state column
+    cells.slice(1).forEach((cell, idx) => {
+      const colIdx = idx + 1;
+      const state = colState[colIdx];
+      if (!state) return;
+
+      cell.querySelectorAll('a').forEach(a => {
+        const venue = a.textContent.trim();
+        if (!venue) return;
+        // Use the href directly — already has the correct Form.aspx or Acceptances.aspx URL
+        const href = a.getAttribute('href');
+        const hasLink = href && (href.includes('Form.aspx') || href.includes('Acceptances.aspx'));
+        const url = hasLink ? 'https://racingaustralia.horse' + href : null;
+        const postponed = !hasLink;
+        meetings.push({ date: dateText, state, venue, url, postponed });
+      });
+    });
+  }
+
+  return meetings;
+}
+
+function parseRAHomeMeetingsMarkdown(text) {
+  // Fallback: parse Jina reader markdown / plain-text output of home.aspx.
+  // The table renders as lines like:
+  //   THURSDAY 25 JUN
+  //   NSW: Casino, Wyong
+  //   VIC: Bendigo
+  // OR as a markdown pipe table:
+  //   | NSW | VIC | QLD | ...
+  //   | Casino | Bendigo | ...
+  const meetings = [];
+  const lines = text.split(/\r?\n/);
+
+  // Detect if it's a pipe table
+  const hasPipeTable = lines.some(l => l.trim().startsWith('|') && RA_STATES.some(s => l.includes(s)));
+
+  if (hasPipeTable) {
+    // Parse markdown pipe table
+    let colState = {};
+    let currentDate = null;
+    let currentDateStr = null;
+
+    for (const line of lines) {
+      const dateMatch = line.match(/([A-Z]+DAY)\s+(\d{1,2})\s+([A-Z]{3})/i);
+      if (dateMatch) {
+        currentDate = line.trim();
+        currentDateStr = buildRADateKey(dateMatch[2], dateMatch[3]);
+        colState = {};
+        continue;
+      }
+
+      if (!line.trim().startsWith('|')) continue;
+      const cells = line.split('|').map(c => c.trim()).filter(c => c && c !== '---' && !/^[-:]+$/.test(c));
+      if (!cells.length) continue;
+
+      // Header row — detect state columns
+      if (RA_STATES.some(s => cells.includes(s))) {
+        colState = {};
+        cells.forEach((c, i) => { if (RA_STATES.includes(c)) colState[i] = c; });
+        continue;
+      }
+
+      if (!currentDateStr || !Object.keys(colState).length) continue;
+
+      cells.forEach((cell, i) => {
+        const state = colState[i];
+        if (!state || !cell) return;
+        cell.split(/[,\n]/).forEach(v => {
+          const venue = v.trim();
+          if (venue) meetings.push({ date: currentDate, dateKey: currentDateStr, state, venue });
+        });
+      });
+    }
+  } else {
+    // Plain text / label format: look for date lines then "STATE Venue1 Venue2" lines
+    let currentDate = null;
+    let currentDateStr = null;
+    for (const line of lines) {
+      const dateMatch = line.match(/([A-Z]+DAY)\s+(\d{1,2})\s+([A-Z]{3})/i);
+      if (dateMatch) {
+        currentDate = line.trim();
+        currentDateStr = buildRADateKey(dateMatch[2], dateMatch[3]);
+        continue;
+      }
+      if (!currentDateStr) continue;
+      // Look for "STATE Venue" or "STATE: Venue1, Venue2"
+      const stateMatch = line.match(/^(NSW|VIC|QLD|WA|SA|TAS|ACT|NT)[:\s]+(.+)/i);
+      if (stateMatch) {
+        const state = stateMatch[1].toUpperCase();
+        stateMatch[2].split(/[,;]/).forEach(v => {
+          const venue = v.trim();
+          if (venue) meetings.push({ date: currentDate, dateKey: currentDateStr, state, venue });
+        });
+      }
+    }
+  }
+
+  return meetings;
+}
+
+function buildRADateKey(day, mon) {
+  // Returns e.g. "2026Jun26" from day="26" mon="JUN"
+  const now = new Date();
+  const year = now.getFullYear();
+  const monCap = mon.charAt(0).toUpperCase() + mon.slice(1).toLowerCase();
+  return `${year}${monCap}${String(day).padStart(2, '0')}`;
+}
+
+function buildRAFormUrl(dateKey, state, venue) {
+  // Key format: 2026Jun26,NSW,Tamworth  (comma-separated, URL-encoded)
+  const key = `${dateKey},${state},${venue}`;
+  return `https://racingaustralia.horse/FreeFields/Form.aspx?Key=${encodeURIComponent(key)}`;
+}
+
+function renderRAMeetingBrowser(meetings, container) {
+  // Group by date
+  const byDate = {};
+  const dateOrder = [];
+  for (const m of meetings) {
+    if (!byDate[m.date]) { byDate[m.date] = []; dateOrder.push(m.date); }
+    byDate[m.date].push(m);
+  }
+
+  for (const date of dateOrder) {
+    const group = byDate[date];
+
+    const dayEl = document.createElement('div');
+    dayEl.style.cssText = 'margin-bottom:20px;';
+
+    const heading = document.createElement('div');
+    heading.style.cssText = 'font-size:0.75rem;font-weight:700;letter-spacing:0.05em;color:#facc15;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid rgba(75,85,99,0.3);';
+    heading.textContent = date;
+    dayEl.appendChild(heading);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+
+    for (const m of group) {
+      const btn = document.createElement('button');
+      const stateColor = STATE_COLOURS[m.state] || '#6b7280';
+      btn.style.cssText = `display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;border:1px solid rgba(75,85,99,0.4);background:rgba(17,24,39,0.9);color:#e5e7eb;font-size:0.8125rem;cursor:pointer;transition:background 0.15s;`;
+      if (m.postponed) {
+        btn.style.opacity = '0.4';
+        btn.style.cursor = 'default';
+        btn.title = 'Meeting postponed';
+      } else {
+        btn.onmouseover = () => btn.style.background = 'rgba(55,65,81,0.9)';
+        btn.onmouseout = () => btn.style.background = 'rgba(17,24,39,0.9)';
+        btn.onclick = () => selectRAMeeting(m);
+      }
+      btn.innerHTML = `<span style="font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:3px;background:${stateColor};color:#fff;">${m.state}</span>${m.venue}${m.postponed ? ' <span style="font-size:0.65rem;color:#9ca3af;">(postponed)</span>' : ''}`;
+      grid.appendChild(btn);
+    }
+
+    dayEl.appendChild(grid);
+    container.appendChild(dayEl);
+  }
+}
+
+async function selectRAMeeting(m) {
+  const contentEl = document.getElementById('ra-browser-content');
+  const statusEl  = document.getElementById('ra-browser-status');
+
+  // Show loading state inside the modal with a back button
+  contentEl.innerHTML = `
+    <button onclick="reopenRAMeetingBrowser()" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;padding:6px 12px;border-radius:6px;border:1px solid rgba(75,85,99,0.4);background:rgba(17,24,39,0.9);color:#9ca3af;font-size:0.8125rem;cursor:pointer;">
+      &#8592; Back to meetings
+    </button>
+    <div style="font-size:0.9rem;font-weight:600;color:#e5e7eb;margin-bottom:4px;">${m.venue} <span style="font-size:0.7rem;color:#9ca3af;">(${m.state})</span></div>
+    <div style="font-size:0.75rem;color:#facc15;margin-bottom:16px;">${m.date}</div>
+    <div id="ra-modal-race-status" style="color:#9ca3af;font-size:0.875rem;">Fetching races…</div>
+  `;
+  statusEl.textContent = '';
+  feather.replace();
+
+  try {
+    const html = await fetchHtmlViaProxy(m.url.split('#')[0], 'ra-meeting-modal', false);
+    const races = parseRAMeetingPage(html, m.url);
+
+    const statusLine = document.getElementById('ra-modal-race-status');
+    if (!races.length) {
+      if (statusLine) statusLine.textContent = 'No races found for this meeting.';
+      return;
+    }
+    if (statusLine) statusLine.remove();
+
+    raScrapedRaces = races;
+
+    // Also set the URL input so the existing flow still works
+    const input = document.getElementById('ra-import-url');
+    if (input) input.value = m.url;
+
+    // Render race cards inside the modal
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;';
+
+    races.forEach((race, idx) => {
+      const card = document.createElement('div');
+      card.style.cssText = 'cursor:pointer;border-radius:8px;padding:12px;border:1px solid rgba(75,85,99,0.5);background:rgba(31,41,55,0.9);transition:border-color 0.15s,background 0.15s;';
+      card.onmouseover = () => { card.style.borderColor = '#facc15'; card.style.background = 'rgba(250,204,21,0.06)'; };
+      card.onmouseout  = () => { card.style.borderColor = 'rgba(75,85,99,0.5)'; card.style.background = 'rgba(31,41,55,0.9)'; };
+      card.innerHTML = `
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <div style="flex-shrink:0;width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#d97706);display:flex;align-items:center;justify-content:center;font-weight:700;color:#111;font-size:0.875rem;">${race.raceNum}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:#f3f4f6;font-size:0.875rem;line-height:1.3;">${escHtml(race.name)}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+              ${race.time     ? `<span style="font-size:0.7rem;color:#9ca3af;">${race.time}</span>` : ''}
+              ${race.distance ? `<span style="font-size:0.7rem;color:#60a5fa;">${race.distance}</span>` : ''}
+              ${race.prize    ? `<span style="font-size:0.7rem;color:#34d399;">${race.prize}</span>` : ''}
+            </div>
+            <div style="font-size:0.7rem;color:#6b7280;margin-top:2px;">${race.horses.length} runners</div>
+          </div>
+        </div>`;
+      card.onclick = () => selectRARaceFromModal(idx);
+      grid.appendChild(card);
+    });
+
+    contentEl.appendChild(grid);
+  } catch (err) {
+    const statusLine = document.getElementById('ra-modal-race-status');
+    if (statusLine) statusLine.textContent = 'Error loading races: ' + err.message;
+  }
+}
+
+window.reopenRAMeetingBrowser = function() {
+  const contentEl = document.getElementById('ra-browser-content');
+  const statusEl  = document.getElementById('ra-browser-status');
+  if (raBrowserMeetingsCache) {
+    contentEl.innerHTML = '';
+    renderRAMeetingBrowser(raBrowserMeetingsCache, contentEl);
+    statusEl.textContent = '';
+    feather.replace();
+  } else {
+    openRAMeetingBrowser();
+  }
+};
+
+function selectRARaceFromModal(idx) {
+  closeRAMeetingBrowser();
+  // Re-use the existing selectRARace logic
+  window.selectRARace(idx);
 }
