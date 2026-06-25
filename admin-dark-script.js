@@ -225,88 +225,142 @@ async function loadRacesList() {
   }
 }
 
+// Build one collapsible date group (header + race items). Reused for current-year
+// dates (rendered directly) and past-year dates (nested inside a year group).
+function createDateGroup(date, races, listId) {
+  const dateGroup = document.createElement('div');
+  dateGroup.className = 'date-group';
+
+  const dt = DateTime.fromFormat(date, 'yyyy-MM-dd').setZone('Australia/Sydney');
+  const formattedDate = dt.toFormat('EEE, LLL d');
+
+  const dateHeader = document.createElement('div');
+  dateHeader.className = 'date-header';
+  dateHeader.innerHTML = `
+    <span>${formattedDate}</span>
+    <i data-feather="chevron-down" class="h-4 w-4 transition-transform"></i>
+  `;
+
+  const racesForDate = document.createElement('div');
+  racesForDate.className = 'races-for-date';
+
+  const sortedRaces = races.sort((a, b) => {
+    const aTime = a.time || '00:00';
+    const bTime = b.time || '00:00';
+    return aTime.localeCompare(bTime);
+  });
+
+  sortedRaces.forEach(race => {
+    const raceItem = document.createElement('div');
+    raceItem.className = 'race-item';
+    const raceTime = race.time ? race.time.substring(0, 5) : '';
+    raceItem.innerHTML = `
+      <div class="font-semibold">${race.name || 'Unnamed Race'}</div>
+      <div class="text-xs text-gray-400 mt-1">${raceTime}</div>
+    `;
+    raceItem.onclick = () => {
+      selectRace(race.id);
+      if (listId === 'race-list-mobile') {
+        toggleMobileSidebar();
+      }
+    };
+    racesForDate.appendChild(raceItem);
+  });
+
+  dateHeader.onclick = () => {
+    const isExpanded = racesForDate.classList.contains('show');
+    racesForDate.classList.toggle('show');
+    dateHeader.classList.toggle('expanded');
+    const icon = dateHeader.querySelector('i');
+    if (icon) icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+    feather.replace();
+  };
+
+  dateGroup.appendChild(dateHeader);
+  dateGroup.appendChild(racesForDate);
+
+  // Auto-expand if a race in this date is selected
+  if (races.some(r => r.id === currentRaceId)) {
+    racesForDate.classList.add('show');
+    dateHeader.classList.add('expanded');
+    const icon = dateHeader.querySelector('i');
+    if (icon) icon.style.transform = 'rotate(180deg)';
+  }
+
+  return dateGroup;
+}
+
 function renderRaceListByDate(racesByDate, sortedDates, listId) {
   const raceList = document.getElementById(listId);
   if (!raceList) return;
-  
+
   raceList.innerHTML = '';
 
+  const currentYear = new Date().getFullYear();
+
+  // Partition dates: current calendar year shown directly, others grouped by year
+  const currentYearDates = [];
+  const otherYearDates = {}; // year -> [dates]
   sortedDates.forEach(date => {
-    const races = racesByDate[date];
-    
-    // Create date group
-    const dateGroup = document.createElement('div');
-    dateGroup.className = 'date-group';
-    
-    // Format date nicely
-    const dt = DateTime.fromFormat(date, 'yyyy-MM-dd').setZone('Australia/Sydney');
-    const formattedDate = dt.toFormat('EEE, LLL d');
-    
-    // Create date header
-    const dateHeader = document.createElement('div');
-    dateHeader.className = 'date-header';
-    dateHeader.innerHTML = `
-      <span>${formattedDate}</span>
-      <i data-feather="chevron-down" class="h-4 w-4 transition-transform"></i>
-    `;
-    
-    // Create races container for this date
-    const racesForDate = document.createElement('div');
-    racesForDate.className = 'races-for-date';
-    
-    // Sort races by time (earliest to latest)
-    const sortedRaces = races.sort((a, b) => {
-      const aTime = a.time || '00:00';
-      const bTime = b.time || '00:00';
-      return aTime.localeCompare(bTime);
-    });
-    
-    // Add race items
-    sortedRaces.forEach(race => {
-      const raceItem = document.createElement('div');
-      raceItem.className = 'race-item';
-      const raceTime = race.time ? race.time.substring(0, 5) : '';
-      raceItem.innerHTML = `
-        <div class="font-semibold">${race.name || 'Unnamed Race'}</div>
-        <div class="text-xs text-gray-400 mt-1">${raceTime}</div>
-      `;
-      raceItem.onclick = () => {
-        selectRace(race.id);
-        if (listId === 'race-list-mobile') {
-          toggleMobileSidebar();
-        }
-      };
-      
-      racesForDate.appendChild(raceItem);
-    });
-    
-    // Toggle date group expansion
-    dateHeader.onclick = () => {
-      const isExpanded = racesForDate.classList.contains('show');
-      racesForDate.classList.toggle('show');
-      dateHeader.classList.toggle('expanded');
-      const icon = dateHeader.querySelector('i');
-      if (icon) {
-        icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
-      }
-      feather.replace();
-    };
-    
-    dateGroup.appendChild(dateHeader);
-    dateGroup.appendChild(racesForDate);
-    raceList.appendChild(dateGroup);
-    
-    // Auto-expand if race in this date is selected
-    if (races.some(r => r.id === currentRaceId)) {
-      racesForDate.classList.add('show');
-      dateHeader.classList.add('expanded');
-      const icon = dateHeader.querySelector('i');
-      if (icon) {
-        icon.style.transform = 'rotate(180deg)';
-      }
+    const year = parseInt(date.slice(0, 4), 10);
+    if (year === currentYear) {
+      currentYearDates.push(date);
+    } else {
+      (otherYearDates[year] = otherYearDates[year] || []).push(date);
     }
   });
-  
+
+  // Current-year date groups render at the top level, as before
+  currentYearDates.forEach(date => {
+    raceList.appendChild(createDateGroup(date, racesByDate[date], listId));
+  });
+
+  // Each other year is wrapped in its own collapsible group (most recent first)
+  Object.keys(otherYearDates)
+    .map(Number)
+    .sort((a, b) => b - a)
+    .forEach(year => {
+      const yearGroup = document.createElement('div');
+      yearGroup.className = 'year-group';
+
+      const yearHeader = document.createElement('div');
+      yearHeader.className = 'year-header';
+      yearHeader.innerHTML = `
+        <span>${year}</span>
+        <i data-feather="chevron-down" class="h-4 w-4 transition-transform"></i>
+      `;
+
+      const yearContent = document.createElement('div');
+      yearContent.className = 'year-content';
+
+      let hasSelected = false;
+      otherYearDates[year].forEach(date => {
+        if (racesByDate[date].some(r => r.id === currentRaceId)) hasSelected = true;
+        yearContent.appendChild(createDateGroup(date, racesByDate[date], listId));
+      });
+
+      yearHeader.onclick = () => {
+        const isExpanded = yearContent.classList.contains('show');
+        yearContent.classList.toggle('show');
+        yearHeader.classList.toggle('expanded');
+        const icon = yearHeader.querySelector('i');
+        if (icon) icon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+        feather.replace();
+      };
+
+      yearGroup.appendChild(yearHeader);
+      yearGroup.appendChild(yearContent);
+      raceList.appendChild(yearGroup);
+
+      // Expand the year group if it holds the currently selected race
+      if (hasSelected) {
+        yearContent.classList.add('show');
+        yearHeader.classList.add('expanded');
+        const icon = yearHeader.querySelector('i');
+        if (icon) icon.style.transform = 'rotate(180deg)';
+      }
+    });
+
   feather.replace();
 }
 
@@ -334,8 +388,19 @@ function updateRaceSelection() {
         }
       }
     }
+    // If the race lives in a past-year group, expand that too
+    const yearContent = item.closest('.year-content');
+    if (yearContent) {
+      yearContent.classList.add('show');
+      const yearHeader = yearContent.previousElementSibling;
+      if (yearHeader && yearHeader.classList.contains('year-header')) {
+        yearHeader.classList.add('expanded');
+        const icon = yearHeader.querySelector('i');
+        if (icon) icon.style.transform = 'rotate(180deg)';
+      }
+    }
   });
-  
+
   feather.replace();
 }
 
@@ -481,21 +546,32 @@ function cancelForm() {
   document.getElementById('new-race-panel').classList.add('hidden');
 }
 
+// Single source of truth for a horse row's inner markup. Fields are wrapped in
+// labelled .hr-field cells so the layout can be a compact aligned grid on desktop
+// (labels hidden, shared header used) and a labelled card on mobile.
+function buildHorseRowInner(h = {}) {
+  const esc = (v) => escHtml(v == null ? '' : String(v));
+  const field = (cls, label, inputHtml) =>
+    `<div class="hr-field ${cls}"><label>${label}</label>${inputHtml}</div>`;
+  return `
+    ${field('hr-no',      'No',      `<input type="text"   class="horse-no"      placeholder="No"      value="${esc(h.number)}">`)}
+    ${field('hr-name',    'Horse',   `<input type="text"   class="horse-name"    placeholder="Name"    value="${esc(h.name)}">`)}
+    ${field('hr-trainer', 'Trainer', `<input type="text"   class="horse-trainer" placeholder="Trainer" value="${esc(h.trainer)}">`)}
+    ${field('hr-jockey',  'Jockey',  `<input type="text"   class="horse-jockey"  placeholder="Jockey"  value="${esc(h.jockey)}">`)}
+    ${field('hr-barrier', 'Barrier', `<input type="number" class="horse-barrier" placeholder="Bar"     value="${esc(h.barrier)}">`)}
+    ${field('hr-weight',  'Weight',  `<input type="text"   class="horse-weight"  placeholder="Weight"  value="${esc(h.weight)}">`)}
+    ${field('hr-silk',    'Silk ID', `<input type="text"   class="horse-silk-id" placeholder="Silk"    value="${esc(h.silk)}" readonly>`)}
+    <button type="button" onclick="this.closest('.horse-row').remove()" class="hr-remove" aria-label="Remove horse"><i data-feather="trash-2"></i><span class="hr-remove-label">Remove</span></button>
+  `;
+}
+
 function addManualHorse() {
   const horsesList = document.getElementById('horses-list');
   const horseRow = document.createElement('div');
   horseRow.className = 'horse-row';
-  horseRow.innerHTML = `
-    <input type="text" placeholder="No" class="horse-no" style="width: 60px;">
-    <input type="text" placeholder="Name" class="horse-name flex-1">
-    <input type="text" placeholder="Trainer" class="horse-trainer" style="width: 120px;">
-    <input type="text" placeholder="Jockey" class="horse-jockey" style="width: 120px;">
-    <input type="number" placeholder="Barrier" class="horse-barrier" style="width: 80px;">
-    <input type="text" placeholder="Weight" class="horse-weight" style="width: 80px;">
-    <input type="text" placeholder="Silk ID" class="horse-silk-id" style="width: 100px;" readonly>
-    <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
-  `;
+  horseRow.innerHTML = buildHorseRowInner();
   horsesList.appendChild(horseRow);
+  if (window.feather) feather.replace();
 }
 
 async function scrapeHorsesFromUrl() {
@@ -537,18 +613,14 @@ async function scrapeHorsesFromUrl() {
       const safeBarrier = (horse.barrier || '').toString().match(/\d+/)?.[0] || '';
       const horseRow = document.createElement('div');
       horseRow.className = 'horse-row';
-      horseRow.innerHTML = `
-        <input type="text" placeholder="No" class="horse-no" value="${horse.number || idx + 1}" style="width: 60px;">
-        <input type="text" placeholder="Name" class="horse-name flex-1" value="${horse.name}">
-        <input type="text" placeholder="Trainer" class="horse-trainer" value="${horse.trainer}" style="width: 120px;">
-        <input type="text" placeholder="Jockey" class="horse-jockey" value="${horse.jockey}" style="width: 120px;">
-        <input type="number" placeholder="Barrier" class="horse-barrier" value="${safeBarrier}" style="width: 80px;">
-        <input type="text" placeholder="Weight" class="horse-weight" value="${horse.weight}" style="width: 80px;">
-        <input type="text" placeholder="Silk ID" class="horse-silk-id" value="" style="width: 100px;" readonly>
-        <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
-      `;
+      horseRow.innerHTML = buildHorseRowInner({
+        number: horse.number || idx + 1,
+        name: horse.name, trainer: horse.trainer, jockey: horse.jockey,
+        barrier: safeBarrier, weight: horse.weight,
+      });
       horsesList.appendChild(horseRow);
     });
+    if (window.feather) feather.replace();
 
     // Clear the URL field
     document.getElementById('race-fields-url').value = '';
@@ -1478,19 +1550,15 @@ function parseHorseTable() {
     if (cols.length >= 6) {
       const horseRow = document.createElement('div');
       horseRow.className = 'horse-row';
-      horseRow.innerHTML = `
-        <input type="text" placeholder="No" class="horse-no" value="${cols[0].trim()}" style="width: 60px;">
-        <input type="text" placeholder="Name" class="horse-name flex-1" value="${cols[1].trim()}">
-        <input type="text" placeholder="Trainer" class="horse-trainer" value="${cols[2].trim()}" style="width: 120px;">
-        <input type="text" placeholder="Jockey" class="horse-jockey" value="${cols[3].trim()}" style="width: 120px;">
-        <input type="number" placeholder="Barrier" class="horse-barrier" value="${(cols[4].trim().match(/\d+/)?.[0] || '')}" style="width: 80px;">
-        <input type="text" placeholder="Weight" class="horse-weight" value="${cols[5].trim()}" style="width: 80px;">
-        <input type="text" placeholder="Silk ID" class="horse-silk-id" style="width: 100px;" readonly>
-        <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
-      `;
+      horseRow.innerHTML = buildHorseRowInner({
+        number: cols[0].trim(), name: cols[1].trim(), trainer: cols[2].trim(),
+        jockey: cols[3].trim(), barrier: cols[4].trim().match(/\d+/)?.[0] || '',
+        weight: cols[5].trim(),
+      });
       horsesList.appendChild(horseRow);
     }
   });
+  if (window.feather) feather.replace();
 
   if (horsesList.children.length === 0) {
     showNotification('No valid rows found. Ensure columns are separated by tabs or multiple spaces.', 'error', 'form-notifications');
@@ -2355,7 +2423,32 @@ document.addEventListener('DOMContentLoaded', () => {
             dateGroup.style.display = 'none';
           }
         });
-        
+
+        // Year groups: show + expand when they contain a visible date group,
+        // hide otherwise. Collapse them again when the search is cleared.
+        list.querySelectorAll('.year-group').forEach(yearGroup => {
+          const yearContent = yearGroup.querySelector('.year-content');
+          const yearHeader = yearGroup.querySelector('.year-header');
+          const icon = yearHeader?.querySelector('i');
+          const hasVisible = Array.from(yearGroup.querySelectorAll('.date-group'))
+            .some(dg => dg.style.display !== 'none');
+
+          if (!searchTerm) {
+            // Reset to collapsed default
+            yearGroup.style.display = '';
+            yearContent?.classList.remove('show');
+            yearHeader?.classList.remove('expanded');
+            if (icon) icon.style.transform = 'rotate(0deg)';
+          } else if (hasVisible) {
+            yearGroup.style.display = '';
+            yearContent?.classList.add('show');
+            yearHeader?.classList.add('expanded');
+            if (icon) icon.style.transform = 'rotate(180deg)';
+          } else {
+            yearGroup.style.display = 'none';
+          }
+        });
+
         feather.replace();
       });
     }
@@ -3604,7 +3697,14 @@ window.selectRARace = function(idx) {
   if (race.date)     document.getElementById('race-date').value     = race.date;
   if (race.time)     document.getElementById('race-time').value     = race.time;
   if (race.distance) document.getElementById('race-distance').value = race.distance;
-  document.getElementById('race-name').value = `Race ${race.raceNum} - ${race.name}`;
+  // Venue comes from the meeting URL key (date,state,venue) — insert it before the race name
+  const venue = (() => {
+    const keyM = (race.sourceUrl || '').match(/Key=([^&#]+)/i);
+    return keyM ? (decodeURIComponent(keyM[1]).split(',')[2] || '').trim() : '';
+  })();
+  document.getElementById('race-name').value = venue
+    ? `Race ${race.raceNum} - ${venue} - ${race.name}`
+    : `Race ${race.raceNum} - ${race.name}`;
 
   // Build the horses list
   const horsesList = document.getElementById('horses-list');
@@ -3616,18 +3716,10 @@ window.selectRARace = function(idx) {
     row.dataset.last10      = horse.last10 || '';
     row.dataset.horseHref   = horse.horseHref || '';
     row.dataset.prizemoney  = horse.prizemoney || '';
-    row.innerHTML = `
-      <input type="text"   placeholder="No"      class="horse-no"      value="${escHtml(horse.number)}"  style="width:60px;">
-      <input type="text"   placeholder="Name"    class="horse-name flex-1" value="${escHtml(horse.name)}">
-      <input type="text"   placeholder="Trainer" class="horse-trainer"  value="${escHtml(horse.trainer)}" style="width:120px;">
-      <input type="text"   placeholder="Jockey"  class="horse-jockey"   value="${escHtml(horse.jockey)}"  style="width:120px;">
-      <input type="number" placeholder="Barrier" class="horse-barrier"  value="${escHtml(horse.barrier)}" style="width:80px;">
-      <input type="text"   placeholder="Weight"  class="horse-weight"   value="${escHtml(horse.weight)}"  style="width:80px;">
-      <input type="text"   placeholder="Silk ID" class="horse-silk-id"  value=""                           style="width:100px;" readonly>
-      <button type="button" onclick="this.parentElement.remove()" class="btn-danger">Remove</button>
-    `;
+    row.innerHTML = buildHorseRowInner(horse);
     horsesList.appendChild(row);
   });
+  if (window.feather) feather.replace();
 
   showNotification(`Race ${race.raceNum} loaded — fetching silks and form data in background…`, 'success', 'form-notifications');
   enrichRAHorsesInBackground(race.horses, race.sourceUrl);
@@ -3692,18 +3784,24 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
   feather.replace();
 
   let done = 0;
+  const total = enrichable.length;
+  const updateProgress = () => {
+    if (msgEl) msgEl.textContent = `Fetching silks & form… (${done} / ${total})`;
+    if (barEl) barEl.style.width = `${Math.round((done / total) * 100)}%`;
+  };
+  updateProgress();
 
-  for (const horse of enrichable) {
-    msgEl.textContent = `Fetching ${horse.name}… (${done + 1} / ${enrichable.length})`;
-    barEl.style.width = `${Math.round((done / enrichable.length) * 100)}%`;
-
+  const enrichOne = async (horse) => {
     try {
       // horseHref may be a full URL (from Acceptances markdown, path /InteractiveForm/…)
       // or just a query string (legacy HTML parse, path /FreeFields/…).
       const horseUrl = /^https?:\/\//i.test(horse.horseHref)
         ? horse.horseHref
         : new URL(`FreeFields/HorseFullForm.aspx?${horse.horseHref}`, 'https://www.racingaustralia.horse').href;
-      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, true);
+      // Jina-first (preferRaw=false): the silk image URL and prizemoney are present in
+      // Jina's markdown, and this avoids the slow allorigins timeout that stalls
+      // production when that proxy is down.
+      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, false);
 
       // Silk ID
       const silkM = horseHtml.match(/JockeySilks\/(\d+)\.png/i);
@@ -3714,7 +3812,7 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
                   || horseHtml.match(/\$([\d,]+)\s+total\s+prize\s*money/i);
       if (prizeM) horse.prizemoney = '$' + prizeM[1].replace(/,/g, '');
 
-      // Form history table
+      // Form history table (only parses when raw HTML is returned; harmless on markdown)
       horse.formHistory = parseRAHorseFormHistory(horseHtml);
 
     } catch (err) {
@@ -3739,7 +3837,17 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
     }
 
     done++;
-  }
+    updateProgress();
+  };
+
+  // Fetch horses in parallel with a concurrency cap — fast without tripping rate limits.
+  const CONCURRENCY = 5;
+  const queue = [...enrichable];
+  const workers = Array.from(
+    { length: Math.min(CONCURRENCY, queue.length) },
+    async () => { while (queue.length) await enrichOne(queue.shift()); }
+  );
+  await Promise.all(workers);
 
   barEl.style.width = '100%';
   msgEl.textContent = `Done — silks and form data loaded for ${done} horse${done !== 1 ? 's' : ''}.`;
