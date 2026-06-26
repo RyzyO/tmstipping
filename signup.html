@@ -320,6 +320,106 @@
 
     AOS.init({ duration: 800, once: true });
     feather.replace();
+
+    // Eligibility declaration modal
+    let pendingSubmit = false;
+
+    const modal = document.getElementById('eligibility-modal');
+    const confirmBtn = document.getElementById('eligibility-confirm');
+    const cancelBtn = document.getElementById('eligibility-cancel');
+    const checkbox18 = document.getElementById('declare-18');
+    const checkboxState = document.getElementById('declare-state');
+
+    function updateConfirmBtn() {
+      confirmBtn.disabled = !(checkbox18.checked && checkboxState.checked);
+      confirmBtn.style.opacity = confirmBtn.disabled ? '0.4' : '1';
+      confirmBtn.style.cursor = confirmBtn.disabled ? 'not-allowed' : 'pointer';
+    }
+
+    checkbox18.addEventListener('change', updateConfirmBtn);
+    checkboxState.addEventListener('change', updateConfirmBtn);
+
+    signupForm.addEventListener('submit', (e) => {
+      if (!pendingSubmit) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        checkbox18.checked = false;
+        checkboxState.checked = false;
+        updateConfirmBtn();
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }, true);
+
+    cancelBtn.addEventListener('click', () => {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      if (!checkbox18.checked || !checkboxState.checked) return;
+      pendingSubmit = true;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      signupForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      pendingSubmit = false;
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+    });
   </script>
+
+  <!-- Eligibility Declaration Modal -->
+  <div id="eligibility-modal" class="hidden fixed inset-0 z-50 items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
+    <div class="bg-gray-900 border border-yellow-500/30 rounded-2xl w-full max-w-md p-8 shadow-2xl">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0">
+          <i data-feather="shield" class="h-5 w-5 text-yellow-400"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-bold text-gray-100">Eligibility Declaration</h2>
+          <p class="text-xs text-gray-400">Required before creating your account</p>
+        </div>
+      </div>
+
+      <p class="text-sm text-gray-300 mb-6 leading-relaxed">
+        The Great Spring Tip Off is a paid competition involving entry fees and prize money. To participate you must confirm the following:
+      </p>
+
+      <div class="space-y-4 mb-8">
+        <label class="flex items-start gap-3 cursor-pointer group">
+          <input type="checkbox" id="declare-18" class="mt-0.5 h-5 w-5 rounded border-gray-600 bg-gray-800 text-yellow-400 accent-yellow-400 flex-shrink-0 cursor-pointer">
+          <span class="text-sm text-gray-300 group-hover:text-gray-100 transition-colors leading-relaxed">
+            I confirm that I am <strong class="text-yellow-400">18 years of age or older</strong>.
+          </span>
+        </label>
+
+        <label class="flex items-start gap-3 cursor-pointer group">
+          <input type="checkbox" id="declare-state" class="mt-0.5 h-5 w-5 rounded border-gray-600 bg-gray-800 text-yellow-400 accent-yellow-400 flex-shrink-0 cursor-pointer">
+          <span class="text-sm text-gray-300 group-hover:text-gray-100 transition-colors leading-relaxed">
+            I confirm that I reside in <strong class="text-yellow-400">Queensland, Victoria, or New South Wales</strong>. I understand that participants outside these states are not eligible to enter.
+          </span>
+        </label>
+      </div>
+
+      <p class="text-xs text-gray-500 mb-6 leading-relaxed">
+        Making a false declaration is a breach of these terms and may result in disqualification and forfeiture of any prize money.
+      </p>
+
+      <div class="flex gap-3">
+        <button id="eligibility-cancel" type="button" class="flex-1 py-2.5 rounded-lg border border-gray-600 text-gray-300 text-sm font-medium hover:bg-gray-800 transition-colors">
+          Cancel
+        </button>
+        <button id="eligibility-confirm" type="button" disabled style="opacity:0.4; cursor:not-allowed;"
+          class="flex-1 py-2.5 rounded-lg bg-yellow-500 text-gray-900 text-sm font-bold transition-all">
+          I confirm — create my account
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

@@ -282,17 +282,61 @@
       <div id="paymentSection" class="space-y-4">
         <div id="paidCompSection" class="hidden">
           <p class="text-sm text-gray-400">To join this competition, you'll proceed to secure payment via Stripe.</p>
-          <button onclick="proceedToPayment()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join & Pay $<span id="feeAmount">0</span></button>
+          <button onclick="openEligibilityModal()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join & Pay $<span id="feeAmount">0</span></button>
         </div>
         <div id="freeCompSection" class="hidden">
           <p class="text-sm text-gray-400">This is a free competition. Click below to join!</p>
-          <button onclick="proceedToPayment()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join Competition</button>
+          <button onclick="openEligibilityModal()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join Competition</button>
         </div>
       </div>
       
       <div id="paymentProcessing" class="hidden text-center py-8">
         <div class="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent mx-auto mb-4"></div>
         <p class="text-gray-300">Processing payment...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Eligibility Declaration Modal -->
+  <div id="eligibility-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
+    <div class="bg-gray-900 border border-yellow-500/30 rounded-2xl w-full max-w-md p-8 shadow-2xl">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0">
+          <i data-feather="shield" class="h-5 w-5 text-yellow-400"></i>
+        </div>
+        <div>
+          <h2 class="text-lg font-bold text-gray-100">Eligibility Declaration</h2>
+          <p class="text-xs text-gray-400">Required before joining this competition</p>
+        </div>
+      </div>
+      <p class="text-sm text-gray-300 mb-6 leading-relaxed">
+        The Great Spring Tip Off is a paid competition involving entry fees and prize money. To participate you must confirm the following:
+      </p>
+      <div class="space-y-4 mb-8">
+        <label class="flex items-start gap-3 cursor-pointer group">
+          <input type="checkbox" id="join-declare-18" class="mt-0.5 h-5 w-5 rounded border-gray-600 bg-gray-800 accent-yellow-400 flex-shrink-0 cursor-pointer">
+          <span class="text-sm text-gray-300 group-hover:text-gray-100 transition-colors leading-relaxed">
+            I confirm that I am <strong class="text-yellow-400">18 years of age or older</strong>.
+          </span>
+        </label>
+        <label class="flex items-start gap-3 cursor-pointer group">
+          <input type="checkbox" id="join-declare-state" class="mt-0.5 h-5 w-5 rounded border-gray-600 bg-gray-800 accent-yellow-400 flex-shrink-0 cursor-pointer">
+          <span class="text-sm text-gray-300 group-hover:text-gray-100 transition-colors leading-relaxed">
+            I confirm that I reside in <strong class="text-yellow-400">Queensland, Victoria, or New South Wales</strong>. I understand that participants outside these states are not eligible to enter.
+          </span>
+        </label>
+      </div>
+      <p class="text-xs text-gray-500 mb-6 leading-relaxed">
+        Making a false declaration is a breach of these terms and may result in disqualification and forfeiture of any prize money.
+      </p>
+      <div class="flex gap-3">
+        <button onclick="closeEligibilityModal()" type="button" class="flex-1 py-2.5 rounded-lg border border-gray-600 text-gray-300 text-sm font-medium hover:bg-gray-800 transition-colors">
+          Cancel
+        </button>
+        <button id="eligibility-confirm-btn" onclick="confirmEligibilityAndProceed()" type="button" disabled style="opacity:0.4; cursor:not-allowed;"
+          class="flex-1 py-2.5 rounded-lg bg-yellow-500 text-gray-900 text-sm font-bold transition-all">
+          I confirm — proceed
+        </button>
       </div>
     </div>
   </div>
@@ -824,6 +868,40 @@
           window.location.href = buildLoginRedirectUrl();
         }
       }, 600);
+    });
+
+    // Eligibility modal
+    window.openEligibilityModal = function() {
+      document.getElementById('join-declare-18').checked = false;
+      document.getElementById('join-declare-state').checked = false;
+      updateEligibilityBtn();
+      document.getElementById('eligibility-modal').classList.remove('hidden');
+      feather.replace();
+    };
+
+    window.closeEligibilityModal = function() {
+      document.getElementById('eligibility-modal').classList.add('hidden');
+    };
+
+    window.confirmEligibilityAndProceed = function() {
+      if (!document.getElementById('join-declare-18').checked || !document.getElementById('join-declare-state').checked) return;
+      closeEligibilityModal();
+      proceedToPayment();
+    };
+
+    function updateEligibilityBtn() {
+      const btn = document.getElementById('eligibility-confirm-btn');
+      const ok = document.getElementById('join-declare-18').checked && document.getElementById('join-declare-state').checked;
+      btn.disabled = !ok;
+      btn.style.opacity = ok ? '1' : '0.4';
+      btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+    }
+
+    document.getElementById('join-declare-18').addEventListener('change', updateEligibilityBtn);
+    document.getElementById('join-declare-state').addEventListener('change', updateEligibilityBtn);
+
+    document.getElementById('eligibility-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeEligibilityModal();
     });
   </script>
 </body>
