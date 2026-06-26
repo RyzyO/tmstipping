@@ -2490,8 +2490,8 @@ async function loadAdminNotifications() {
     }
 
     listEl.innerHTML = '';
-    (rows || []).forEach((row) => {
-      const n = row.data || row;
+    (rows || []).forEach((notifRow) => {
+      const n = notifRow.data || notifRow;
       const audienceType = n.audienceType || n.audience_type || 'all';
       const audience = audienceType === 'competition'
         ? `Comp: ${allComps.find(c => c.id === (n.compId || n.notif_comp_id))?.name || n.compId || 'Unknown'}`
