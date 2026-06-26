@@ -1898,6 +1898,13 @@ async function saveResults() {
   const place1Points = parseInt(document.getElementById('place1-points').value) || 5;
   const place2Points = parseInt(document.getElementById('place2-points').value) || 2;
 
+  const btn = document.getElementById('save-results-btn');
+  const statusEl = document.getElementById('save-results-status');
+  const setStatus = (msg) => { if (statusEl) { statusEl.textContent = msg; statusEl.classList.remove('hidden'); } };
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin inline-block mr-1"></i> Saving…'; if (window.feather) feather.replace(); }
+  setStatus('Saving result…');
+
   try {
 
     const result = {
@@ -1920,16 +1927,22 @@ async function saveResults() {
     const { error: resultError } = await supabase.from('results').upsert(result);
     if (resultError) throw resultError;
 
+    setStatus('Recalculating leaderboard…');
     // Recalculate points for this competition only
     await calculateAndSaveLeaderboard(race.compId || selectedAdminCompId || null);
 
+    setStatus('Refreshing dashboard…');
     // Refresh dashboard cards after leaderboard update
     await loadDashboardStats(selectedAdminCompId);
 
+    if (statusEl) statusEl.classList.add('hidden');
     showNotification('Results saved and leaderboard updated!', 'success', 'race-notifications');
   } catch (error) {
     console.error('Error saving results:', error);
+    if (statusEl) statusEl.classList.add('hidden');
     showNotification('Error saving results: ' + error.message, 'error', 'race-notifications');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i data-feather="save" class="h-4 w-4 inline-block mr-1"></i> Save Results'; if (window.feather) feather.replace(); }
   }
 }
 
@@ -1992,8 +2005,11 @@ async function calculateAndSaveLeaderboard(compId) {
         };
       });
 
-      if (upsertRows.length) {
-        await supabase.from('user_comp_joinings').upsert(upsertRows, { onConflict: 'user_id,comp_id' });
+      for (const row of upsertRows) {
+        await supabase.from('user_comp_joinings')
+          .update({ points: row.points, wins: row.wins, rank: row.rank, updated_at: row.updated_at })
+          .eq('user_id', row.user_id)
+          .eq('comp_id', row.comp_id);
       }
     }
   } catch (error) {
@@ -3593,7 +3609,7 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
       // Jina-first (preferRaw=false): the silk image URL and prizemoney are present in
       // Jina's markdown, and this avoids the slow allorigins timeout that stalls
       // production when that proxy is down.
-      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, false);
+      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, true);
 
       // Silk ID
       const silkM = horseHtml.match(/JockeySilks\/(\d+)\.png/i);
@@ -3633,7 +3649,7 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
   };
 
   // Fetch horses in parallel with a concurrency cap — fast without tripping rate limits.
-  const CONCURRENCY = 5;
+  const CONCURRENCY = 3;
   const queue = [...enrichable];
   const workers = Array.from(
     { length: Math.min(CONCURRENCY, queue.length) },
