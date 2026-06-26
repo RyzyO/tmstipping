@@ -83,31 +83,13 @@
   </main>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, onSnapshot, orderBy, query, where, limit, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
-    import { initUserNotificationCenter, requestNotificationPermission } from "./user-notification-service.js";
-
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     const { DateTime } = luxon;
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const messaging = getMessaging(app);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let compIds = [];
-    let stopCenter = null;
+    let realtimeChannel = null;
 
     const statusEl = document.getElementById("notif-status");
     const countEl = document.getElementById("notif-count");
@@ -116,14 +98,10 @@
     const sendTestBtn = document.getElementById("send-test-notif-btn");
 
     async function loadUserCompIds(userId) {
-      const joinings = await getDocs(
-        query(
-          collection(db, "userCompJoinings"),
-          where("userId", "==", userId),
-          where("paymentStatus", "==", "completed")
-        )
-      );
-      return Array.from(new Set(joinings.docs.map((d) => d.data()?.compId).filter(Boolean)));
+      const { data } = await supabase
+        .from('user_comp_joinings').select('comp_id')
+        .eq('user_id', userId).eq('payment_status', 'completed');
+      return [...new Set((data||[]).map(d=>d.comp_id).filter(Boolean))];
     }
 
     function renderNotifications(items) {
@@ -135,10 +113,15 @@
       }
 
       listEl.innerHTML = "";
-      for (const n of items) {
-        const when = n.createdAt?.toDate
-          ? DateTime.fromJSDate(n.createdAt.toDate()).setZone("Australia/Sydney").toFormat("EEE d LLL, h:mm a")
-          : "Pending...";
+      for (const row of items) {
+        // Support both new column format and legacy JSONB blob
+        const n = row.data || row;
+        let when = "Pending...";
+        if (n.createdAt?._seconds) {
+          when = DateTime.fromMillis(n.createdAt._seconds * 1000).setZone("Australia/Sydney").toFormat("EEE d LLL, h:mm a");
+        } else if (n.createdAt) {
+          when = DateTime.fromISO(n.createdAt).setZone("Australia/Sydney").toFormat("EEE d LLL, h:mm a");
+        }
 
         const audience = n.audienceType === "competition" ? "Competition update" : "Global update";
 
@@ -159,52 +142,58 @@
       feather.replace();
     }
 
-    function watchNotificationHistory() {
-      const q = query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(120));
-      onSnapshot(q, (snap) => {
-        const filtered = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((n) => {
-            if ((n.audienceType || "all") === "all") return true;
-            if ((n.audienceType || "all") === "user") {
-              const uidMatch = !!auth.currentUser?.uid && n.userId === auth.currentUser.uid;
-              const emailMatch = !!auth.currentUser?.email && !!n.userEmail && String(n.userEmail).toLowerCase() === String(auth.currentUser.email).toLowerCase();
-              return uidMatch || emailMatch;
-            }
-            return !!n.compId && compIds.includes(n.compId);
-          });
+    let currentUser = null;
 
-        renderNotifications(filtered);
+    async function fetchAndRenderNotifications() {
+      const { data: rows } = await supabase
+        .from('notifications').select('*').order('id', { ascending: false }).limit(120);
+
+      const filtered = (rows||[]).filter(row => {
+        const n = row.data || row;
+        const audience = n.audienceType || n.audience_type || "all";
+        if (audience === "all") return true;
+        if (audience === "user") {
+          const uid = currentUser?.id;
+          const email = currentUser?.email;
+          return (uid && (n.userId === uid || n.notif_user_id === uid)) ||
+                 (email && n.userEmail && n.userEmail.toLowerCase() === email.toLowerCase());
+        }
+        const compId = n.compId || n.notif_comp_id;
+        return !!compId && compIds.includes(compId);
       });
+      renderNotifications(filtered);
     }
 
-    enableBtn.addEventListener("click", async () => {
-      const user = auth.currentUser;
-      if (!user) return;
+    function watchNotificationHistory() {
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+      realtimeChannel = supabase.channel('notifications-watch')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
+          fetchAndRenderNotifications();
+        })
+        .subscribe();
+      fetchAndRenderNotifications();
+    }
 
-      const result = await requestNotificationPermission({ db, user, messaging });
-      if (result.ok) {
-        statusEl.textContent = "Notifications enabled.";
-      } else {
-        statusEl.textContent = "Permission not granted.";
-      }
+    enableBtn.addEventListener("click", () => {
+      statusEl.textContent = "Push notifications require additional setup (FCM not yet migrated).";
     });
 
     sendTestBtn.addEventListener("click", async () => {
-      const user = auth.currentUser;
-      if (!user) return;
-
+      if (!currentUser) return;
       try {
-        await addDoc(collection(db, "notifications"), {
-          title: "Test notification",
-          body: "This test notification is visible only to your account.",
-          category: "test",
-          audienceType: "user",
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-          createdByUid: user.uid,
-          createdByEmail: user.email || null
+        const { error } = await supabase.from('notifications').insert({
+          id: crypto.randomUUID(),
+          data: {
+            title: "Test notification",
+            body: "This test notification is visible only to your account.",
+            category: "test",
+            audienceType: "user",
+            userId: currentUser.id,
+            userEmail: currentUser.email || null,
+            createdAt: new Date().toISOString(),
+          }
         });
+        if (error) throw error;
         statusEl.textContent = "Test notification sent to your account.";
       } catch (error) {
         console.error("Failed to send test notification:", error);
@@ -212,26 +201,15 @@
       }
     });
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = "login.html";
-        return;
-      }
-
-      compIds = await loadUserCompIds(user.uid);
-      statusEl.textContent = Notification.permission === "granted"
-        ? "Notifications are enabled for this browser."
-        : "Enable browser notifications to receive race alerts.";
-
-      if (stopCenter) stopCenter();
-      stopCenter = await initUserNotificationCenter({
-        db,
-        messaging,
-        user,
-        getRelevantCompIds: async () => compIds
-      });
-
-      watchNotificationHistory();
+    supabase.auth.onAuthStateChange((event, session) => {
+      const user = session?.user || null;
+      if (!user) { window.location.href = "login.html"; return; }
+      currentUser = user;
+      setTimeout(async () => {
+        compIds = await loadUserCompIds(user.id);
+        statusEl.textContent = "Notifications page loaded.";
+        watchNotificationHistory();
+      }, 0);
     });
 
     feather.replace();

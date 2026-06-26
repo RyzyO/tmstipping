@@ -348,33 +348,17 @@
   </footer>
 
  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, getDocs, collection, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
-    import { initUserNotificationCenter, scheduleRaceReminderNotifications } from "./user-notification-service.js";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
 
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { DateTime } = luxon;
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const messaging = getMessaging(app);
+    function scheduleRaceReminderNotifications() {} // stub — FCM not yet migrated
     let currentUser = null;
     let currentUserProfile = null;
     let selectedHomeCompId = null;
     let userCompIds = [];
-    let stopUserNotificationCenter = null;
     const HOME_RACES_CACHE_PREFIX = 'tmstipping:homeRacesCache';
 
     function toggleMenu() {
@@ -382,50 +366,30 @@
       menu.classList.toggle("hidden");
     }
 
-    function signOut() {
-      firebaseSignOut(auth).then(() => {
-        window.location.href = "landing.html";
-      }).catch((error) => {
-        console.error('Sign out error:', error);
-        alert('Error signing out. Please try again.');
-      });
+    async function signOut() {
+      await supabase.auth.signOut();
+      window.location.href = "landing.html";
     }
 
     window.toggleMenu = toggleMenu;
     window.signOut = signOut;
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        window.location.href = "landing.html";
-        return;
-      }
+    const HOME_STATS_CACHE_PREFIX = "tmstipping:homeStats";
 
-      // Add loading class to prevent scrolling during initial load (will be removed when complete or if cache exists)
-      document.body.classList.add('loading');
+    function getOrdinalSuffix(num) {
+      if (typeof num !== 'number' || num < 1) return num;
+      const j = num % 10, k = num % 100;
+      if (j === 1 && k !== 11) return num + "st";
+      if (j === 2 && k !== 12) return num + "nd";
+      if (j === 3 && k !== 13) return num + "rd";
+      return num + "th";
+    }
 
-      // Reset scroll to top immediately
-      window.scrollTo(0, 0);
-
-      currentUser = user;
-
-      const HOME_STATS_CACHE_PREFIX = "tmstipping:homeStats";
-
-      function getOrdinalSuffix(num) {
-        if (typeof num !== 'number' || num < 1) return num;
-        const j = num % 10, k = num % 100;
-        if (j === 1 && k !== 11) return num + "st";
-        if (j === 2 && k !== 12) return num + "nd";
-        if (j === 3 && k !== 13) return num + "rd";
-        return num + "th";
-      }
-
-      function formatRankForDisplay(rawRank) {
-        const rank = Number(rawRank);
-        if (!Number.isFinite(rank) || rank < 1 || rank >= 99999) {
-          return "-";
-        }
-        return getOrdinalSuffix(rank);
-      }
+    function formatRankForDisplay(rawRank) {
+      const rank = Number(rawRank);
+      if (!Number.isFinite(rank) || rank < 1 || rank >= 99999) return "-";
+      return getOrdinalSuffix(rank);
+    }
 
     function getHomeStatsCacheKey(userId, compId) {
       return `${HOME_STATS_CACHE_PREFIX}:${userId || 'anon'}:${compId || 'none'}`;
@@ -437,19 +401,10 @@
         if (!raw) return;
         const cached = JSON.parse(raw);
         if (!cached) return;
-
-        if (cached.userName) {
-          document.getElementById("userName").textContent = cached.userName;
-        }
-        if (cached.rank !== undefined) {
-          document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(cached.rank);
-        }
-        if (cached.wins !== undefined) {
-          document.getElementById("wins-count").textContent = cached.wins;
-        }
-        if (cached.points !== undefined) {
-          document.getElementById("points").textContent = Number(cached.points || 0).toFixed(2);
-        }
+        if (cached.userName) document.getElementById("userName").textContent = cached.userName;
+        if (cached.rank !== undefined) document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(cached.rank);
+        if (cached.wins !== undefined) document.getElementById("wins-count").textContent = cached.wins;
+        if (cached.points !== undefined) document.getElementById("points").textContent = Number(cached.points || 0).toFixed(2);
       } catch (error) {
         localStorage.removeItem(getHomeStatsCacheKey(userId, compId));
       }
@@ -461,6 +416,23 @@
         JSON.stringify({ userName, rank, wins, points, updatedAt: Date.now() })
       );
     }
+
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      const user = session?.user || null;
+      if (!user) {
+        window.location.href = "landing.html";
+        return;
+      }
+      // Map Supabase user to Firebase-style shape
+      user.uid = user.id;
+
+      // Add loading class to prevent scrolling during initial load (will be removed when complete or if cache exists)
+      document.body.classList.add('loading');
+
+      // Reset scroll to top immediately
+      window.scrollTo(0, 0);
+
+      currentUser = user;
 
     // Apply cached content IMMEDIATELY - DO NOT AWAIT
     applyCachedHomeStats(currentUser?.uid, selectedHomeCompId);
@@ -514,26 +486,10 @@
       loadUserCompsToDropdown(currentUser.uid),
       loadCurrentUserProfile(currentUser.uid)
     ]).then(() => {
-      // Hide loading indicator once main data loads (if it's still showing)
       const loadingOverlay = document.getElementById('loadingOverlay');
-      if (loadingOverlay) {
-        loadingOverlay.style.display = 'none';
-      }
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
       document.body.classList.remove('loading');
       window.scrollTo(0, 0);
-      
-      // Start notification center after main data loads
-      if (stopUserNotificationCenter) {
-        stopUserNotificationCenter();
-      }
-      return initUserNotificationCenter({
-        db,
-        messaging,
-        user: currentUser,
-        getRelevantCompIds: async () => userCompIds
-      }).then(stopFn => {
-        stopUserNotificationCenter = stopFn;
-      });
     }).catch(error => {
       console.error('Error initializing user features:', error);
       // Hide loading indicator even on error
@@ -557,63 +513,41 @@
       try {
         const select = document.getElementById('user-comp-select');
         if (!select) return;
-        
-        const joiningsSnap = await getDocs(
-          query(
-            collection(db, 'userCompJoinings'),
-            where('userId', '==', userId),
-            where('paymentStatus', '==', 'completed')
-          )
-        );
-        
-        const compIds = [];
-        joiningsSnap.forEach(doc => {
-          compIds.push(doc.data().compId);
-        });
-        const uniqueCompIds = Array.from(new Set(compIds.filter(Boolean)));
+
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings')
+          .select('comp_id')
+          .eq('user_id', userId)
+          .eq('payment_status', 'completed');
+
+        const uniqueCompIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
         userCompIds = uniqueCompIds;
-        
-        // Clear existing options except the first one
-        while (select.options.length > 1) {
-          select.remove(1);
-        }
-        
+
+        while (select.options.length > 1) select.remove(1);
         if (uniqueCompIds.length === 0) return;
-        
-        // Fetch comp details in parallel
-        const compSnaps = await Promise.all(uniqueCompIds.map(compId => getDoc(doc(db, 'comps', compId))));
-        const comps = compSnaps
-          .map((compDoc, idx) => compDoc.exists() ? { id: uniqueCompIds[idx], ...compDoc.data() } : null)
-          .filter(Boolean);
-        
-        // Filter to only active comps
-        const activeComps = comps.filter(c => c.status === 'active');
-        
-        // Sort by start date (most recent first)
-        activeComps.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
-        
-        // Also add completed comps for display
-        const completedComps = comps.filter(c => c.status !== 'active')
-          .sort((a, b) => a.name.localeCompare(b.name));
-        
-        const allComps = [...activeComps, ...completedComps];
-        
-        // Add each comp as an option
-        allComps.forEach(comp => {
+
+        const { data: comps } = await supabase
+          .from('comps')
+          .select('*')
+          .in('id', uniqueCompIds);
+
+        const activeComps = (comps || []).filter(c => c.status === 'active')
+          .sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+        const completedComps = (comps || []).filter(c => c.status !== 'active')
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        [...activeComps, ...completedComps].forEach(comp => {
           const option = document.createElement('option');
           option.value = comp.id;
-          const statusBadge = comp.status === 'active' ? '🎯' : '✓';
-          option.textContent = `${statusBadge} ${comp.name}`;
+          option.textContent = `${comp.status === 'active' ? '🎯' : '✓'} ${comp.name}`;
           select.appendChild(option);
         });
-        
-        // Load stats for the most recent active comp by default
+
         if (activeComps.length > 0) {
-          const mostRecentActiveComp = activeComps[0];
-          selectedHomeCompId = mostRecentActiveComp.id;
-          await loadCompStats(userId, mostRecentActiveComp.id);
-          await loadRaces(mostRecentActiveComp.id);
-          select.value = mostRecentActiveComp.id;
+          selectedHomeCompId = activeComps[0].id;
+          await loadCompStats(userId, activeComps[0].id);
+          await loadRaces(activeComps[0].id);
+          select.value = activeComps[0].id;
           document.getElementById('tip-now-btn').style.display = '';
         }
       } catch (error) {
@@ -623,11 +557,12 @@
 
     async function loadCurrentUserProfile(userId) {
       try {
-        const userSnap = await getDoc(doc(db, "users", userId));
-        if (!userSnap.exists()) return;
+        const { data: userData } = await supabase
+          .from('users').select('*').eq('id', userId).single();
+        if (!userData) return;
 
-        currentUserProfile = userSnap.data();
-        const silkNumber = currentUserProfile.silk || 1;
+        currentUserProfile = userData;
+        const silkNumber = userData.silk || 1;
         const silkImg = document.getElementById("welcomeSilk");
         silkImg.src = `static/silks/${silkNumber}.png`;
         silkImg.style.display = "block";
@@ -672,45 +607,31 @@
       try {
         applyCachedHomeStats(userId, compId);
 
-        const [joiningSnap, compJoiningsSnap] = await Promise.all([
-          getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`)),
-          getDocs(
-            query(
-              collection(db, 'userCompJoinings'),
-              where('compId', '==', compId),
-              where('paymentStatus', '==', 'completed')
-            )
-          )
+        const [{ data: joiningRow }, { data: allJoinings }] = await Promise.all([
+          supabase.from('user_comp_joinings').select('*').eq('user_id', userId).eq('comp_id', compId).single(),
+          supabase.from('user_comp_joinings').select('user_id,points,wins,winners').eq('comp_id', compId).eq('payment_status', 'completed')
         ]);
 
         const userData = currentUserProfile || {};
-        const joining = joiningSnap.exists() ? joiningSnap.data() : {};
-
-        const userName = userData.teamName || currentUser.displayName || currentUser.email || "Guest";
+        const joining = joiningRow || {};
+        const userName = userData.team_name || currentUser.email || "Guest";
         const wins = Number(joining.wins ?? joining.winners ?? 0) || 0;
         const points = Number(joining.points || 0);
 
-        const sortedEntries = compJoiningsSnap.docs
-          .map((docSnap) => docSnap.data() || {})
-          .filter((entry) => !!entry.userId)
+        const sortedEntries = (allJoinings || [])
+          .filter(e => !!e.user_id)
           .sort((a, b) => {
-            const pointsDiff = Number(b.points || 0) - Number(a.points || 0);
-            if (pointsDiff !== 0) return pointsDiff;
-            return Number(b.wins ?? b.winners ?? 0) - Number(a.wins ?? a.winners ?? 0);
+            const diff = Number(b.points || 0) - Number(a.points || 0);
+            return diff !== 0 ? diff : Number(b.wins ?? b.winners ?? 0) - Number(a.wins ?? a.winners ?? 0);
           });
 
-        let userRank = sortedEntries.findIndex((entry) => entry.userId === userId) + 1;
-        if (!userRank) {
-          userRank = Number(joining.rank || 0) || null;
-        }
+        let userRank = sortedEntries.findIndex(e => e.user_id === userId) + 1;
+        if (!userRank) userRank = Number(joining.rank || 0) || null;
 
-        // Update display
         document.getElementById("userName").textContent = userName;
         document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(userRank);
         document.getElementById("wins-count").textContent = wins;
         document.getElementById("points").textContent = points.toFixed(2);
-        
-        // Save to cache for instant loads on return visits
         saveHomeStatsToCache({ userId, compId, userName, rank: userRank, wins, points });
       } catch (error) {
         console.error('Error loading comp stats:', error);
@@ -753,36 +674,23 @@
     }
 
     async function fetchRacesAndTipsForComp(compId) {
-      const tipsPromise = currentUser
-        ? getDocs(
-            query(
-              collection(db, "tips"),
-              where("userId", "==", currentUser.uid),
-              where("compId", "==", compId)
-            )
-          )
-        : Promise.resolve(null);
-
-      const racesPromise = getDocs(query(collection(db, "races"), where("compId", "==", compId)));
-      const [tipsSnap, racesSnap] = await Promise.all([tipsPromise, racesPromise]);
+      const [racesRes, tipsRes] = await Promise.all([
+        supabase.from('races').select('*').eq('comp_id', compId),
+        currentUser
+          ? supabase.from('tips').select('*').eq('user_id', currentUser.uid).eq('comp_id', compId)
+          : Promise.resolve({ data: [] })
+      ]);
 
       const tipByRace = {};
       const tipsMap = new Set();
-      if (tipsSnap) {
-        tipsSnap.forEach((tipDoc) => {
-          const tipData = tipDoc.data();
-          if (tipData?.raceId) {
-            tipsMap.add(tipData.raceId);
-            tipByRace[tipData.raceId] = tipData;
-          }
-        });
+      for (const tip of (tipsRes.data || [])) {
+        if (tip.race_id) {
+          tipsMap.add(tip.race_id);
+          tipByRace[tip.race_id] = { ...tip, raceId: tip.race_id, horseId: tip.horse_id, userId: tip.user_id, compId: tip.comp_id };
+        }
       }
 
-      const races = [];
-      racesSnap.forEach(docSnap => {
-        races.push({ id: docSnap.id, ...docSnap.data() });
-      });
-
+      const races = (racesRes.data || []).map(r => ({ ...r, compId: r.comp_id }));
       return { races, tipsMap, tipByRace };
     }
 
@@ -923,7 +831,6 @@
       // Always refresh in background and repaint with newest data.
       const fresh = await fetchRacesAndTipsForComp(compId);
       renderRacesGrid(compId, fresh.races, fresh.tipsMap, fresh.tipByRace);
-      scheduleRaceReminderNotifications(fresh.races, { compId });
       if (currentUser) {
         writeHomeRacesCache(currentUser.uid, compId, fresh.races, fresh.tipByRace);
       }

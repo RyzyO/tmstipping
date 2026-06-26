@@ -210,23 +210,10 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     const { DateTime } = luxon;
-
-    const firebaseConfig = {
-      apiKey:"AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain:"tmstipping.firebaseapp.com",
-      projectId:"tmstipping",
-      storageBucket:"tmstipping.appspot.com",
-      messagingSenderId:"401677933527",
-      appId:"1:401677933527:web:2312ad4ef69aef6551c992"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let user=null, allResults=[], countdownTimer=null;
     let selectedCompId = new URLSearchParams(window.location.search).get("compId") || null;
     let weekStarts=[], currentWeekIndex=0;
@@ -268,11 +255,15 @@
 
     let hasInitialCache = false;
 
-    onAuthStateChanged(auth, async (_user)=>{
+    supabase.auth.onAuthStateChange((event, session) => {
+      const _user = session?.user || null;
       if(!_user){window.location.href="login.html"; return;}
-      user=_user; 
-      await loadUserComps();
-      await loadAllResults();
+      _user.uid = _user.id;
+      user=_user;
+      setTimeout(async () => {
+        await loadUserComps();
+        await loadAllResults();
+      }, 0);
     });
 
     function formatCountdown(targetMillis) {
@@ -303,22 +294,15 @@
     async function loadUserComps() {
       try {
         const selectEl = document.getElementById("comp-selector");
-        const joiningsSnap = await getDocs(
-          query(
-            collection(db, "userCompJoinings"),
-            where("userId", "==", user.uid),
-            where("paymentStatus", "==", "completed")
-          )
-        );
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings').select('comp_id')
+          .eq('user_id', user.uid).eq('payment_status', 'completed');
 
-        const comps = [];
-        for (const joinDoc of joiningsSnap.docs) {
-          const joining = joinDoc.data();
-          const compSnap = await getDoc(doc(db, "comps", joining.compId));
-          if (compSnap.exists()) {
-            comps.push({ id: compSnap.id, ...compSnap.data() });
-          }
-        }
+        const compIds = [...new Set((joinings||[]).map(j=>j.comp_id).filter(Boolean))];
+        const { data: compsData } = compIds.length
+          ? await supabase.from('comps').select('*').in('id', compIds)
+          : { data: [] };
+        const comps = (compsData||[]).map(c => ({ ...c, startDate: c.start_date, endDate: c.end_date }));
 
         selectEl.innerHTML = "";
         comps.forEach(comp => {
@@ -367,27 +351,27 @@
       if (!hasInitialCache) showLoading();
       try {
         allResults=[];
-        const [racesSnap, tipsSnap, resultsSnap] = await Promise.all([
-          getDocs(query(collection(db,"races"), where("compId", "==", selectedCompId))),
-          getDocs(query(collection(db,"tips"), where("userId", "==", user.uid), where("compId", "==", selectedCompId))),
-          getDocs(collection(db,"results"))
+        const [racesRes, tipsRes, resultsRes] = await Promise.all([
+          supabase.from('races').select('*').eq('comp_id', selectedCompId),
+          supabase.from('tips').select('*').eq('user_id', user.uid).eq('comp_id', selectedCompId),
+          supabase.from('results').select('*')
         ]);
 
         const userTips={};
-        tipsSnap.forEach(d=>{const t=d.data(); userTips[t.raceId]=t;});
+        (tipsRes.data||[]).forEach(t=>{ userTips[t.race_id]={ ...t, raceId: t.race_id, horseId: t.horse_id }; });
 
         const resultsMap={};
-        resultsSnap.forEach(d=>{
-          const resultData = d.data();
-          const raceId = resultData.raceId || d.id;
-          resultsMap[raceId]=resultData;
+        (resultsRes.data||[]).forEach(r=>{
+          const raceId = r.id;
+          resultsMap[raceId]={ ...r, winningHorseId: r.winning_horse_id, place1HorseId: r.place1_horse_id, place1Points: r.place1_points, place2HorseId: r.place2_horse_id, place2Points: r.place2_points };
         });
 
-        for(const docSnap of racesSnap.docs){
-          const race={id:docSnap.id,...docSnap.data()};
+        for(const race of (racesRes.data||[])){
           const rd=resultsMap[race.id];
           const tip=userTips[race.id];
           if (!rd && !tip) continue;
+          // Normalise race fields from snake_case
+          if (!race.compId) race.compId = race.comp_id;
 
           const dt = race.date && race.time
             ? DateTime.fromISO(`${race.date}T${race.time}`, { zone: "Australia/Sydney" })

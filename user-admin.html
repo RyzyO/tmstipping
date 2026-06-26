@@ -383,27 +383,9 @@
   </div>
 </div>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import {
-  getFirestore, collection, getDocs, doc, updateDoc, getDoc, setDoc, query, where
-} from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-  authDomain: "tmstipping.firebaseapp.com",
-  projectId: "tmstipping",
-  storageBucket: "tmstipping.appspot.com",
-  messagingSenderId: "401677933527",
-  appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-  measurementId: "G-GXLRCHV687"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
-const rtdb = getDatabase(app);
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let users = [];
 let selectedUserId = null;
@@ -423,22 +405,23 @@ const feesCounter = document.getElementById('fees-collected-counter');
 const userSaveStatus = document.getElementById('user-save-status');
 const saveUserBtn = document.getElementById('save-user-btn');
 
-onAuthStateChanged(auth, async (user) => {
+supabase.auth.onAuthStateChange((event, session) => {
+  const user = session?.user || null;
   if (!user) {
     alert("You must be logged in.");
     window.location.href = "index.html";
     return;
   }
-  // Simple Realtime DB admin gate
-  const adminRef = ref(rtdb, `users/${user.uid}/admin`);
-  const snapshot = await get(adminRef);
-  if (!snapshot.exists() || snapshot.val() !== true) {
-    alert("You are not authorized to access this page.");
-    window.location.href = "index.html";
-    return;
-  }
-  await loadRaces();
-  await loadUsers();
+  setTimeout(async () => {
+    const { data: userData } = await supabase.from('users').select('admin').eq('id', user.id).single();
+    if (!userData?.admin) {
+      alert("You are not authorized to access this page.");
+      window.location.href = "index.html";
+      return;
+    }
+    await loadRaces();
+    await loadUsers();
+  }, 0);
 });
 
 /* -------------------------------
@@ -446,45 +429,35 @@ onAuthStateChanged(auth, async (user) => {
 --------------------------------*/
 async function loadRaces() {
   races = {};
-  const racesSnap = await getDocs(collection(db, "races"));
-  racesSnap.forEach(docSnap => {
-    races[docSnap.id] = docSnap.data();
-  });
+  const { data } = await supabase.from('races').select('*');
+  (data || []).forEach(r => { races[r.id] = r; });
 }
 
 async function loadResultsCache() {
   if (resultsLoaded) return;
   resultsCache = {};
-  const resultsSnap = await getDocs(collection(db, "results"));
-  resultsSnap.forEach(docSnap => {
-    const resultData = docSnap.data();
-    const raceId = resultData.raceId || docSnap.id;
-    resultsCache[raceId] = resultData;
+  const { data } = await supabase.from('results').select('*');
+  (data || []).forEach(r => {
+    const raceId = r.race_id || r.id;
+    resultsCache[raceId] = r;
   });
   resultsLoaded = true;
 }
 
 async function updateFeesCounter() {
-  const joiningsSnap = await getDocs(
-    query(collection(db, "userCompJoinings"), where("paymentStatus", "==", "completed"))
-  );
-  feesCounter.textContent = `$${joiningsSnap.size * 30}`;
+  const { count } = await supabase.from('user_comp_joinings').select('*', { count: 'exact', head: true }).eq('payment_status', 'completed');
+  feesCounter.textContent = `$${(count || 0) * 30}`;
 }
 
 async function loadUsers() {
   userSelect.innerHTML = '<option value="">Loading users...</option>';
 
-  const usersSnap = await getDocs(collection(db, "users"));
-  users = [];
-
-  usersSnap.forEach(docSnap => {
-    const userData = docSnap.data();
-    users.push({ id: docSnap.id, ...userData });
-  });
+  const { data } = await supabase.from('users').select('*');
+  users = data || [];
 
   users.sort((a, b) => {
-    const aName = (a.teamName || a.email || a.id || '').toLowerCase();
-    const bName = (b.teamName || b.email || b.id || '').toLowerCase();
+    const aName = (a.team_name || a.teamName || a.email || a.id || '').toLowerCase();
+    const bName = (b.team_name || b.teamName || b.email || b.id || '').toLowerCase();
     return aName.localeCompare(bName);
   });
 
@@ -492,8 +465,8 @@ async function loadUsers() {
   users.forEach(user => {
     const option = document.createElement('option');
     option.value = user.id;
-    const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-    option.textContent = `${user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
+    const name = `${user.first_name || user.firstName || ''} ${user.last_name || user.lastName || ''}`.trim();
+    option.textContent = `${user.team_name || user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
     userSelect.appendChild(option);
   });
 
@@ -513,15 +486,15 @@ function filterUserDropdown() {
     .filter((u) =>
       (!q ||
         (u.email && u.email.toLowerCase().includes(q)) ||
-        (u.firstName && u.firstName.toLowerCase().includes(q)) ||
-        (u.lastName && u.lastName.toLowerCase().includes(q)) ||
-        (u.teamName && u.teamName.toLowerCase().includes(q)))
+        ((u.first_name || u.firstName) && (u.first_name || u.firstName).toLowerCase().includes(q)) ||
+        ((u.last_name || u.lastName) && (u.last_name || u.lastName).toLowerCase().includes(q)) ||
+        ((u.team_name || u.teamName) && (u.team_name || u.teamName).toLowerCase().includes(q)))
     )
     .forEach((user) => {
       const option = document.createElement('option');
       option.value = user.id;
-      const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
-      option.textContent = `${user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
+      const name = `${user.first_name || user.firstName || ''} ${user.last_name || user.lastName || ''}`.trim();
+      option.textContent = `${user.team_name || user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
       userSelect.appendChild(option);
     });
 
@@ -549,8 +522,8 @@ compSelect.onchange = async () => {
   selectedCompId = compSelect.value || null;
   if (!selectedUserId || !selectedCompId) return;
 
-  const selectedJoining = selectedUserJoinings.find(j => j.compId === selectedCompId) || null;
-  document.getElementById('edit-paid').checked = selectedJoining?.paymentStatus === 'completed';
+  const selectedJoining = selectedUserJoinings.find(j => (j.comp_id || j.compId) === selectedCompId) || null;
+  document.getElementById('edit-paid').checked = (selectedJoining?.payment_status || selectedJoining?.paymentStatus) === 'completed';
   selectionSummary.textContent = `Editing ${selectedUserData?.teamName || selectedUserData?.email || selectedUserId} in ${compSelect.options[compSelect.selectedIndex]?.textContent || selectedCompId}`;
   await loadUserTips(selectedUserId, selectedCompId);
 };
@@ -569,27 +542,25 @@ async function selectUser(userId) {
   userSaveStatus.className = 'save-status';
   saveUserBtn.disabled = false;
 
-  const userDoc = await getDoc(doc(db, "users", userId));
-  const user = userDoc.exists() ? userDoc.data() : {};
+  const { data: userRow } = await supabase.from('users').select('*').eq('id', userId).single();
+  const user = userRow || {};
   selectedUserData = { id: userId, ...user };
 
   document.getElementById('edit-email').value = user.email || '';
-  document.getElementById('edit-firstName').value = user.firstName || '';
-  document.getElementById('edit-lastName').value = user.lastName || '';
-  document.getElementById('edit-teamName').value = user.teamName || '';
+  document.getElementById('edit-firstName').value = user.first_name || user.firstName || '';
+  document.getElementById('edit-lastName').value = user.last_name || user.lastName || '';
+  document.getElementById('edit-teamName').value = user.team_name || user.teamName || '';
   document.getElementById('edit-joker').value =
     typeof user.joker === "number" ? user.joker : (user.joker ? Number(user.joker) : 0);
   document.getElementById('edit-paid').checked = false;
 
-  const joiningsSnap = await getDocs(
-    query(collection(db, "userCompJoinings"), where("userId", "==", userId))
-  );
+  const { data: joiningsData } = await supabase.from('user_comp_joinings').select('*').eq('user_id', userId);
 
   selectedUserJoinings = [];
-  for (const joiningDoc of joiningsSnap.docs) {
-    const joining = joiningDoc.data();
-    const compSnap = await getDoc(doc(db, "comps", joining.compId));
-    const compName = compSnap.exists() ? (compSnap.data().name || joining.compId) : joining.compId;
+  for (const joining of (joiningsData || [])) {
+    const compId = joining.comp_id || joining.compId;
+    const { data: compRow } = await supabase.from('comps').select('name').eq('id', compId).single();
+    const compName = compRow?.name || compId;
     selectedUserJoinings.push({ ...joining, compName });
   }
 
@@ -607,14 +578,14 @@ async function selectUser(userId) {
   compSelect.disabled = false;
   selectedUserJoinings.forEach(joining => {
     const option = document.createElement('option');
-    option.value = joining.compId;
-    option.textContent = `${joining.compName} (${joining.paymentStatus || 'pending'})`;
+    option.value = joining.comp_id || joining.compId;
+    option.textContent = `${joining.compName} (${joining.payment_status || joining.paymentStatus || 'pending'})`;
     compSelect.appendChild(option);
   });
 
-  selectedCompId = selectedUserJoinings[0].compId;
+  selectedCompId = selectedUserJoinings[0].comp_id || selectedUserJoinings[0].compId;
   compSelect.value = selectedCompId;
-  document.getElementById('edit-paid').checked = selectedUserJoinings[0].paymentStatus === 'completed';
+  document.getElementById('edit-paid').checked = (selectedUserJoinings[0].payment_status || selectedUserJoinings[0].paymentStatus) === 'completed';
   selectionSummary.textContent = `Editing ${selectedUserData?.teamName || selectedUserData?.email || selectedUserId} in ${selectedUserJoinings[0].compName}`;
 
   await loadUserTips(userId, selectedCompId);
@@ -636,30 +607,24 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
   userSaveStatus.className = 'save-status saving';
 
   try {
-    await updateDoc(doc(db, "users", selectedUserId), {
-      email, firstName, lastName, teamName, joker
-    });
+    await supabase.from('users').update({
+      email, first_name: firstName, last_name: lastName, team_name: teamName, joker
+    }).eq('id', selectedUserId);
 
     if (selectedCompId) {
-      await setDoc(doc(db, "userCompJoinings", `${selectedUserId}_${selectedCompId}`), {
-        userId: selectedUserId,
-        compId: selectedCompId,
-        paymentStatus: paidForComp ? 'completed' : 'pending'
-      }, { merge: true });
-    }
-
-    // keep leaderboard doc's teamName aligned if it exists
-    const leaderboardDocRef = doc(db, "leaderboard", selectedUserId);
-    const leaderboardDoc = await getDoc(leaderboardDocRef);
-    if (leaderboardDoc.exists()) {
-      await updateDoc(leaderboardDocRef, { teamName });
+      await supabase.from('user_comp_joinings').upsert({
+        id: `${selectedUserId}_${selectedCompId}`,
+        user_id: selectedUserId,
+        comp_id: selectedCompId,
+        payment_status: paidForComp ? 'completed' : 'pending'
+      }, { onConflict: 'user_id,comp_id' });
     }
 
     const idx = users.findIndex(u => u.id === selectedUserId);
     if (idx !== -1) {
-      users[idx] = { ...users[idx], email, firstName, lastName, teamName, joker };
+      users[idx] = { ...users[idx], email, first_name: firstName, last_name: lastName, team_name: teamName, joker };
     }
-    selectedUserData = { id: selectedUserId, email, firstName, lastName, teamName, joker };
+    selectedUserData = { id: selectedUserId, email, first_name: firstName, last_name: lastName, team_name: teamName, joker };
     await updateFeesCounter();
     filterUserDropdown();
     userSaveStatus.textContent = 'Saved';
@@ -691,20 +656,15 @@ async function loadUserTips(userId, compId) {
 
   await loadResultsCache();
 
-  const tipsSnap = await getDocs(query(
-    collection(db, "tips"),
-    where("userId", "==", userId),
-    where("compId", "==", compId)
-  ));
+  const { data: tipsData } = await supabase.from('tips').select('*').eq('user_id', userId).eq('comp_id', compId);
   tipsByRace = {};
-  tipsSnap.forEach(docSnap => {
-    const data = docSnap.data();
-    tipsByRace[data.raceId] = { id: docSnap.id, ...data };
+  (tipsData || []).forEach(t => {
+    tipsByRace[t.race_id] = t;
   });
 
   const allRaceIds = Object.keys(races).filter((raceId) => {
     const race = races[raceId];
-    return race?.compId === compId;
+    return (race?.comp_id || race?.compId) === compId;
   });
   allRaceIds.sort((a, b) => {
     const aDate = new Date(`${races[a].date}T${races[a].time}`);
@@ -717,7 +677,7 @@ async function loadUserTips(userId, compId) {
   for (const raceId of allRaceIds) {
     const race = races[raceId];
     const tip = tipsByRace[raceId];
-    const horseId = tip ? tip.horseId : '';
+    const horseId = tip ? (tip.horse_id || tip.horseId || '') : '';
     const jokerUsed = tip ? tip.joker === true : false;
     const points = calculatePoints(raceId, horseId, jokerUsed);
 
@@ -778,14 +738,14 @@ function calculatePoints(raceId, horseId, jokerUsed) {
   let matched = false;
   const results = resultsCache[raceId] || null;
   if (results && horseId) {
-    if (results.winningHorseId === horseId) {
+    if ((results.winning_horse_id || results.winningHorseId) === horseId) {
       points += Number(results.points) || 0; matched = true;
     }
-    if (results.place1HorseId === horseId) {
-      points += Number(results.place1Points) || 0; matched = true;
+    if ((results.place1_horse_id || results.place1HorseId) === horseId) {
+      points += Number(results.place1_points || results.place1Points) || 0; matched = true;
     }
-    if (results.place2HorseId === horseId) {
-      points += Number(results.place2Points) || 0; matched = true;
+    if ((results.place2_horse_id || results.place2HorseId) === horseId) {
+      points += Number(results.place2_points || results.place2Points) || 0; matched = true;
     }
     if (matched && jokerUsed && points > 0) {
       points *= 2;
@@ -812,16 +772,17 @@ async function saveTipForRace(raceId) {
 
   const tipDocId = `${selectedUserId}_${raceId}`;
   try {
-    await setDoc(doc(db, "tips", tipDocId), {
-      userId: selectedUserId,
-      compId: selectedCompId,
-      raceId,
-      horseId: chosenHorseId || "",
+    await supabase.from('tips').upsert({
+      id: tipDocId,
+      user_id: selectedUserId,
+      comp_id: selectedCompId,
+      race_id: raceId,
+      horse_id: chosenHorseId || "",
       timestamp: Date.now(),
       joker
-    });
+    }, { onConflict: 'user_id,race_id' });
 
-    tipsByRace[raceId] = { userId: selectedUserId, compId: selectedCompId, raceId, horseId: chosenHorseId || "", joker };
+    tipsByRace[raceId] = { user_id: selectedUserId, comp_id: selectedCompId, race_id: raceId, horse_id: chosenHorseId || "", joker };
     await recalculateLeaderboardForUser(selectedUserId, selectedCompId, tipsByRace);
 
     const points = calculatePoints(raceId, chosenHorseId, joker);
@@ -856,27 +817,23 @@ async function recalculateLeaderboardForUser(userId, compId, tipsMap = null) {
   let totalWins = 0;
 
   for (const raceId of Object.keys(races)) {
-    if (races[raceId]?.compId !== compId) continue;
+    if ((races[raceId]?.comp_id || races[raceId]?.compId) !== compId) continue;
     const userTip = tipsSource[raceId];
-    if (!userTip || !userTip.horseId) continue;
+    const horseId = userTip?.horse_id || userTip?.horseId;
+    if (!userTip || !horseId) continue;
     const result = resultsCache[raceId] || null;
-    if (result?.winningHorseId === userTip.horseId) totalWins += 1;
-    const pts = calculatePoints(raceId, userTip.horseId, !!userTip.joker);
+    if ((result?.winning_horse_id || result?.winningHorseId) === horseId) totalWins += 1;
+    const pts = calculatePoints(raceId, horseId, !!userTip.joker);
     totalPoints += pts;
   }
 
-  const user = selectedUserData && selectedUserData.id === userId ? selectedUserData : null;
-  if (!user) {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    selectedUserData = userDoc.exists() ? { id: userId, ...userDoc.data() } : { id: userId };
-  }
-
-  await setDoc(doc(db, "userCompJoinings", `${userId}_${compId}`), {
-    userId,
-    compId,
+  await supabase.from('user_comp_joinings').upsert({
+    id: `${userId}_${compId}`,
+    user_id: userId,
+    comp_id: compId,
     points: totalPoints,
     wins: totalWins
-  }, { merge: true });
+  }, { onConflict: 'user_id,comp_id' });
 }
 
 /* -------------------------------
@@ -906,17 +863,14 @@ document.getElementById('export-csv').onclick = function() {
 };
 
 document.getElementById('export-ladder-csv').onclick = async function() {
-  const snapshot = await getDocs(collection(db, "leaderboard"));
-  const leaderboard = [];
-  snapshot.forEach(docSnap => {
-    leaderboard.push({ id: docSnap.id, ...docSnap.data() });
-  });
+  const { data: joinings } = await supabase.from('user_comp_joinings').select('*,users(team_name,email)');
+  const leaderboard = (joinings || []);
   leaderboard.sort((a, b) => (Number(b.points || 0) - Number(a.points || 0)));
 
   const header = ['Rank', 'Team Name', 'Points'];
   const rows = leaderboard.map((entry, idx) => [
     idx + 1,
-    `"${entry.teamName || entry.userId || entry.id}"`,
+    `"${entry.users?.team_name || entry.team_name || entry.user_id || ''}"`,
     Number(entry.points || 0)
   ]);
   const csv = header.join(',') + '\n' + rows.map(r => r.join(',')).join('\n');

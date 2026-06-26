@@ -1,28 +1,11 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js';
-import { getFirestore, collection, getDocs, doc, getDoc, setDoc, updateDoc, deleteDoc, writeBatch, query, where, addDoc, serverTimestamp, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
-import { getDatabase, ref, get } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js';
-import { getFunctions } from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-functions.js';
-import { setupNotificationListener, sendAdminNotification } from './js/user-notification-service.js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
 
-// Initialize Firebase
-const firebaseConfig = {
-  apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-  authDomain: "tmstipping.firebaseapp.com",
-  projectId: "tmstipping",
-  storageBucket: "tmstipping.appspot.com",
-  messagingSenderId: "401677933527",
-  appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-  measurementId: "G-GXLRCHV687"
-};
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const rtdb = getDatabase(app);
-const functions = getFunctions(app, 'us-central1');
-
-// Only one notification handler per page
+// Stub — push notifications not yet migrated
+function setupNotificationListener() {}
+function sendAdminNotification() { return Promise.resolve({ ok: false }); }
 setupNotificationListener(true);
 
 // Global State
@@ -47,32 +30,29 @@ feather.replace();
 const { DateTime } = luxon;
 
 // ============ AUTH & INITIALIZATION ============
-onAuthStateChanged(auth, async (user) => {
+supabase.auth.onAuthStateChange((event, session) => {
+  const user = session?.user || null;
   if (!user) {
     alert("You must be logged in.");
     window.location.href = "login.html";
     return;
   }
-
-  // Check admin status in Realtime Database
-  const adminRef = ref(rtdb, `users/${user.uid}/admin`);
-  const snapshot = await get(adminRef);
-
-  if (!snapshot.exists() || snapshot.val() !== true) {
-    alert("You are not authorized to access this page.");
-    window.location.href = "login.html";
-    return;
-  }
-
-  applyCachedAdminStats();
-  currentAdminUser = user;
-
-  // User is authenticated and is admin - load dashboard
-  await loadAllComps();
-  await loadDashboardStats(selectedAdminCompId);
-  await loadRacesList();
-  await loadAdminNotifications();
-  AOS.init();
+  user.uid = user.id;
+  setTimeout(async () => {
+    const { data: userData } = await supabase.from('users').select('admin').eq('id', user.id).single();
+    if (!userData?.admin) {
+      alert("You are not authorized to access this page.");
+      window.location.href = "login.html";
+      return;
+    }
+    applyCachedAdminStats();
+    currentAdminUser = user;
+    await loadAllComps();
+    await loadDashboardStats(selectedAdminCompId);
+    await loadRacesList();
+    await loadAdminNotifications();
+    AOS.init();
+  }, 0);
 });
 
 function applyCachedAdminStats() {
@@ -109,76 +89,44 @@ function saveAdminStatsToCache({ totalRaces, upcoming, fullyTipped, paidUsers })
 // ============ DASHBOARD STATS ============
 async function loadDashboardStats(compId = null) {
   try {
-    let racesSnap;
-    
-    // If compId is provided, filter by that comp
-    if (compId) {
-      racesSnap = await getDocs(query(collection(db, 'races'), where('compId', '==', compId)));
-    } else {
-      racesSnap = await getDocs(collection(db, 'races'));
-    }
-    
-    const races = racesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let racesQuery = supabase.from('races').select('*');
+    if (compId) racesQuery = racesQuery.eq('comp_id', compId);
+    const { data: races } = await racesQuery;
 
     const now = DateTime.now().setZone('Australia/Sydney');
-    const upcoming = races.filter(r => {
+    const upcoming = (races || []).filter(r => {
       const raceTime = DateTime.fromFormat(`${r.date} ${r.time}`, 'yyyy-MM-dd HH:mm').setZone('Australia/Sydney');
       return raceTime > now;
     }).length;
 
     let fullyTipped = 0;
-    for (const race of races) {
-      if (race.horses && Object.keys(race.horses).length > 0) {
-        fullyTipped += 1;
-      }
+    for (const race of (races || [])) {
+      if (race.horses && Object.keys(race.horses).length > 0) fullyTipped += 1;
     }
 
-    // Calculate paid users for this comp
     let paidUsers = 0;
     let feesCollected = 0;
-    
+
     if (compId) {
-      // Filter to users who joined this comp and have paid
-      const joiningsSnap = await getDocs(
-        query(
-          collection(db, 'userCompJoinings'),
-          where('compId', '==', compId),
-          where('paymentStatus', '==', 'completed')
-        )
-      );
-      paidUsers = joiningsSnap.size;
-      
-      // Calculate fees collected for this comp
-      const compDoc = await getDoc(doc(db, 'comps', compId));
-      if (compDoc.exists()) {
-        const entryFee = compDoc.data().entryFee || 0;
-        feesCollected = paidUsers * entryFee;
-      }
+      const { data: joinings } = await supabase.from('user_comp_joinings')
+        .select('user_id').eq('comp_id', compId).eq('payment_status', 'completed');
+      paidUsers = (joinings || []).length;
+
+      const { data: comp } = await supabase.from('comps').select('entry_fee').eq('id', compId).single();
+      if (comp) feesCollected = paidUsers * (comp.entry_fee || 0);
     } else {
-      // Multi-comp global logic: unique users with a completed joining
-      const joiningsSnap = await getDocs(
-        query(collection(db, 'userCompJoinings'), where('paymentStatus', '==', 'completed'))
-      );
-      const paidUserIds = new Set();
-      joiningsSnap.forEach(joinDoc => {
-        const joining = joinDoc.data();
-        if (joining?.userId) paidUserIds.add(joining.userId);
-      });
-      paidUsers = paidUserIds.size;
+      const { data: joinings } = await supabase.from('user_comp_joinings')
+        .select('user_id').eq('payment_status', 'completed');
+      paidUsers = new Set((joinings || []).map(j => j.user_id)).size;
     }
 
-    document.getElementById('total-races').textContent = races.length;
+    document.getElementById('total-races').textContent = (races || []).length;
     document.getElementById('upcoming-races').textContent = upcoming;
     document.getElementById('fully-tipped').textContent = fullyTipped;
     document.getElementById('paid-users').textContent = paidUsers;
     document.getElementById('fees-collected').textContent = feesCollected > 0 ? `$${feesCollected.toFixed(2)}` : '$0.00';
 
-    saveAdminStatsToCache({
-      totalRaces: races.length,
-      upcoming,
-      fullyTipped,
-      paidUsers
-    });
+    saveAdminStatsToCache({ totalRaces: (races || []).length, upcoming, fullyTipped, paidUsers });
   } catch (error) {
     console.error('Error loading dashboard stats:', error);
   }
@@ -187,12 +135,8 @@ async function loadDashboardStats(compId = null) {
 // ============ RACES LIST ============
 async function loadRacesList() {
   try {
-    const racesRef = collection(db, 'races');
-    const racesSnap = await getDocs(racesRef);
-    allRaces = racesSnap.docs.map(d => ({
-      id: d.id,
-      ...d.data()
-    })).sort((a, b) => {
+    const { data: racesData } = await supabase.from('races').select('*');
+    allRaces = (racesData || []).map(r => ({ ...r, compId: r.comp_id })).sort((a, b) => {
       const aTime = new Date(`${a.date}T${a.time}`);
       const bTime = new Date(`${b.date}T${b.time}`);
       return aTime - bTime;
@@ -493,23 +437,10 @@ async function moveRaceToComp() {
   if (!confirmed) return;
 
   try {
-    // Move race document to target comp
-    await updateDoc(doc(db, 'races', currentRaceId), {
-      compId: targetCompId
-    });
+    await supabase.from('races').update({ comp_id: targetCompId }).eq('id', currentRaceId);
+    await supabase.from('tips').update({ comp_id: targetCompId }).eq('race_id', currentRaceId);
 
-    // Keep existing race tips aligned with moved race competition.
-    const tipsSnap = await getDocs(query(collection(db, 'tips'), where('raceId', '==', currentRaceId)));
-    const tipsBatch = writeBatch(db);
-    tipsSnap.forEach(tipDoc => {
-      tipsBatch.update(doc(db, 'tips', tipDoc.id), { compId: targetCompId });
-    });
-    if (!tipsSnap.empty) {
-      await tipsBatch.commit();
-    }
-
-    // Refresh local race cache
-    allRaces = allRaces.map(r => r.id === currentRaceId ? { ...r, compId: targetCompId } : r);
+    allRaces = allRaces.map(r => r.id === currentRaceId ? { ...r, compId: targetCompId, comp_id: targetCompId } : r);
 
     await loadRacesList();
     await selectRace(currentRaceId);
@@ -1609,15 +1540,17 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
   });
 
   try {
-    await addDoc(collection(db, 'races'), {
+    const { error } = await supabase.from('races').insert({
+      id: crypto.randomUUID(),
       name,
       date,
       time,
       distance,
       preview,
-      compId: selectedAdminCompId || 'default-comp',
+      comp_id: selectedAdminCompId || null,
       horses
     });
+    if (error) throw error;
 
     showNotification(`Race "${name}" created successfully!`, 'success', 'form-notifications');
     await loadRacesList();
@@ -1632,17 +1565,10 @@ document.getElementById('race-form')?.addEventListener('submit', async (e) => {
 async function updateRaceDate() {
   if (!currentRaceId) return;
   const newDate = document.getElementById('edit-race-date').value;
-  const race = allRaces.find(r => r.id === currentRaceId);
-  if (!race) return;
-
-  const raceTime = DateTime.fromISO(race.dateTime).setZone('Australia/Sydney');
-  const [y, m, d] = newDate.split('-');
-  const updated = raceTime.set({ year: parseInt(y), month: parseInt(m), day: parseInt(d) });
-
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), {
-      dateTime: updated.toISO()
-    });
+    const { error } = await supabase.from('races').update({ date: newDate }).eq('id', currentRaceId);
+    if (error) throw error;
+    allRaces = allRaces.map(r => r.id === currentRaceId ? { ...r, date: newDate } : r);
     showNotification('Date updated', 'success', 'race-notifications');
     await loadRacesList();
   } catch (error) {
@@ -1653,17 +1579,10 @@ async function updateRaceDate() {
 async function updateRaceTime() {
   if (!currentRaceId) return;
   const newTime = document.getElementById('edit-race-time').value;
-  const race = allRaces.find(r => r.id === currentRaceId);
-  if (!race) return;
-
-  const raceTime = DateTime.fromISO(race.dateTime).setZone('Australia/Sydney');
-  const [h, m] = newTime.split(':');
-  const updated = raceTime.set({ hour: parseInt(h), minute: parseInt(m) });
-
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), {
-      dateTime: updated.toISO()
-    });
+    const { error } = await supabase.from('races').update({ time: newTime }).eq('id', currentRaceId);
+    if (error) throw error;
+    allRaces = allRaces.map(r => r.id === currentRaceId ? { ...r, time: newTime } : r);
     showNotification('Time updated', 'success', 'race-notifications');
     await loadRacesList();
   } catch (error) {
@@ -1674,9 +1593,9 @@ async function updateRaceTime() {
 async function updateRaceDistance() {
   if (!currentRaceId) return;
   const distance = document.getElementById('edit-race-distance').value;
-
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), { distance });
+    const { error } = await supabase.from('races').update({ distance }).eq('id', currentRaceId);
+    if (error) throw error;
     showNotification('Distance updated', 'success', 'race-notifications');
   } catch (error) {
     showNotification('Error updating distance', 'error', 'race-notifications');
@@ -1686,9 +1605,9 @@ async function updateRaceDistance() {
 async function updateRacePreview() {
   if (!currentRaceId) return;
   const preview = document.getElementById('edit-race-preview').value;
-
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), { preview });
+    const { error } = await supabase.from('races').update({ preview }).eq('id', currentRaceId);
+    if (error) throw error;
     showNotification('Preview updated', 'success', 'race-notifications');
   } catch (error) {
     showNotification('Error updating preview', 'error', 'race-notifications');
@@ -1759,20 +1678,14 @@ async function saveHorseChange(btn) {
   const existingHorse = race?.horses?.[idx] || {};
 
   try {
-    const raceRef = doc(db, 'races', currentRaceId);
-    await updateDoc(raceRef, {
-      [`horses.${idx}`]: {
-        ...existingHorse,
-        no: horseNumber,
-        number: horseNumber,
-        name,
-        trainer,
-        jockey,
-        barrier,
-        weight,
-        silkDesc
-      }
-    });
+    const race = allRaces.find(r => r.id === currentRaceId);
+    const updatedHorses = { ...(race?.horses || {}) };
+    updatedHorses[idx] = {
+      ...(updatedHorses[idx] || {}),
+      no: horseNumber, number: horseNumber, name, trainer, jockey, barrier, weight, silkDesc
+    };
+    const { error } = await supabase.from('races').update({ horses: updatedHorses }).eq('id', currentRaceId);
+    if (error) throw error;
     showNotification('Horse updated', 'success', 'race-notifications');
     await refreshCurrentRaceData();
   } catch (error) {
@@ -1783,10 +1696,10 @@ async function saveHorseChange(btn) {
 async function refreshCurrentRaceData() {
   if (!currentRaceId) return;
 
-  const raceSnap = await getDoc(doc(db, 'races', currentRaceId));
-  if (!raceSnap.exists()) return;
+  const { data: raceData } = await supabase.from('races').select('*').eq('id', currentRaceId).single();
+  if (!raceData) return;
 
-  const updatedRace = { id: currentRaceId, ...raceSnap.data() };
+  const updatedRace = { ...raceData, compId: raceData.comp_id };
   allRaces = allRaces.map(r => r.id === currentRaceId ? updatedRace : r);
 
   await loadRaceHorses(updatedRace);
@@ -1807,7 +1720,8 @@ async function toggleHorseScratch(horseIdx, shouldScratch) {
   }
 
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), { horses: race.horses });
+    const { error } = await supabase.from('races').update({ horses: race.horses }).eq('id', currentRaceId);
+    if (error) throw error;
     showNotification(shouldScratch ? 'Horse scratched' : 'Horse unscratched', 'success', 'race-notifications');
     await refreshCurrentRaceData();
   } catch (error) {
@@ -1831,7 +1745,8 @@ async function setSubstituteHorse(horseIdx) {
   });
 
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), { horses: race.horses });
+    const { error } = await supabase.from('races').update({ horses: race.horses }).eq('id', currentRaceId);
+    if (error) throw error;
     showNotification('Substitute horse updated', 'success', 'race-notifications');
     await refreshCurrentRaceData();
   } catch (error) {
@@ -1848,25 +1763,21 @@ async function addHorseToRace() {
   const numericKeys = Object.keys(horses)
     .map(key => Number(key))
     .filter(value => Number.isFinite(value));
-  const newIdx = numericKeys.length ? String(Math.max(...numericKeys) + 1) : doc(collection(db, '_')).id;
+  const newIdx = numericKeys.length ? String(Math.max(...numericKeys) + 1) : crypto.randomUUID();
+
+  const updatedHorses = {
+    ...horses,
+    [newIdx]: {
+      no: String(numericKeys.length ? Number(newIdx) + 1 : ''),
+      number: String(numericKeys.length ? Number(newIdx) + 1 : ''),
+      name: '', trainer: '', jockey: '', barrier: '', weight: '',
+      silkDesc: '', amt: 0, scratched: false, substitute: false
+    }
+  };
 
   try {
-    await updateDoc(doc(db, 'races', currentRaceId), {
-      [`horses.${newIdx}`]: {
-        no: String(numericKeys.length ? Number(newIdx) + 1 : ''),
-        number: String(numericKeys.length ? Number(newIdx) + 1 : ''),
-        name: '',
-        trainer: '',
-        jockey: '',
-        barrier: '',
-        weight: '',
-        silkDesc: '',
-        amt: 0,
-        scratched: false,
-        substitute: false
-      }
-    });
-
+    const { error } = await supabase.from('races').update({ horses: updatedHorses }).eq('id', currentRaceId);
+    if (error) throw error;
     await refreshCurrentRaceData();
     showNotification('Horse added', 'success', 'race-notifications');
   } catch (error) {
@@ -1881,43 +1792,26 @@ async function recalculateRaceHorseTipCounts() {
   }
 
   try {
-    const raceRef = doc(db, 'races', currentRaceId);
-    const raceSnap = await getDoc(raceRef);
-    if (!raceSnap.exists()) {
-      showNotification('Race not found', 'error', 'race-notifications');
-      return;
-    }
+    const { data: raceData } = await supabase.from('races').select('*').eq('id', currentRaceId).single();
+    if (!raceData) { showNotification('Race not found', 'error', 'race-notifications'); return; }
 
-    const race = raceSnap.data() || {};
-    const horses = { ...(race.horses || {}) };
+    const horses = { ...(raceData.horses || {}) };
     const horseIds = Object.keys(horses);
-    if (!horseIds.length) {
-      showNotification('No horses in this race to recalculate', 'error', 'race-notifications');
-      return;
+    if (!horseIds.length) { showNotification('No horses in this race to recalculate', 'error', 'race-notifications'); return; }
+
+    horseIds.forEach(id => { horses[id] = { ...horses[id], amt: 0 }; });
+
+    const { data: tips } = await supabase.from('tips').select('horse_id').eq('race_id', currentRaceId);
+    let countedTips = 0;
+    for (const tip of (tips || [])) {
+      const horseId = tip.horse_id ? String(tip.horse_id) : null;
+      if (!horseId || !horses[horseId]) continue;
+      horses[horseId].amt = (Number(horses[horseId].amt) || 0) + 1;
+      countedTips++;
     }
 
-    // Reset all counters to zero before counting tips.
-    horseIds.forEach(horseId => {
-      horses[horseId] = {
-        ...horses[horseId],
-        amt: 0
-      };
-    });
-
-    const tipsSnap = await getDocs(query(collection(db, 'tips'), where('raceId', '==', currentRaceId)));
-    let countedTips = 0;
-
-    tipsSnap.forEach(tipDoc => {
-      const tip = tipDoc.data() || {};
-      const horseId = tip?.horseId ? String(tip.horseId) : null;
-      if (!horseId || !horses[horseId]) return;
-
-      const currentAmt = Number(horses[horseId].amt || 0);
-      horses[horseId].amt = (Number.isFinite(currentAmt) ? currentAmt : 0) + 1;
-      countedTips += 1;
-    });
-
-    await updateDoc(raceRef, { horses });
+    const { error } = await supabase.from('races').update({ horses }).eq('id', currentRaceId);
+    if (error) throw error;
     await refreshCurrentRaceData();
     showNotification(`Recalculated horse tip counts from ${countedTips} tip(s)`, 'success', 'race-notifications');
   } catch (error) {
@@ -1936,23 +1830,8 @@ async function archiveRace() {
   if (!confirmed) return;
 
   try {
-    const raceRef = doc(db, 'races', currentRaceId);
-    const raceSnap = await getDoc(raceRef);
-    if (!raceSnap.exists()) {
-      showNotification('Race not found', 'error', 'race-notifications');
-      return;
-    }
-
-    const archiveRef = doc(db, 'deletedRaces', currentRaceId);
-    await setDoc(archiveRef, {
-      ...raceSnap.data(),
-      originalRaceId: currentRaceId,
-      deletedAt: serverTimestamp(),
-      deletedBy: auth.currentUser?.uid || null,
-      deletedFrom: 'admin-dark'
-    });
-
-    await deleteDoc(raceRef);
+    const { error } = await supabase.from('races').delete().eq('id', currentRaceId);
+    if (error) throw error;
 
     allRaces = allRaces.filter(r => r.id !== currentRaceId);
     currentRaceId = null;
@@ -1990,22 +1869,20 @@ async function loadResultsForm() {
   });
 
   // Load existing results if any
-  const resultsRef = collection(db, 'results');
-  const q = query(resultsRef, where('raceId', '==', currentRaceId));
-  const snap = await getDocs(q);
-  if (snap.docs.length > 0) {
-    const result = snap.docs[0].data();
-    const winnerIdx = result.winner?.idx || result.winningHorseId || '';
-    const place1Idx = result.place1?.idx || result.place1HorseId || '';
-    const place2Idx = result.place2?.idx || result.place2HorseId || '';
+  const { data: results } = await supabase.from('results').select('*').eq('race_id', currentRaceId);
+  if (results?.length) {
+    const result = results[0];
+    const winnerIdx = result.winner?.idx || result.winning_horse_id || result.winningHorseId || '';
+    const place1Idx = result.place1?.idx || result.place1_horse_id || result.place1HorseId || '';
+    const place2Idx = result.place2?.idx || result.place2_horse_id || result.place2HorseId || '';
 
     if (winnerIdx) document.getElementById('winner-horse-id').value = winnerIdx;
     if (place1Idx) document.getElementById('place1-horse-id').value = place1Idx;
     if (place2Idx) document.getElementById('place2-horse-id').value = place2Idx;
 
     if (result.winner?.points || result.points) document.getElementById('winner-points').value = result.winner?.points || result.points;
-    if (result.place1?.points || result.place1Points) document.getElementById('place1-points').value = result.place1?.points || result.place1Points;
-    if (result.place2?.points || result.place2Points) document.getElementById('place2-points').value = result.place2?.points || result.place2Points;
+    if (result.place1?.points || result.place1_points || result.place1Points) document.getElementById('place1-points').value = result.place1?.points || result.place1_points || result.place1Points;
+    if (result.place2?.points || result.place2_points || result.place2Points) document.getElementById('place2-points').value = result.place2?.points || result.place2_points || result.place2Points;
   }
 }
 
@@ -2017,36 +1894,31 @@ async function saveResults() {
   const winnerIdx = document.getElementById('winner-horse-id').value;
   const place1Idx = document.getElementById('place1-horse-id').value;
   const place2Idx = document.getElementById('place2-horse-id').value;
-  const winnerPoints = parseFloat(document.getElementById('winner-points').value) || 10;
-  const place1Points = parseFloat(document.getElementById('place1-points').value) || 5;
-  const place2Points = parseFloat(document.getElementById('place2-points').value) || 2;
+  const winnerPoints = parseInt(document.getElementById('winner-points').value) || 10;
+  const place1Points = parseInt(document.getElementById('place1-points').value) || 5;
+  const place2Points = parseInt(document.getElementById('place2-points').value) || 2;
 
   try {
-    const resultsRef = collection(db, 'results');
-    const q = query(resultsRef, where('raceId', '==', currentRaceId));
-    const snap = await getDocs(q);
-
-    const winnerPoints = parseInt(document.getElementById('winner-points').value) || 10;
-    const place1Points = parseInt(document.getElementById('place1-points').value) || 5;
-    const place2Points = parseInt(document.getElementById('place2-points').value) || 2;
 
     const result = {
-      raceId: currentRaceId,
-      raceName: race.name,
-      winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx].name, points: winnerPoints } : null,
-      place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx].name, points: place1Points } : null,
-      place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx].name, points: place2Points } : null,
-      // Canonical fields used by dark-mode pages and admin-script.js
-      winningHorseId: winnerIdx || null,
-      place1HorseId: place1Idx || null,
-      place2HorseId: place2Idx || null,
+      id: currentRaceId,
+      race_id: currentRaceId,
+      race_name: race.name,
+      winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx]?.name, points: winnerPoints } : null,
+      place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx]?.name, points: place1Points } : null,
+      place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx]?.name, points: place2Points } : null,
+      winning_horse_id: winnerIdx || null,
+      place1_horse_id: place1Idx || null,
+      place2_horse_id: place2Idx || null,
       points: winnerPoints,
-      place1Points: place1Points,
-      place2Points: place2Points,
-      createdAt: new Date().toISOString()
+      place1_points: place1Points,
+      place2_points: place2Points,
+      comp_id: race.comp_id || race.compId || null,
+      created_at: new Date().toISOString()
     };
 
-    await setDoc(doc(db, 'results', currentRaceId), result, { merge: true });
+    const { error: resultError } = await supabase.from('results').upsert(result);
+    if (resultError) throw resultError;
 
     // Recalculate points for this competition only
     await calculateAndSaveLeaderboard(race.compId || selectedAdminCompId || null);
@@ -2063,110 +1935,67 @@ async function saveResults() {
 
 async function calculateAndSaveLeaderboard(compId) {
   try {
-    const resultsRef = collection(db, 'results');
-    const resultsSnap = await getDocs(resultsRef);
-    const leaderboardMap = {};
+    const { data: results } = await supabase.from('results').select('*');
     const compLeaderboardMap = {};
 
     const raceCompIdMap = {};
-    allRaces.forEach(r => {
-      raceCompIdMap[r.id] = r.compId || null;
-    });
+    allRaces.forEach(r => { raceCompIdMap[r.id] = r.comp_id || r.compId || null; });
 
-    for (const resultDoc of resultsSnap.docs) {
-      const result = resultDoc.data();
-      const raceId = result.raceId || resultDoc.id;
-      const tipsRef = collection(db, 'tips');
-      const tipsSnap = await getDocs(query(tipsRef, where('raceId', '==', raceId)));
+    for (const result of (results || [])) {
+      const raceId = result.race_id || result.id;
+      const { data: tips } = await supabase.from('tips').select('*').eq('race_id', raceId);
 
-      const winnerHorseId = result.winningHorseId || result.winner?.idx || null;
-      const place1HorseId = result.place1HorseId || result.place1?.idx || null;
-      const place2HorseId = result.place2HorseId || result.place2?.idx || null;
-
+      const winnerHorseId = result.winning_horse_id || result.winner?.idx || null;
+      const place1HorseId = result.place1_horse_id || result.place1?.idx || null;
+      const place2HorseId = result.place2_horse_id || result.place2?.idx || null;
       const winnerPoints = Number(result.points ?? result.winner?.points ?? 0) || 0;
-      const place1Points = Number(result.place1Points ?? result.place1?.points ?? 0) || 0;
-      const place2Points = Number(result.place2Points ?? result.place2?.points ?? 0) || 0;
+      const place1Points = Number(result.place1_points ?? result.place1?.points ?? 0) || 0;
+      const place2Points = Number(result.place2_points ?? result.place2?.points ?? 0) || 0;
 
-      tipsSnap.docs.forEach(tipDoc => {
-        const tip = tipDoc.data();
-        const userId = tip.userId;
-        const compId = tip.compId || raceCompIdMap[raceId] || selectedAdminCompId || 'default-comp';
+      for (const tip of (tips || [])) {
+        const userId = tip.user_id;
+        const tipCompId = tip.comp_id || raceCompIdMap[raceId] || null;
+        if (!tipCompId || !userId) continue;
 
-        if (!leaderboardMap[userId]) {
-          leaderboardMap[userId] = { userId, points: 0, wins: 0 };
-        }
+        if (!compLeaderboardMap[tipCompId]) compLeaderboardMap[tipCompId] = {};
+        if (!compLeaderboardMap[tipCompId][userId]) compLeaderboardMap[tipCompId][userId] = { user_id: userId, points: 0, wins: 0 };
 
-        if (!compLeaderboardMap[compId]) {
-          compLeaderboardMap[compId] = {};
-        }
-        if (!compLeaderboardMap[compId][userId]) {
-          compLeaderboardMap[compId][userId] = { userId, points: 0, wins: 0 };
-        }
-
-        let points = 0;
+        let pts = 0;
         let wasWin = false;
-        if (winnerHorseId && tip.horseId == winnerHorseId) {
-          points += winnerPoints;
-          wasWin = true;
-        } else if (place1HorseId && tip.horseId == place1HorseId) {
-          points += place1Points;
-        } else if (place2HorseId && tip.horseId == place2HorseId) {
-          points += place2Points;
-        }
+        if (winnerHorseId && tip.horse_id == winnerHorseId) { pts += winnerPoints; wasWin = true; }
+        else if (place1HorseId && tip.horse_id == place1HorseId) pts += place1Points;
+        else if (place2HorseId && tip.horse_id == place2HorseId) pts += place2Points;
+        if (pts > 0 && tip.joker === true) pts *= 2;
 
-        if (points > 0 && tip.joker === true) {
-          points *= 2;
-        }
-
-        leaderboardMap[userId].points += points;
-        if (wasWin) leaderboardMap[userId].wins += 1;
-
-        compLeaderboardMap[compId][userId].points += points;
-        if (wasWin) compLeaderboardMap[compId][userId].wins += 1;
-      });
+        compLeaderboardMap[tipCompId][userId].points += pts;
+        if (wasWin) compLeaderboardMap[tipCompId][userId].wins += 1;
+      }
     }
 
-    const leaderboardRef = collection(db, 'leaderboard');
-    const legacyBatch = writeBatch(db);
+    for (const [cId, usersMap] of Object.entries(compLeaderboardMap)) {
+      const entries = Object.values(usersMap).sort((a, b) =>
+        b.points !== a.points ? b.points - a.points : b.wins - a.wins
+      );
 
-    Object.values(leaderboardMap).forEach(entry => {
-      legacyBatch.set(doc(leaderboardRef, entry.userId), entry, { merge: true });
-    });
-
-    await legacyBatch.commit();
-
-    // Update per-comp standings used by dark-mode leaderboard/profile pages.
-    const compBatch = writeBatch(db);
-
-    Object.entries(compLeaderboardMap).forEach(([compId, usersMap]) => {
-      const entries = Object.values(usersMap).sort((a, b) => {
-        if (b.points !== a.points) return b.points - a.points;
-        return b.wins - a.wins;
-      });
-
-      let lastPoints = null;
-      let lastWins = null;
-      let lastRank = 0;
-
-      entries.forEach((entry, idx) => {
+      let lastPoints = null, lastWins = null, lastRank = 0;
+      const upsertRows = entries.map((entry, idx) => {
         const rank = (entry.points === lastPoints && entry.wins === lastWins) ? lastRank : idx + 1;
-        lastPoints = entry.points;
-        lastWins = entry.wins;
-        lastRank = rank;
-
-        const joiningRef = doc(db, 'userCompJoinings', `${entry.userId}_${compId}`);
-        compBatch.set(joiningRef, {
-          userId: entry.userId,
-          compId,
+        lastPoints = entry.points; lastWins = entry.wins; lastRank = rank;
+        return {
+          id: `${entry.user_id}_${cId}`,
+          user_id: entry.user_id,
+          comp_id: cId,
           points: entry.points,
           wins: entry.wins,
           rank,
-          updatedAt: serverTimestamp()
-        }, { merge: true });
+          updated_at: new Date().toISOString()
+        };
       });
-    });
 
-    await compBatch.commit();
+      if (upsertRows.length) {
+        await supabase.from('user_comp_joinings').upsert(upsertRows, { onConflict: 'user_id,comp_id' });
+      }
+    }
   } catch (error) {
     console.error('Error calculating leaderboard:', error);
   }
@@ -2175,51 +2004,29 @@ async function calculateAndSaveLeaderboard(compId) {
 // ============ TIPS DISPLAY ============
 async function loadRaceTips(race) {
   try {
-    const tipsRef = collection(db, 'tips');
-    const q = query(tipsRef, where('raceId', '==', currentRaceId));
-    const tipsSnap = await getDocs(q);
+    const { data: tips } = await supabase.from('tips').select('*').eq('race_id', currentRaceId);
 
     const tipsCountEl = document.getElementById('race-tips-count');
     const tipsList    = document.getElementById('tips-list');
-    if (!tipsCountEl || !tipsList) return; // elements not present in this view
+    if (!tipsCountEl || !tipsList) return;
 
-    tipsCountEl.textContent = tipsSnap.size;
     tipsList.innerHTML = '';
 
-    const paidUsersSet = new Set();
-    const activeCompId = race?.compId || selectedAdminCompId || null;
-    let joiningsSnap;
-
-    if (activeCompId) {
-      joiningsSnap = await getDocs(
-        query(
-          collection(db, 'userCompJoinings'),
-          where('compId', '==', activeCompId),
-          where('paymentStatus', '==', 'completed')
-        )
-      );
-    } else {
-      joiningsSnap = await getDocs(
-        query(collection(db, 'userCompJoinings'), where('paymentStatus', '==', 'completed'))
-      );
-    }
-
-    joiningsSnap.docs.forEach(joinDoc => {
-      const joining = joinDoc.data();
-      if (joining?.userId) paidUsersSet.add(joining.userId);
-    });
+    const activeCompId = race?.comp_id || race?.compId || selectedAdminCompId || null;
+    let joiningsQuery = supabase.from('user_comp_joinings').select('user_id').eq('payment_status', 'completed');
+    if (activeCompId) joiningsQuery = joiningsQuery.eq('comp_id', activeCompId);
+    const { data: joinings } = await joiningsQuery;
+    const paidUsersSet = new Set((joinings || []).map(j => j.user_id));
 
     let paidTipsCount = 0;
-
-    for (const tipDoc of tipsSnap.docs) {
-      const tip = tipDoc.data();
-      const isPaid = paidUsersSet.has(tip.userId);
+    for (const tip of (tips || [])) {
+      const isPaid = paidUsersSet.has(tip.user_id);
       if (isPaid) paidTipsCount++;
 
-      const horse = race.horses?.[tip.horseId];
+      const horse = race.horses?.[tip.horse_id];
       const horseNumber = horse?.no ?? horse?.number ?? '—';
-      const userSnap = await getDoc(doc(db, 'users', tip.userId));
-      const userName = userSnap.data()?.name || 'Unknown User';
+      const { data: userData } = await supabase.from('users').select('team_name,email').eq('id', tip.user_id).single();
+      const userName = userData?.team_name || userData?.email || 'Unknown User';
 
       const tipEl = document.createElement('div');
       tipEl.className = `bg-gray-700 p-3 rounded text-sm ${isPaid ? 'border-l-4 border-yellow-400' : ''}`;
@@ -2228,9 +2035,7 @@ async function loadRaceTips(race) {
           <span class="font-semibold">${userName}</span>
           ${isPaid ? '<span class="text-yellow-400 text-xs">PAID</span>' : ''}
         </div>
-        <div class="text-gray-300">
-          ${horse ? `${horseNumber} - ${horse.name}` : 'Unknown Horse'}
-        </div>
+        <div class="text-gray-300">${horse ? `${horseNumber} - ${horse.name}` : 'Unknown Horse'}</div>
       `;
       tipsList.appendChild(tipEl);
     }
@@ -2307,7 +2112,7 @@ function showNotification(message, type, containerId) {
 
 async function handleLogout() {
   try {
-    await signOut(auth);
+    await supabase.auth.signOut();
     window.location.href = '/login.html';
   } catch (error) {
     console.error('Error logging out:', error);
@@ -2463,20 +2268,14 @@ window.addEventListener('load', () => {
 // ============ COMPETITION SELECTOR ============
 async function loadAllComps() {
   try {
-    const compsSnap = await getDocs(collection(db, 'comps'));
+    const { data: compsData } = await supabase.from('comps').select('*');
     const select = document.getElementById('admin-comp-select');
-    
+
     if (!select) return;
-    
-    // Clear existing options except the first one
-    while (select.options.length > 1) {
-      select.remove(1);
-    }
-    
-    const comps = [];
-    compsSnap.forEach(doc => {
-      comps.push({ id: doc.id, ...doc.data() });
-    });
+
+    while (select.options.length > 1) select.remove(1);
+
+    const comps = compsData || [];
     
     // Sort by status (active first) then by name
     comps.sort((a, b) => {
@@ -2599,18 +2398,15 @@ function formatNotificationUserLabel(user) {
 async function ensureNotificationUsersCache() {
   if (notificationUsersCache.length) return;
 
-  const usersSnap = await getDocs(collection(db, 'users'));
-  notificationUsersCache = usersSnap.docs.map((docSnap) => {
-    const data = docSnap.data() || {};
-    return {
-      id: docSnap.id,
-      firstName: data.firstName || '',
-      lastName: data.lastName || '',
-      displayName: data.displayName || '',
-      teamName: data.teamName || '',
-      email: data.email || ''
-    };
-  });
+  const { data: users } = await supabase.from('users').select('id,first_name,last_name,team_name,email');
+  notificationUsersCache = (users || []).map(u => ({
+    id: u.id,
+    firstName: u.first_name || '',
+    lastName: u.last_name || '',
+    displayName: '',
+    teamName: u.team_name || '',
+    email: u.email || ''
+  }));
 }
 
 function renderSelectedNotificationUser() {
@@ -2686,23 +2482,26 @@ async function loadAdminNotifications() {
   if (!listEl) return;
 
   try {
-    const snap = await getDocs(query(collection(db, 'notifications'), orderBy('createdAt', 'desc'), limit(30)));
+    const { data: rows } = await supabase.from('notifications').select('*').order('id', { ascending: false }).limit(30);
 
-    if (snap.empty) {
+    if (!rows?.length) {
       listEl.innerHTML = '<div class="text-sm text-gray-400">No notifications sent yet.</div>';
       return;
     }
 
     listEl.innerHTML = '';
-    snap.forEach((docSnap) => {
-      const n = docSnap.data() || {};
-      const audience = n.audienceType === 'competition'
-        ? `Comp: ${allComps.find(c => c.id === n.compId)?.name || n.compId || 'Unknown'}`
-        : n.audienceType === 'user'
+    (rows || []).forEach((row) => {
+      const n = row.data || row;
+      const audienceType = n.audienceType || n.audience_type || 'all';
+      const audience = audienceType === 'competition'
+        ? `Comp: ${allComps.find(c => c.id === (n.compId || n.notif_comp_id))?.name || n.compId || 'Unknown'}`
+        : audienceType === 'user'
           ? `User: ${n.userDisplayName || n.userEmail || n.userId || 'Unknown'}`
           : 'All users';
-      const when = n.createdAt?.toDate
-        ? DateTime.fromJSDate(n.createdAt.toDate()).setZone('Australia/Sydney').toFormat('EEE d LLL, h:mm a')
+      const when = n.createdAt
+        ? (typeof n.createdAt === 'string'
+            ? DateTime.fromISO(n.createdAt).setZone('Australia/Sydney').toFormat('EEE d LLL, h:mm a')
+            : 'Pending...')
         : 'Pending...';
 
       const row = document.createElement('div');
@@ -2743,15 +2542,20 @@ window.sendAdminNotification = async function() {
   }
 
   try {
-    await sendAdminNotification(functions, {
-      title,
-      body,
-      audienceType: targetUser ? 'user' : (compId ? 'competition' : 'all'),
-      compId: compId || null,
-      userId: targetUser?.id || null,
-      userDisplayName: targetUser ? formatNotificationUserLabel(targetUser) : null,
-      userEmail: targetUser?.email || null
+    const { error: notifError } = await supabase.from('notifications').insert({
+      id: crypto.randomUUID(),
+      data: {
+        title,
+        body,
+        audienceType: targetUser ? 'user' : (compId ? 'competition' : 'all'),
+        compId: compId || null,
+        userId: targetUser?.id || null,
+        userDisplayName: targetUser ? formatNotificationUserLabel(targetUser) : null,
+        userEmail: targetUser?.email || null,
+        createdAt: new Date().toISOString()
+      }
     });
+    if (notifError) throw notifError;
 
     titleInput.value = '';
     bodyInput.value = '';
@@ -2768,22 +2572,16 @@ window.sendAdminNotification = async function() {
 
 async function loadCompsManagement() {
   try {
-    const compsSnap = await getDocs(collection(db, 'comps'));
-    const comps = [];
-    compsSnap.forEach(docSnap => {
-      comps.push({ id: docSnap.id, ...docSnap.data() });
-    });
-    
+    const { data: compsData } = await supabase.from('comps').select('*');
+    const comps = compsData || [];
+
     const metricsByCompId = {};
     await Promise.all(comps.map(async (comp) => {
-      const [racesSnap, paidSnap] = await Promise.all([
-        getDocs(query(collection(db, 'races'), where('compId', '==', comp.id))),
-        getDocs(query(collection(db, 'userCompJoinings'), where('compId', '==', comp.id), where('paymentStatus', '==', 'completed')))
+      const [{ data: races }, { data: paid }] = await Promise.all([
+        supabase.from('races').select('id').eq('comp_id', comp.id),
+        supabase.from('user_comp_joinings').select('id').eq('comp_id', comp.id).eq('payment_status', 'completed')
       ]);
-      metricsByCompId[comp.id] = {
-        racesCount: racesSnap.size,
-        paidCount: paidSnap.size
-      };
+      metricsByCompId[comp.id] = { racesCount: (races || []).length, paidCount: (paid || []).length };
     }));
 
     allCompsForManagement = comps.map(comp => ({
@@ -2848,8 +2646,8 @@ function renderCompsManagementList() {
   compsList.innerHTML = '';
 
   for (const comp of filtered) {
-    const startDate = comp.startDate ? DateTime.fromISO(comp.startDate).toFormat('MMM d, yyyy') : 'N/A';
-    const endDate = comp.endDate ? DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy') : 'N/A';
+    const startDate = (comp.start_date || comp.startDate) ? DateTime.fromISO(comp.start_date || comp.startDate).toFormat('MMM d, yyyy') : 'N/A';
+    const endDate = (comp.end_date || comp.endDate) ? DateTime.fromISO(comp.end_date || comp.endDate).toFormat('MMM d, yyyy') : 'N/A';
     const status = (comp.status || 'closed').toLowerCase();
     const statusMeta = getCompStatusMeta(status);
     const racesCount = comp.metrics?.racesCount || 0;
@@ -2877,15 +2675,15 @@ function renderCompsManagementList() {
       <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4 py-4 border-t border-b border-gray-700">
         <div>
           <p class="text-xs text-gray-500">Entry Fee</p>
-          <p class="text-lg font-semibold text-yellow-400">$${(comp.entryFee || 0).toFixed(2)}</p>
+          <p class="text-lg font-semibold text-yellow-400">$${(comp.entry_fee || comp.entryFee || 0).toFixed(2)}</p>
         </div>
         <div>
           <p class="text-xs text-gray-500">Prize Pool</p>
-          <p class="text-lg font-semibold text-green-400">$${(comp.prizePool || 0).toFixed(2)}</p>
+          <p class="text-lg font-semibold text-green-400">$${(comp.prize_pool || comp.prizePool || 0).toFixed(2)}</p>
         </div>
         <div>
           <p class="text-xs text-gray-500">Participants</p>
-          <p class="text-lg font-semibold">${paidCount}/${comp.maxParticipants || 1000}</p>
+          <p class="text-lg font-semibold">${paidCount}/${comp.max_participants || comp.maxParticipants || 1000}</p>
         </div>
         <div>
           <p class="text-xs text-gray-500">Races</p>
@@ -2932,10 +2730,8 @@ async function generateUniqueCompId(baseName) {
   let suffix = 2;
 
   while (true) {
-    const existing = await getDoc(doc(db, 'comps', candidate));
-    if (!existing.exists()) {
-      return candidate;
-    }
+    const { data } = await supabase.from('comps').select('id').eq('id', candidate).single();
+    if (!data) return candidate;
     candidate = `${baseId}-${suffix}`;
     suffix += 1;
   }
@@ -2967,25 +2763,19 @@ window.cancelCompForm = function() {
 
 window.editCompetition = async function(compId) {
   try {
-    const compSnap = await getDoc(doc(db, 'comps', compId));
-    if (!compSnap.exists()) {
-      showNotification('Competition not found', 'error', 'comp-notifications');
-      return;
-    }
+    const { data: comp } = await supabase.from('comps').select('*').eq('id', compId).single();
+    if (!comp) { showNotification('Competition not found', 'error', 'comp-notifications'); return; }
 
-    const comp = compSnap.data();
     document.getElementById('form-title').textContent = `Edit: ${comp.name}`;
     document.getElementById('comp-form-container').classList.remove('hidden');
-    
-    // Fill form
     document.getElementById('comp-name').value = comp.name;
     document.getElementById('comp-status').value = comp.status;
-    document.getElementById('comp-fee').value = comp.entryFee || 0;
-    document.getElementById('comp-prize').value = comp.prizePool || 0;
-    document.getElementById('comp-start').value = comp.startDate.split('T')[0];
-    document.getElementById('comp-end').value = comp.endDate.split('T')[0];
+    document.getElementById('comp-fee').value = comp.entry_fee || comp.entryFee || 0;
+    document.getElementById('comp-prize').value = comp.prize_pool || comp.prizePool || 0;
+    document.getElementById('comp-start').value = (comp.start_date || comp.startDate || '').split('T')[0];
+    document.getElementById('comp-end').value = (comp.end_date || comp.endDate || '').split('T')[0];
     document.getElementById('comp-description').value = comp.description || '';
-    document.getElementById('comp-max-participants').value = comp.maxParticipants || 1000;
+    document.getElementById('comp-max-participants').value = comp.max_participants || comp.maxParticipants || 1000;
     document.getElementById('comp-id').value = compId;
   } catch (error) {
     console.error('Error editing competition:', error);
@@ -3003,33 +2793,34 @@ window.saveCompetition = async function() {
     const compData = {
       name: document.getElementById('comp-name').value.trim(),
       status: document.getElementById('comp-status').value,
-      entryFee: parseFloat(document.getElementById('comp-fee').value) || 0,
-      prizePool: parseFloat(document.getElementById('comp-prize').value) || 0,
-      startDate: startDateRaw ? `${startDateRaw}T00:00:00Z` : '',
-      endDate: endDateRaw ? `${endDateRaw}T23:59:59Z` : '',
+      entry_fee: parseFloat(document.getElementById('comp-fee').value) || 0,
+      prize_pool: parseFloat(document.getElementById('comp-prize').value) || 0,
+      start_date: startDateRaw ? `${startDateRaw}T00:00:00Z` : '',
+      end_date: endDateRaw ? `${endDateRaw}T23:59:59Z` : '',
       description: document.getElementById('comp-description').value.trim(),
-      maxParticipants: parseInt(document.getElementById('comp-max-participants').value) || 1000,
-      participantCount: isNew ? 0 : undefined,
-      updatedAt: serverTimestamp()
+      max_participants: parseInt(document.getElementById('comp-max-participants').value) || 1000,
+      updated_at: new Date().toISOString()
     };
 
-    const validationError = validateCompetitionData(compData, isNew);
+    const validationError = validateCompetitionData({
+      name: compData.name, startDate: compData.start_date, endDate: compData.end_date,
+      entryFee: compData.entry_fee, prizePool: compData.prize_pool,
+      maxParticipants: compData.max_participants, id: isNew ? null : compId
+    }, isNew);
     if (validationError) {
       showNotification(validationError, 'error', 'comp-notifications');
       return;
     }
 
-    // Generate unique slug from name for new competitions.
     const finalCompId = isNew ? await generateUniqueCompId(compData.name) : compId;
 
     if (isNew) {
-      compData.createdAt = serverTimestamp();
-      compData.participantCount = 0;
-      await setDoc(doc(db, 'comps', finalCompId), compData);
+      const { error } = await supabase.from('comps').insert({ id: finalCompId, ...compData, participant_count: 0, created_at: new Date().toISOString() });
+      if (error) throw error;
       showNotification(`Competition "${compData.name}" created successfully!`, 'success', 'comp-notifications');
     } else {
-      delete compData.participantCount;
-      await updateDoc(doc(db, 'comps', compId), compData);
+      const { error } = await supabase.from('comps').update(compData).eq('id', compId);
+      if (error) throw error;
       showNotification(`Competition "${compData.name}" updated successfully!`, 'success', 'comp-notifications');
     }
 
@@ -3045,12 +2836,12 @@ window.saveCompetition = async function() {
 
 window.deleteCompetition = async function(compId) {
   try {
-    const racesSnap = await getDocs(query(collection(db, 'races'), where('compId', '==', compId)));
-    if (!confirm(`Archive this competition?${racesSnap.size ? `\n\nThis comp currently has ${racesSnap.size} race(s).` : ''}`)) {
-      return;
-    }
+    const { data: races } = await supabase.from('races').select('id').eq('comp_id', compId);
+    const raceCount = (races || []).length;
+    if (!confirm(`Archive this competition?${raceCount ? `\n\nThis comp currently has ${raceCount} race(s).` : ''}`)) return;
 
-    await updateDoc(doc(db, 'comps', compId), { status: 'deleted' });
+    const { error } = await supabase.from('comps').update({ status: 'deleted' }).eq('id', compId);
+    if (error) throw error;
     showNotification('Competition archived', 'success', 'comp-notifications');
     await loadCompsManagement();
     await loadAllComps();
@@ -3067,7 +2858,8 @@ window.restoreCompetition = async function(compId) {
   }
 
   try {
-    await updateDoc(doc(db, 'comps', compId), { status: 'closed', updatedAt: serverTimestamp() });
+    const { error } = await supabase.from('comps').update({ status: 'closed', updated_at: new Date().toISOString() }).eq('id', compId);
+    if (error) throw error;
     showNotification('Competition restored as closed', 'success', 'comp-notifications');
     await loadCompsManagement();
     await loadAllComps();

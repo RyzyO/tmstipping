@@ -316,38 +316,10 @@
   </script>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, getDoc, doc, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     const { DateTime } = luxon;
-
-    // Load config from separate file to avoid exposing credentials
-    let firebaseConfig = null;
-    try {
-      const response = await fetch('firebase-config.js');
-      const text = await response.text();
-      eval(text);
-    } catch (e) {
-      console.error('Failed to load Firebase config:', e);
-    }
-
-    if (!firebaseConfig) {
-      // Fallback (but should use firebase-config.js)
-      firebaseConfig = {
-        apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-        authDomain: "tmstipping.firebaseapp.com",
-        projectId: "tmstipping",
-        storageBucket: "tmstipping.appspot.com",
-        messagingSenderId: "401677933527",
-        appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-        measurementId: "G-GXLRCHV687"
-      };
-    }
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     let cachedLeaderboard = [];
     let cachedRaces = {};
@@ -368,13 +340,9 @@
       return bStart - aStart;
     }
 
-    function signOut() {
-      firebaseSignOut(auth).then(() => {
-        window.location.href = "landing.html";
-      }).catch((error) => {
-        console.error('Sign out error:', error);
-        alert('Error signing out. Please try again.');
-      });
+    async function signOut() {
+      await supabase.auth.signOut();
+      window.location.href = "landing.html";
     }
     window.signOut = signOut;
 
@@ -561,35 +529,28 @@
       setupSearch(tbody, mobile);
     }
 
-    onAuthStateChanged(auth, async user => {
-      if (!user) {
-        window.location.href = "login.html";
-        return;
-      }
-      currentUserId = user.uid;
-      await loadUserComps();
-      await loadLeaderboard();
+    supabase.auth.onAuthStateChange((event, session) => {
+      const user = session?.user || null;
+      if (!user) { window.location.href = "login.html"; return; }
+      currentUserId = user.id;
+      setTimeout(async () => {
+        await loadUserComps();
+        await loadLeaderboard();
+      }, 0);
     });
 
     async function loadUserComps() {
       try {
         const selectEl = document.getElementById("comp-selector");
-        const joiningsSnap = await getDocs(
-          query(
-            collection(db, "userCompJoinings"),
-            where("userId", "==", currentUserId),
-            where("paymentStatus", "==", "completed")
-          )
-        );
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings').select('comp_id')
+          .eq('user_id', currentUserId).eq('payment_status', 'completed');
 
-        const comps = [];
-        for (const joinDoc of joiningsSnap.docs) {
-          const joining = joinDoc.data();
-          const compSnap = await getDoc(doc(db, "comps", joining.compId));
-          if (compSnap.exists()) {
-            comps.push({ id: compSnap.id, ...compSnap.data() });
-          }
-        }
+        const compIds = [...new Set((joinings||[]).map(j=>j.comp_id).filter(Boolean))];
+        const { data: compsData } = compIds.length
+          ? await supabase.from('comps').select('*').in('id', compIds)
+          : { data: [] };
+        const comps = (compsData||[]).map(c => ({ ...c, startDate: c.start_date }));
 
         selectEl.innerHTML = "";
         comps.forEach(comp => {
@@ -649,38 +610,24 @@
           return;
         }
 
-        // Load all user joining records for the selected comp
-        const joiningsSnap = await getDocs(
-          query(
-            collection(db, "userCompJoinings"),
-            where("compId", "==", selectedCompId),
-            where("paymentStatus", "==", "completed")
-          )
-        );
-
-        const usersSnap = await getDocs(collection(db, "users"));
+        const [joiningsRes, usersRes] = await Promise.all([
+          supabase.from('user_comp_joinings').select('user_id,points').eq('comp_id', selectedCompId).eq('payment_status', 'completed'),
+          supabase.from('users').select('id,team_name,email,joker,silk')
+        ]);
 
         const usersMap = {};
-        const jokersMap = {};
-        const silksMap = {};
-        usersSnap.forEach(d => {
-          usersMap[d.id] = d.data();
-          jokersMap[d.id] = d.data().joker ?? 0;
-          silksMap[d.id] = d.data().silk || 1;
-        });
+        (usersRes.data||[]).forEach(u => { usersMap[u.id] = u; });
 
         cachedLeaderboard = [];
-        joiningsSnap.forEach(docSnap => {
-          const d = docSnap.data();
-          const userId = d.userId;
+        (joiningsRes.data||[]).forEach(d => {
+          const userId = d.user_id;
           const userData = usersMap[userId] || {};
-          let pts = parseFloat(d.points) || 0;
           cachedLeaderboard.push({
-            userId: userId,
-            teamName: userData.teamName || userData.email || userId,
-            points: pts,
-            jokers: jokersMap[userId] || 0,
-            silk: silksMap[userId] || 1
+            userId,
+            teamName: userData.team_name || userData.email || userId,
+            points: parseFloat(d.points) || 0,
+            jokers: userData.joker ?? 0,
+            silk: userData.silk || 1
           });
         });
 
@@ -701,25 +648,22 @@
       try {
         // Load comp-scoped modal data
         if (modalCacheCompId !== selectedCompId || Object.keys(cachedRaces).length === 0) {
-          const [tipsSnap, resultsSnap, racesSnap] = await Promise.all([
-            getDocs(query(collection(db, "tips"), where("compId", "==", selectedCompId))),
-            getDocs(collection(db, "results")),
-            getDocs(query(collection(db, "races"), where("compId", "==", selectedCompId)))
+          const [tipsRes, resultsRes, racesRes] = await Promise.all([
+            supabase.from('tips').select('*').eq('comp_id', selectedCompId),
+            supabase.from('results').select('*'),
+            supabase.from('races').select('*').eq('comp_id', selectedCompId)
           ]);
 
           cachedRaces = {};
           cachedResults = {};
           cachedTips = {};
-          racesSnap.forEach(d => cachedRaces[d.id] = d.data());
-          resultsSnap.forEach(d => {
-            const resultData = d.data();
-            const raceId = resultData.raceId || d.id;
-            cachedResults[raceId] = resultData;
+          (racesRes.data||[]).forEach(r => { cachedRaces[r.id] = r; });
+          (resultsRes.data||[]).forEach(r => {
+            cachedResults[r.id] = { ...r, winningHorseId: r.winning_horse_id, place1HorseId: r.place1_horse_id, place1Points: r.place1_points, place2HorseId: r.place2_horse_id, place2Points: r.place2_points };
           });
-          tipsSnap.forEach(d => {
-            const t = d.data();
-            if (!cachedTips[t.userId]) cachedTips[t.userId] = {};
-            cachedTips[t.userId][t.raceId] = t;
+          (tipsRes.data||[]).forEach(t => {
+            if (!cachedTips[t.user_id]) cachedTips[t.user_id] = {};
+            cachedTips[t.user_id][t.race_id] = { ...t, horseId: t.horse_id, raceId: t.race_id, userId: t.user_id };
           });
           modalCacheCompId = selectedCompId;
         }

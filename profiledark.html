@@ -17,23 +17,9 @@
 
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut, updateEmail, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentUser = null;
     let selectedSilk = 1;
@@ -42,18 +28,22 @@
     const CHAMPIONS_SILK_KEY = 'champions';
     const CHAMPIONS_SILK_IMAGE = 'static/silks/champion.png';
 
-    onAuthStateChanged(auth, async (user) => {
+    supabase.auth.onAuthStateChange((event, session) => {
+      const user = session?.user || null;
       if (user) {
+        user.uid = user.id;
         currentUser = user;
-        try {
-          championsSilkUnlocked = await loadChampionsSilkUnlock();
-          renderSilkGrid();
-          await loadUserProfile();
-          await loadUserStats();
-          await loadUserCompsStats();
-        } catch (error) {
-          console.error('Error loading profile:', error);
-        }
+        setTimeout(async () => {
+          try {
+            championsSilkUnlocked = await loadChampionsSilkUnlock();
+            renderSilkGrid();
+            await loadUserProfile();
+            await loadUserStats();
+            await loadUserCompsStats();
+          } catch (error) {
+            console.error('Error loading profile:', error);
+          }
+        }, 0);
       } else {
         window.location.href = 'logindark';
       }
@@ -84,42 +74,29 @@
 
     async function loadChampionsSilkUnlock() {
       if (!currentUser) return false;
-
       try {
-        const joiningsSnap = await getDocs(
-          query(collection(db, 'userCompJoinings'), where('userId', '==', currentUser.uid))
-        );
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings').select('rank,comp_id').eq('user_id', currentUser.uid);
 
-        for (const joinDoc of joiningsSnap.docs) {
-          const joining = joinDoc.data();
+        for (const joining of (joinings||[])) {
           if (!isFirstPlaceRank(joining.rank)) continue;
-
-          const compSnap = await getDoc(doc(db, 'comps', joining.compId));
-          if (!compSnap.exists()) continue;
-
-          if (isCompetitionFinished(compSnap.data())) {
-            return true;
-          }
+          const { data: comp } = await supabase.from('comps').select('*').eq('id', joining.comp_id).single();
+          if (comp && isCompetitionFinished({ ...comp, endDate: comp.end_date, status: comp.status })) return true;
         }
       } catch (error) {
         console.error('Error checking Champions Silk unlock:', error);
       }
-
       return false;
     }
 
     async function loadUserProfile() {
       if (!currentUser) return;
-      
       try {
-        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          document.getElementById('userName').textContent = userData.teamName || currentUser.email;
+        const { data: userData } = await supabase.from('users').select('*').eq('id', currentUser.uid).single();
+        if (userData) {
+          document.getElementById('userName').textContent = userData.team_name || currentUser.email;
           selectedSilk = userData.silk || 1;
-          if (selectedSilk === CHAMPIONS_SILK_KEY && !championsSilkUnlocked) {
-            selectedSilk = 1;
-          }
+          if (selectedSilk === CHAMPIONS_SILK_KEY && !championsSilkUnlocked) selectedSilk = 1;
           updateSilkSelection(selectedSilk);
           updateProfileAvatar(selectedSilk);
         } else {
@@ -133,36 +110,28 @@
 
     async function loadUserStats() {
       if (!currentUser) return;
-      
       try {
-        const joiningsSnap = await getDocs(
-          query(collection(db, 'userCompJoinings'), where('userId', '==', currentUser.uid))
-        );
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings').select('*').eq('user_id', currentUser.uid);
 
-        const joinings = [];
-        for (const joinDoc of joiningsSnap.docs) {
-          const joining = joinDoc.data();
-          const compSnap = await getDoc(doc(db, 'comps', joining.compId));
-          const compData = compSnap.exists() ? compSnap.data() : null;
-          joinings.push({ id: joinDoc.id, ...joining, compStatus: compData?.status || null });
-        }
+        const compIds = [...new Set((joinings||[]).map(j=>j.comp_id).filter(Boolean))];
+        const { data: comps } = compIds.length ? await supabase.from('comps').select('id,status').in('id', compIds) : { data: [] };
+        const compStatusMap = Object.fromEntries((comps||[]).map(c=>[c.id, c.status]));
 
-        const activeJoinings = joinings.filter(j => j.compStatus === 'active');
-        const completedJoinings = joinings.filter(j => j.paymentStatus === 'completed');
-        const primaryJoining = activeJoinings[0] || completedJoinings[0] || joinings[0] || null;
+        const enriched = (joinings||[]).map(j => ({ ...j, compStatus: compStatusMap[j.comp_id] || null }));
+        const activeJoinings = enriched.filter(j => j.compStatus === 'active');
+        const completedJoinings = enriched.filter(j => j.payment_status === 'completed');
+        const primaryJoining = activeJoinings[0] || completedJoinings[0] || enriched[0] || null;
 
         let tipsCount = 0;
-        if (primaryJoining?.compId) {
-          const tipsSnap = await getDocs(query(
-            collection(db, 'tips'),
-            where('userId', '==', currentUser.uid),
-            where('compId', '==', primaryJoining.compId)
-          ));
-          tipsCount = tipsSnap.size;
+        if (primaryJoining?.comp_id) {
+          const { count } = await supabase.from('tips').select('id', { count: 'exact', head: true })
+            .eq('user_id', currentUser.uid).eq('comp_id', primaryJoining.comp_id);
+          tipsCount = count || 0;
         }
 
         document.getElementById('totalTips').textContent = tipsCount;
-        document.getElementById('currentRank').textContent = primaryJoining?.rank ? primaryJoining.rank : '-';
+        document.getElementById('currentRank').textContent = primaryJoining?.rank || '-';
         document.getElementById('totalPoints').textContent = Number(primaryJoining?.points || 0).toFixed(2);
       } catch (error) {
         console.error('Error loading stats:', error);
@@ -171,27 +140,25 @@
 
     async function loadUserCompsStats() {
       if (!currentUser) return;
-      
       try {
-        const joiningsSnap = await getDocs(
-          query(collection(db, 'userCompJoinings'), where('userId', '==', currentUser.uid))
-        );
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings').select('*').eq('user_id', currentUser.uid);
 
         const grid = document.getElementById('compsStatsGrid');
         grid.innerHTML = '';
 
-        if (joiningsSnap.empty) {
+        if (!joinings?.length) {
           grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">You haven\'t joined any competitions yet</div>';
           return;
         }
 
-        for (const joinDoc of joiningsSnap.docs) {
-          const joining = joinDoc.data();
-          const compSnap = await getDoc(doc(db, 'comps', joining.compId));
-          
-          if (!compSnap.exists()) continue;
-          
-          const comp = compSnap.data();
+        const compIds = [...new Set(joinings.map(j=>j.comp_id).filter(Boolean))];
+        const { data: compsData } = await supabase.from('comps').select('*').in('id', compIds);
+        const compsMap = Object.fromEntries((compsData||[]).map(c=>[c.id,c]));
+
+        for (const joining of joinings) {
+          const comp = compsMap[joining.comp_id];
+          if (!comp) continue;
           const card = document.createElement('div');
           card.className = 'bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-yellow-400/50 transition';
           card.innerHTML = `
@@ -207,7 +174,7 @@
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-400">Status:</span>
-                <span class="text-green-400 font-semibold">${joining.paymentStatus === 'completed' ? '✓ Joined' : 'Pending'}</span>
+                <span class="text-green-400 font-semibold">${joining.payment_status === 'completed' ? '✓ Joined' : 'Pending'}</span>
               </div>
             </div>
           `;
@@ -245,23 +212,14 @@
 
     window.selectSilk = async function(silkNumber) {
       if (!currentUser) return;
-      
       selectedSilk = silkNumber;
       updateSilkSelection(silkNumber);
       updateProfileAvatar(silkNumber);
-      
-      // Save to Firestore
       try {
-        await setDoc(doc(db, 'users', currentUser.uid), {
-          silk: silkNumber
-        }, { merge: true });
-        
-        // Show success feedback
+        await supabase.from('users').update({ silk: String(silkNumber) }).eq('id', currentUser.uid);
         const successMsg = document.getElementById('successMessage');
         successMsg.classList.remove('hidden');
-        setTimeout(() => {
-          successMsg.classList.add('hidden');
-        }, 2000);
+        setTimeout(() => successMsg.classList.add('hidden'), 2000);
       } catch (error) {
         console.error('Error saving silk:', error);
         alert('Failed to save silk selection');
@@ -269,136 +227,60 @@
     };
 
     window.handleSignOut = async function() {
-      try {
-        await signOut(auth);
-        window.location.href = 'logindark';
-      } catch (error) {
-        console.error('Sign out error:', error);
-      }
+      await supabase.auth.signOut();
+      window.location.href = 'logindark';
     };
 
     window.handleChangeEmail = async function() {
       if (!currentUser) return;
-      
       const currentPasswordInput = document.getElementById('emailCurrentPassword');
       const newEmailInput = document.getElementById('newEmail');
       const currentPasswordValue = currentPasswordInput.value.trim();
       const newEmailValue = newEmailInput.value.trim();
-      
-      if (!currentPasswordValue) {
-        alert('Please enter your current password');
-        return;
-      }
-      
-      if (!newEmailValue) {
-        alert('Please enter a new email address');
-        return;
-      }
-      
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmailValue)) {
-        alert('Please enter a valid email address');
-        return;
-      }
-      
+      if (!currentPasswordValue) { alert('Please enter your current password'); return; }
+      if (!newEmailValue) { alert('Please enter a new email address'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmailValue)) { alert('Please enter a valid email address'); return; }
       try {
-        // Reauthenticate user
-        const credential = EmailAuthProvider.credential(
-          currentUser.email,
-          currentPasswordValue
-        );
-        await reauthenticateWithCredential(currentUser, credential);
-        
-        // Update email
-        await updateEmail(currentUser, newEmailValue);
-        
-        // Show success message
+        // Verify current password first
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: currentUser.email, password: currentPasswordValue });
+        if (signInError) { alert('Incorrect password. Please try again.'); return; }
+        const { error } = await supabase.auth.updateUser({ email: newEmailValue });
+        if (error) throw error;
         alert('Email updated successfully! You may need to verify your new email.');
-        
-        // Clear inputs
         currentPasswordInput.value = '';
         newEmailInput.value = '';
-        
-        // Reload profile to show new email
         await loadUserProfile();
       } catch (error) {
         console.error('Error updating email:', error);
-        if (error.code === 'auth/wrong-password') {
-          alert('Incorrect password. Please try again.');
-        } else if (error.code === 'auth/email-already-in-use') {
-          alert('This email is already in use by another account.');
-        } else if (error.code === 'auth/requires-recent-login') {
-          alert('For security reasons, please sign out and sign in again before changing your email.');
-        } else {
-          alert('Failed to update email: ' + error.message);
-        }
+        alert('Failed to update email: ' + error.message);
       }
     };
 
     window.handleChangePassword = async function() {
       if (!currentUser) return;
-      
       const currentPasswordInput = document.getElementById('currentPassword');
       const newPasswordInput = document.getElementById('newPassword');
       const confirmPasswordInput = document.getElementById('confirmPassword');
-      
       const currentPasswordValue = currentPasswordInput.value.trim();
       const newPasswordValue = newPasswordInput.value.trim();
       const confirmPasswordValue = confirmPasswordInput.value.trim();
-      
-      if (!currentPasswordValue) {
-        alert('Please enter your current password');
-        return;
-      }
-      
-      if (!newPasswordValue) {
-        alert('Please enter a new password');
-        return;
-      }
-      
-      if (newPasswordValue.length < 6) {
-        alert('Password must be at least 6 characters long');
-        return;
-      }
-      
-      if (newPasswordValue !== confirmPasswordValue) {
-        alert('Passwords do not match');
-        return;
-      }
-      
-      if (currentPasswordValue === newPasswordValue) {
-        alert('New password must be different from current password');
-        return;
-      }
-      
+      if (!currentPasswordValue) { alert('Please enter your current password'); return; }
+      if (!newPasswordValue) { alert('Please enter a new password'); return; }
+      if (newPasswordValue.length < 6) { alert('Password must be at least 6 characters long'); return; }
+      if (newPasswordValue !== confirmPasswordValue) { alert('Passwords do not match'); return; }
+      if (currentPasswordValue === newPasswordValue) { alert('New password must be different from current password'); return; }
       try {
-        // Reauthenticate user
-        const credential = EmailAuthProvider.credential(
-          currentUser.email,
-          currentPasswordValue
-        );
-        await reauthenticateWithCredential(currentUser, credential);
-        
-        // Update password
-        await updatePassword(currentUser, newPasswordValue);
-        
-        // Show success message
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email: currentUser.email, password: currentPasswordValue });
+        if (signInError) { alert('Incorrect current password. Please try again.'); return; }
+        const { error } = await supabase.auth.updateUser({ password: newPasswordValue });
+        if (error) throw error;
         alert('Password updated successfully!');
-        
-        // Clear inputs
         currentPasswordInput.value = '';
         newPasswordInput.value = '';
         confirmPasswordInput.value = '';
       } catch (error) {
         console.error('Error updating password:', error);
-        if (error.code === 'auth/wrong-password') {
-          alert('Incorrect current password. Please try again.');
-        } else if (error.code === 'auth/weak-password') {
-          alert('New password is too weak. Please choose a stronger password.');
-        } else if (error.code === 'auth/requires-recent-login') {
-          alert('For security reasons, please sign out and sign in again before changing your password.');
-        } else {
-          alert('Failed to update password: ' + error.message);
-        }
+        alert('Failed to update password: ' + error.message);
       }
     };
 

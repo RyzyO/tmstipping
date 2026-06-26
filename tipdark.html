@@ -238,28 +238,14 @@
     </div>
   </div>
 
-  <!-- Firebase + Logic -->
+  <!-- Supabase + Logic -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, doc, setDoc, getDocs, getDoc, query, where, runTransaction, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
-    import { initUserNotificationCenter, scheduleRaceReminderNotifications } from "./user-notification-service.js";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     const { DateTime } = luxon;
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const messaging = getMessaging(app);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    function scheduleRaceReminderNotifications() {}
 
     const state = { user:null, tipsMap:{}, jokerCount:0, selectedRaceId:null, inFlight:false, racesCache:{}, userTipsCache:{}, pendingRaceId:null, selectedCompId:null };
     let stopUserNotificationCenter = null;
@@ -270,33 +256,20 @@
     state.selectedCompId = urlParams.get('compId') || null;
 
     async function resolveDefaultActiveCompId(userId) {
-      const joiningsSnap = await getDocs(
-        query(
-          collection(db, "userCompJoinings"),
-          where("userId", "==", userId),
-          where("paymentStatus", "==", "completed")
-        )
-      );
+      const { data: joinings } = await supabase
+        .from('user_comp_joinings')
+        .select('comp_id')
+        .eq('user_id', userId)
+        .eq('payment_status', 'completed');
 
-      const comps = [];
-      for (const joiningDoc of joiningsSnap.docs) {
-        const compId = joiningDoc.data()?.compId;
-        if (!compId) continue;
-        const compSnap = await getDoc(doc(db, "comps", compId));
-        if (!compSnap.exists()) continue;
-        const comp = compSnap.data();
-        if (comp.status !== "active") continue;
-        comps.push({ id: compId, ...comp });
-      }
+      const compIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
+      if (!compIds.length) return null;
 
-      if (!comps.length) return null;
+      const { data: comps } = await supabase
+        .from('comps').select('*').in('id', compIds).eq('status', 'active');
 
-      comps.sort((a, b) => {
-        const aStart = a.startDate ? Date.parse(a.startDate) : 0;
-        const bStart = b.startDate ? Date.parse(b.startDate) : 0;
-        return bStart - aStart;
-      });
-
+      if (!comps?.length) return null;
+      comps.sort((a, b) => Date.parse(b.start_date || 0) - Date.parse(a.start_date || 0));
       return comps[0].id;
     }
 
@@ -307,104 +280,75 @@
     async function resolveCompIdForSession(user){
       if(state.selectedCompId) return state.selectedCompId;
 
-      // If opened from a race card (raceId in URL), derive its comp first.
       if(state.pendingRaceId){
-        const raceSnap = await getDoc(doc(db, "races", state.pendingRaceId));
-        if(raceSnap.exists()){
-          const raceData = raceSnap.data();
-          if(raceData.compId){
-            state.selectedCompId = raceData.compId;
-            return state.selectedCompId;
-          }
-        }
+        const { data: race } = await supabase.from('races').select('comp_id').eq('id', state.pendingRaceId).single();
+        if(race?.comp_id){ state.selectedCompId = race.comp_id; return state.selectedCompId; }
       }
 
-      // Otherwise fall back to the first joined competition.
-      const joiningsSnap = await getDocs(query(collection(db, "userCompJoinings"), where("userId", "==", user.uid)));
-      for(const joiningDoc of joiningsSnap.docs){
-        const compId = joiningDoc.data()?.compId;
-        if(compId){
-          state.selectedCompId = compId;
-          return state.selectedCompId;
-        }
-      }
+      const { data: joinings } = await supabase.from('user_comp_joinings').select('comp_id').eq('user_id', user.uid);
+      const compId = (joinings||[])[0]?.comp_id;
+      if(compId){ state.selectedCompId = compId; return state.selectedCompId; }
 
-      // Legacy fallback for old races without compId.
       state.selectedCompId = 'default-comp';
       return state.selectedCompId;
     }
 
-    onAuthStateChanged(auth, async (_user)=>{
+    supabase.auth.onAuthStateChange((event, session) => {
+      const _user = session?.user || null;
+      if(!_user){ window.location.href="login.html"; return; }
+      _user.uid = _user.id;
+      state.user = _user;
       setBusy(true);
-      try{
-        if(!_user){ 
-          setBusy(false); 
-          window.location.href="login.html"; 
-          return; 
-        }
-        state.user=_user;
+      setTimeout(async () => {
+        try{
+          if (!state.selectedCompId) {
+            state.selectedCompId = await resolveDefaultActiveCompId(_user.uid);
+          }
 
-        if (!state.selectedCompId) {
-          state.selectedCompId = await resolveDefaultActiveCompId(_user.uid);
-        }
+          if (!state.selectedCompId) {
+            alert("No active competition found. Join an active comp first.");
+            window.location.href = "comps.html";
+            return;
+          }
 
-        if (!state.selectedCompId) {
-          alert("No active competition found. Join an active comp first.");
-          window.location.href = "comps.html";
-          return;
-        }
+          const { data: selectedComp } = await supabase.from('comps').select('status').eq('id', state.selectedCompId).single();
+          if (!selectedComp || selectedComp.status !== "active") {
+            state.selectedCompId = await resolveDefaultActiveCompId(_user.uid);
+          }
 
-        const selectedCompSnap = await getDoc(doc(db, "comps", state.selectedCompId));
-        if (!selectedCompSnap.exists() || selectedCompSnap.data()?.status !== "active") {
-          const fallbackCompId = await resolveDefaultActiveCompId(_user.uid);
-          state.selectedCompId = fallbackCompId;
-        }
+          if (!state.selectedCompId) {
+            alert("No active competition found. Join an active comp first.");
+            window.location.href = "comps.html";
+            return;
+          }
 
-        if (!state.selectedCompId) {
-          alert("No active competition found. Join an active comp first.");
-          window.location.href = "comps.html";
-          return;
-        }
-        
-        // Check if user has joined the selected comp
-        const joiningRef = doc(db, "userCompJoinings", `${_user.uid}_${state.selectedCompId}`);
-        const joiningSnap = await getDoc(joiningRef);
-        
-        if(state.selectedCompId !== 'default-comp' && !joiningSnap.exists()) {
-          alert("You haven't joined this competition yet. Please join first.");
-          window.location.href = "comps.html";
-          return;
-        }
+          if (state.selectedCompId !== 'default-comp') {
+            const { data: joining } = await supabase.from('user_comp_joinings').select('id').eq('user_id', _user.uid).eq('comp_id', state.selectedCompId).single();
+            if (!joining) {
+              alert("You haven't joined this competition yet. Please join first.");
+              window.location.href = "comps.html";
+              return;
+            }
+          }
 
-        // Start notification center in background — don't block page load on FCM setup
-        if (stopUserNotificationCenter) stopUserNotificationCenter();
-        initUserNotificationCenter({
-          db,
-          messaging,
-          user: state.user,
-          getRelevantCompIds: async () => (state.selectedCompId ? [state.selectedCompId] : [])
-        }).then(stop => { stopUserNotificationCenter = stop; }).catch(err => console.warn('[notifications]', err));
-
-        // Parallelize independent data fetches (loadRaces already fetches tips internally)
-        await Promise.all([refreshJokerCount(), loadRaces()]);
-      }finally{ setBusy(false); }
+          await Promise.all([refreshJokerCount(), loadRaces()]);
+        }finally{ setBusy(false); }
+      }, 0);
     });
 
     async function refreshJokerCount(){
-      const snap=await getDoc(doc(db,"users",state.user.uid));
-      let count=0; if(snap.exists()&&!isNaN(snap.data().joker)) count=Number(snap.data().joker);
+      const { data } = await supabase.from('users').select('joker').eq('id', state.user.uid).single();
+      let count = 0; if(data && !isNaN(data.joker)) count = Number(data.joker);
       state.jokerCount=Math.max(0,count); document.getElementById('joker-count').textContent=state.jokerCount;
     }
     async function loadUserTips(){
       state.tipsMap={};
       state.userTipsCache={};
-      const tipsQ=query(collection(db,"tips"),where("userId","==",state.user.uid),where("compId","==",state.selectedCompId));
-      const tipsSnap=await getDocs(tipsQ);
-      tipsSnap.forEach(d=>{
-        const tip=d.data();
-        if(tip.raceId){
-          state.tipsMap[tip.raceId]=true;
-          state.userTipsCache[tip.raceId]=tip;
+      const { data: tips } = await supabase.from('tips').select('*').eq('user_id', state.user.uid).eq('comp_id', state.selectedCompId);
+      (tips||[]).forEach(tip=>{
+        if(tip.race_id){
+          state.tipsMap[tip.race_id]=true;
+          state.userTipsCache[tip.race_id]={ ...tip, raceId: tip.race_id, horseId: tip.horse_id, userId: tip.user_id };
         }
       });
     }
@@ -439,31 +383,21 @@
     }
 
     async function fetchTipRacesAndTips(compId) {
-      const tipsSnapPromise = getDocs(
-        query(
-          collection(db, "tips"),
-          where("userId", "==", state.user.uid),
-          where("compId", "==", compId)
-        )
-      );
-      const racesSnapPromise = getDocs(query(collection(db, "races"), where("compId", "==", compId)));
-      const [tipsSnap, racesSnap] = await Promise.all([tipsSnapPromise, racesSnapPromise]);
+      const [tipsRes, racesRes] = await Promise.all([
+        supabase.from('tips').select('*').eq('user_id', state.user.uid).eq('comp_id', compId),
+        supabase.from('races').select('*').eq('comp_id', compId)
+      ]);
 
       const tipByRace = {};
       const tipsMap = new Set();
-      tipsSnap.forEach((tipDoc) => {
-        const tipData = tipDoc.data();
-        if (tipData?.raceId) {
-          tipsMap.add(tipData.raceId);
-          tipByRace[tipData.raceId] = tipData;
+      for (const tip of (tipsRes.data || [])) {
+        if (tip.race_id) {
+          tipsMap.add(tip.race_id);
+          tipByRace[tip.race_id] = { ...tip, raceId: tip.race_id, horseId: tip.horse_id, userId: tip.user_id, compId: tip.comp_id };
         }
-      });
+      }
 
-      const races = [];
-      racesSnap.forEach((docSnap) => {
-        races.push({ id: docSnap.id, ...docSnap.data() });
-      });
-
+      const races = (racesRes.data || []).map(r => ({ ...r, compId: r.comp_id }));
       return { races, tipsMap, tipByRace };
     }
 
@@ -579,13 +513,12 @@
 
       // Backward compatibility: include legacy races missing compId for default comp
       if(state.selectedCompId==="default-comp"){
-        const legacyRacesSnap=await getDocs(collection(db,"races"));
+        const { data: legacyRaces } = await supabase.from('races').select('*').is('comp_id', null);
         races.forEach(r => seenRaceIds.add(r.id));
-        legacyRacesSnap.forEach(docSnap=>{
-          const raceData=docSnap.data();
-          if(!raceData.compId && !seenRaceIds.has(docSnap.id)){
-            races.push({id:docSnap.id,...raceData});
-            seenRaceIds.add(docSnap.id);
+        (legacyRaces||[]).forEach(r=>{
+          if(!seenRaceIds.has(r.id)){
+            races.push({ ...r, compId: r.comp_id });
+            seenRaceIds.add(r.id);
           }
         });
       }
@@ -602,14 +535,14 @@
     }
 
     async function prefetchRaceData(raceId) {
-      if(state.racesCache[raceId]) return; // Already cached
+      if(state.racesCache[raceId]) return;
       try {
-        const [raceSnap, tipSnap] = await Promise.all([
-          getDoc(doc(db,"races",raceId)),
-          getDoc(doc(db,"tips",state.user.uid+"_"+raceId))
+        const [raceRes, tipRes] = await Promise.all([
+          supabase.from('races').select('*').eq('id', raceId).single(),
+          supabase.from('tips').select('*').eq('user_id', state.user.uid).eq('race_id', raceId).single()
         ]);
-        if(raceSnap.exists()) state.racesCache[raceId] = raceSnap.data();
-        if(tipSnap.exists()) state.userTipsCache[raceId] = tipSnap.data();
+        if(raceRes.data) state.racesCache[raceId] = raceRes.data;
+        if(tipRes.data) state.userTipsCache[raceId] = { ...tipRes.data, raceId: tipRes.data.race_id, horseId: tipRes.data.horse_id };
       } catch(err) {
         console.log('Prefetch failed for race:', raceId, err);
       }
@@ -628,24 +561,25 @@
         document.getElementById("race-card-section").classList.remove("hidden");
         
         // Get race data from cache or fetch
-        let race, tipSnap;
+        let race, tipData;
         if(useCached) {
           race = state.racesCache[raceId];
-          const freshTipSnap = await getDoc(doc(db,"tips",state.user.uid+"_"+raceId));
-          tipSnap = freshTipSnap;
-          if (freshTipSnap.exists()) {
-            state.userTipsCache[raceId] = freshTipSnap.data();
-          } else {
-            delete state.userTipsCache[raceId];
-          }
+          const { data: freshTip } = await supabase.from('tips').select('*').eq('user_id', state.user.uid).eq('race_id', raceId).single();
+          tipData = freshTip;
+          if(freshTip) state.userTipsCache[raceId] = { ...freshTip, raceId: freshTip.race_id, horseId: freshTip.horse_id };
+          else delete state.userTipsCache[raceId];
         } else {
-          const raceDoc = await getDoc(doc(db,"races",raceId));
-          race = raceDoc.data();
-          tipSnap = await getDoc(doc(db,"tips",state.user.uid+"_"+raceId));
-          // Cache for next time
+          const [raceRes, tipRes] = await Promise.all([
+            supabase.from('races').select('*').eq('id', raceId).single(),
+            supabase.from('tips').select('*').eq('user_id', state.user.uid).eq('race_id', raceId).single()
+          ]);
+          race = raceRes.data;
+          tipData = tipRes.data;
           state.racesCache[raceId] = race;
-          if(tipSnap.exists()) state.userTipsCache[raceId] = tipSnap.data();
+          if(tipData) state.userTipsCache[raceId] = { ...tipData, raceId: tipData.race_id, horseId: tipData.horse_id };
         }
+        // Normalise to a tipSnap-like object downstream code expects
+        const tipSnap = { exists: () => !!tipData, data: () => tipData ? { ...tipData, horseId: tipData.horse_id, joker: tipData.joker } : null };
         
         const dt=DateTime.fromISO(race.date+"T"+race.time,{zone:"Australia/Sydney"}); 
         const now=DateTime.now().setZone("Australia/Sydney"); 
@@ -834,80 +768,15 @@
     }
 
     async function saveTipAndAdjustHorseCounters({ horseId, joker }) {
-      const tipId = state.user.uid + "_" + state.selectedRaceId;
-      const tipRef = doc(db, "tips", tipId);
-      const userRef = doc(db, "users", state.user.uid);
-      const raceRef = doc(db, "races", state.selectedRaceId);
-
-      await runTransaction(db, async (tx) => {
-        const [tipSnap, userSnap, raceSnap] = await Promise.all([
-          tx.get(tipRef),
-          tx.get(userRef),
-          tx.get(raceRef)
-        ]);
-
-        // Server-side race-lock check: reject if jump time has passed
-        if (raceSnap.exists()) {
-          const rd = raceSnap.data();
-          if (rd.date && rd.time) {
-            const jumpMs = new Date(rd.date + "T" + rd.time).getTime();
-            if (Date.now() >= jumpMs) {
-              throw new Error("Tipping is closed — this race has already jumped.");
-            }
-          }
-        }
-
-        const prevTip = tipSnap.exists() ? tipSnap.data() : null;
-        const prevHorseId = prevTip?.horseId ? String(prevTip.horseId) : null;
-        const prevJoker = prevTip?.joker === true;
-        const desiredJoker = joker === true;
-
-        let jokers = 0;
-        if (userSnap.exists() && !isNaN(userSnap.data().joker)) {
-          jokers = Number(userSnap.data().joker);
-        }
-
-        if (!prevJoker && desiredJoker) {
-          if (jokers <= 0) {
-            throw new Error("No jokers left");
-          }
-          tx.set(userRef, { joker: increment(-1) }, { merge: true });
-        }
-
-        if (prevJoker && !desiredJoker) {
-          tx.set(userRef, { joker: increment(1) }, { merge: true });
-        }
-
-        if (raceSnap.exists()) {
-          const raceData = raceSnap.data() || {};
-          const horses = { ...(raceData.horses || {}) };
-
-          if (prevHorseId && prevHorseId !== horseId && horses[prevHorseId]) {
-            horses[prevHorseId] = {
-              ...horses[prevHorseId],
-              amt: Math.max(0, normalizeHorseTipCount(horses[prevHorseId].amt) - 1)
-            };
-          }
-
-          if ((!prevHorseId || prevHorseId !== horseId) && horses[horseId]) {
-            horses[horseId] = {
-              ...horses[horseId],
-              amt: normalizeHorseTipCount(horses[horseId].amt) + 1
-            };
-          }
-
-          tx.update(raceRef, { horses });
-        }
-
-        tx.set(tipRef, {
-          userId: state.user.uid,
-          compId: state.selectedCompId,
-          raceId: state.selectedRaceId,
-          horseId,
-          joker: desiredJoker,
-          timestamp: serverTimestamp()
-        }, { merge: true });
+      const { data, error } = await supabase.rpc('save_tip', {
+        p_user_id: state.user.uid,
+        p_race_id: state.selectedRaceId,
+        p_horse_id: horseId,
+        p_joker: joker === true,
+        p_comp_id: state.selectedCompId
       });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
     }
 
     // Submit tip
