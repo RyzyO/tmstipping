@@ -611,8 +611,8 @@
         }
 
         const [joiningsRes, usersRes] = await Promise.all([
-          supabase.from('user_comp_joinings').select('user_id,points').eq('comp_id', selectedCompId).eq('payment_status', 'completed'),
-          supabase.from('users').select('id,team_name,email,joker,silk')
+          supabase.from('user_comp_joinings').select('user_id,points,jokers_remaining').eq('comp_id', selectedCompId).eq('payment_status', 'completed'),
+          supabase.from('users').select('id,team_name,email,silk')
         ]);
 
         const usersMap = {};
@@ -626,7 +626,7 @@
             userId,
             teamName: userData.team_name || userData.email || userId,
             points: parseFloat(d.points) || 0,
-            jokers: userData.joker ?? 0,
+            jokers: d.jokers_remaining ?? 0,
             silk: userData.silk || 1
           });
         });

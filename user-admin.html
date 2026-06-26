@@ -612,12 +612,24 @@ document.getElementById('user-edit-form').onsubmit = async function(e) {
     }).eq('id', selectedUserId);
 
     if (selectedCompId) {
-      await supabase.from('user_comp_joinings').upsert({
+      const joiningRow = {
         id: `${selectedUserId}_${selectedCompId}`,
         user_id: selectedUserId,
         comp_id: selectedCompId,
         payment_status: paidForComp ? 'completed' : 'pending'
-      }, { onConflict: 'user_id,comp_id' });
+      };
+      // Only set jokers_remaining on a fresh payment — don't overwrite if already set
+      if (paidForComp) {
+        const { data: existing } = await supabase.from('user_comp_joinings')
+          .select('jokers_remaining, payment_status')
+          .eq('user_id', selectedUserId).eq('comp_id', selectedCompId).single();
+        const wasAlreadyPaid = existing?.payment_status === 'completed';
+        if (!wasAlreadyPaid || existing?.jokers_remaining == null) {
+          const { data: comp } = await supabase.from('comps').select('joker_allowance').eq('id', selectedCompId).single();
+          joiningRow.jokers_remaining = comp?.joker_allowance ?? 3;
+        }
+      }
+      await supabase.from('user_comp_joinings').upsert(joiningRow, { onConflict: 'user_id,comp_id' });
     }
 
     const idx = users.findIndex(u => u.id === selectedUserId);

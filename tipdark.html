@@ -337,8 +337,18 @@
     });
 
     async function refreshJokerCount(){
-      const { data } = await supabase.from('users').select('joker').eq('id', state.user.uid).single();
-      let count = 0; if(data && !isNaN(data.joker)) count = Number(data.joker);
+      let count = 0;
+      if (state.selectedCompId) {
+        const { data } = await supabase.from('user_comp_joinings')
+          .select('jokers_remaining')
+          .eq('user_id', state.user.uid)
+          .eq('comp_id', state.selectedCompId)
+          .single();
+        if (data && !isNaN(data.jokers_remaining)) count = Number(data.jokers_remaining);
+      } else {
+        const { data } = await supabase.from('users').select('joker').eq('id', state.user.uid).single();
+        if (data && !isNaN(data.joker)) count = Number(data.joker);
+      }
       state.jokerCount=Math.max(0,count); document.getElementById('joker-count').textContent=state.jokerCount;
     }
     async function loadUserTips(){

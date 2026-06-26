@@ -2765,11 +2765,13 @@ function validateCompetitionData(compData, isNew) {
 }
 
 window.showNewCompForm = function() {
-  document.getElementById('comp-form-container').classList.remove('hidden');
+  const formContainer = document.getElementById('comp-form-container');
+  formContainer.classList.remove('hidden');
   document.getElementById('form-title').textContent = 'Create New Competition';
   document.getElementById('comp-form').reset();
   document.getElementById('comp-id').value = 'auto-generated';
   document.getElementById('comp-status').value = 'active';
+  formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 window.cancelCompForm = function() {
@@ -2783,7 +2785,8 @@ window.editCompetition = async function(compId) {
     if (!comp) { showNotification('Competition not found', 'error', 'comp-notifications'); return; }
 
     document.getElementById('form-title').textContent = `Edit: ${comp.name}`;
-    document.getElementById('comp-form-container').classList.remove('hidden');
+    const formContainer = document.getElementById('comp-form-container');
+    formContainer.classList.remove('hidden');
     document.getElementById('comp-name').value = comp.name;
     document.getElementById('comp-status').value = comp.status;
     document.getElementById('comp-fee').value = comp.entry_fee || comp.entryFee || 0;
@@ -2792,7 +2795,9 @@ window.editCompetition = async function(compId) {
     document.getElementById('comp-end').value = (comp.end_date || comp.endDate || '').split('T')[0];
     document.getElementById('comp-description').value = comp.description || '';
     document.getElementById('comp-max-participants').value = comp.max_participants || comp.maxParticipants || 1000;
+    document.getElementById('comp-joker-allowance').value = comp.joker_allowance ?? 3;
     document.getElementById('comp-id').value = compId;
+    formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
     console.error('Error editing competition:', error);
     showNotification('Error loading competition', 'error', 'comp-notifications');
@@ -2815,6 +2820,7 @@ window.saveCompetition = async function() {
       end_date: endDateRaw ? `${endDateRaw}T23:59:59Z` : '',
       description: document.getElementById('comp-description').value.trim(),
       max_participants: parseInt(document.getElementById('comp-max-participants').value) || 1000,
+      joker_allowance: parseInt(document.getElementById('comp-joker-allowance').value) ?? 3,
       updated_at: new Date().toISOString()
     };
 
