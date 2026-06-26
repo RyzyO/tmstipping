@@ -491,7 +491,7 @@ function buildHorseRowInner(h = {}) {
     ${field('hr-jockey',  'Jockey',  `<input type="text"   class="horse-jockey"  placeholder="Jockey"  value="${esc(h.jockey)}">`)}
     ${field('hr-barrier', 'Barrier', `<input type="number" class="horse-barrier" placeholder="Bar"     value="${esc(h.barrier)}">`)}
     ${field('hr-weight',  'Weight',  `<input type="text"   class="horse-weight"  placeholder="Weight"  value="${esc(h.weight)}">`)}
-    ${field('hr-silk',    'Silk ID', `<input type="text"   class="horse-silk-id" placeholder="Silk"    value="${esc(h.silk)}" readonly>`)}
+    ${field('hr-silk',    'Silk ID', `<input type="text"   class="horse-silk-id" placeholder="Silk"    value="${esc(h.silksId || h.silkId || h.silk)}" readonly>`)}
     <button type="button" onclick="this.closest('.horse-row').remove()" class="hr-remove" aria-label="Remove horse"><i data-feather="trash-2"></i><span class="hr-remove-label">Remove</span></button>
   `;
 }
@@ -1650,7 +1650,7 @@ async function loadRaceHorses(race) {
             ? '<button onclick="toggleHorseScratch(\'' + idx + '\', false)" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Unscratch</button><span class="text-red-400 text-xs font-semibold">SCRATCHED</span>'
             : '<button onclick="toggleHorseScratch(\'' + idx + '\', true)" class="btn-danger" style="font-size: 0.75rem; padding: 6px 10px;">Scratch</button>'
           }
-          <button onclick="setSubstituteHorse('\'' + idx + '\')" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">
+          <button onclick="setSubstituteHorse('${idx}')" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">
             ${isSubstitute ? 'Substitute (Current)' : 'Set Substitute'}
           </button>
           ${isSubstitute ? '<span class="text-yellow-400 text-xs font-semibold">SUB</span>' : ''}
@@ -1664,7 +1664,7 @@ async function loadRaceHorses(race) {
 async function saveHorseChange(btn) {
   if (!currentRaceId) return;
 
-  const inputs = btn.parentElement.parentElement.querySelectorAll('input');
+  const inputs = btn.closest('tr').querySelectorAll('input');
   const idx = inputs[0].dataset.idx;
   const horseNumber = inputs[0].value;
   const name = inputs[1].value;
