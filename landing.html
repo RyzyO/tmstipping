@@ -341,23 +341,13 @@
   </footer>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
         window.location.href = "dark.html";
       }
     });
