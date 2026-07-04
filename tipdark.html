@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Tip Now - The Great Spring Tip Off</title>
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script src="onesignal-init.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
   <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
@@ -418,6 +420,7 @@
       const _user = session?.user || null;
       if(!_user){ window.location.href="login.html"; return; }
       _user.uid = _user.id;
+      window.TMS_OneSignal?.login(_user.id);
       state.user = _user;
       setBusy(true);
       setTimeout(async () => {

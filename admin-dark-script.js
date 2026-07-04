@@ -3,11 +3,6 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Stub — push notifications not yet migrated
-function setupNotificationListener() {}
-function sendAdminNotification() { return Promise.resolve({ ok: false }); }
-setupNotificationListener(true);
-
 // Global State
 let currentRaceId = null;
 let allRaces = [];
@@ -2557,13 +2552,27 @@ window.sendAdminNotification = async function() {
     return;
   }
 
+  const audienceType = targetUser ? 'user' : (compId ? 'competition' : 'all');
+
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Not authenticated');
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-onesignal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ title, body, audienceType, compId: compId || null, userId: targetUser?.id || null }),
+    });
+    const pushResult = await response.json();
+    if (!response.ok) throw new Error(pushResult?.error || 'Failed to send push notification');
+
     const { error: notifError } = await supabase.from('notifications').insert({
       id: crypto.randomUUID(),
       data: {
         title,
         body,
-        audienceType: targetUser ? 'user' : (compId ? 'competition' : 'all'),
+        audienceType,
         compId: compId || null,
         userId: targetUser?.id || null,
         userDisplayName: targetUser ? formatNotificationUserLabel(targetUser) : null,
@@ -2578,7 +2587,7 @@ window.sendAdminNotification = async function() {
     compSelect.value = '';
     window.clearNotificationUserSelection();
 
-    showNotification('Notification sent', 'success', 'admin-notification-status');
+    showNotification(`Notification sent (${pushResult.targetUsers ?? 0} recipients)`, 'success', 'admin-notification-status');
     await loadAdminNotifications();
   } catch (error) {
     console.error('Error sending admin notification:', error);

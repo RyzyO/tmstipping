@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Notifications - The Great Spring Tip Off</title>
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script src="onesignal-init.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
@@ -174,13 +176,38 @@
       fetchAndRenderNotifications();
     }
 
-    enableBtn.addEventListener("click", () => {
-      statusEl.textContent = "Push notifications require additional setup (FCM not yet migrated).";
+    enableBtn.addEventListener("click", async () => {
+      try {
+        statusEl.textContent = "Requesting permission...";
+        const permission = await window.TMS_OneSignal?.requestPermission();
+        statusEl.textContent = permission === "granted"
+          ? "Push notifications enabled!"
+          : "Permission not granted. Enable notifications for this site in your browser settings.";
+      } catch (error) {
+        console.error("Failed to enable push notifications:", error);
+        statusEl.textContent = "Could not enable push notifications.";
+      }
     });
 
     sendTestBtn.addEventListener("click", async () => {
       if (!currentUser) return;
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) throw new Error("Not authenticated");
+
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/send-onesignal`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({
+            title: "Test notification",
+            body: "This test notification is visible only to your account.",
+            audienceType: "self",
+          }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload?.error || 'Failed to send test notification');
+
         const { error } = await supabase.from('notifications').insert({
           id: crypto.randomUUID(),
           data: {
@@ -194,7 +221,7 @@
           }
         });
         if (error) throw error;
-        statusEl.textContent = "Test notification sent to your account.";
+        statusEl.textContent = "Test push sent — check your device.";
       } catch (error) {
         console.error("Failed to send test notification:", error);
         statusEl.textContent = "Failed to send test notification.";
@@ -205,6 +232,7 @@
       const user = session?.user || null;
       if (!user) { window.location.href = "login.html"; return; }
       currentUser = user;
+      window.TMS_OneSignal?.login(user.id);
       setTimeout(async () => {
         compIds = await loadUserCompIds(user.id);
         statusEl.textContent = "Notifications page loaded.";

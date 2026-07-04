@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Competitions - The Mock Sports</title>
   <link rel="icon" type="image/x-icon" href="icon.png">
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script src="onesignal-init.js" defer></script>
   
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -861,6 +863,7 @@
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
       const user = session?.user ?? null;
+      if (user) window.TMS_OneSignal?.login(user.id);
       if (!user && hasInitializedPage) {
         window.location.href = buildLoginRedirectUrl();
       } else if (user && !hasInitializedPage) {
