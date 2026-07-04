@@ -421,7 +421,9 @@
     supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user || null;
       if (!user) {
-        window.location.href = "landing.html";
+        if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+          window.location.href = "landing.html";
+        }
         return;
       }
       // Map Supabase user to Firebase-style shape

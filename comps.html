@@ -68,6 +68,9 @@
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
     select {
       background-color: #111827;
       color: #f3f4f6;
@@ -368,24 +371,11 @@
   </footer>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, query, where, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     const { DateTime } = luxon;
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     let currentUser = null;
     let selectedComp = null;
     let hasInitializedPage = false;
@@ -456,13 +446,9 @@
     }
 
     window.toggleMenu = toggleMenu;
-    window.signOut = () => {
-      firebaseSignOut(auth).then(() => {
-        window.location.href = "landing.html";
-      }).catch(error => {
-        console.error('Sign out error:', error);
-        alert('Error signing out. Please try again.');
-      });
+    window.signOut = async () => {
+      await supabase.auth.signOut();
+      window.location.href = "landing.html";
     };
 
     function switchTab(tab, triggerButton = null) {
@@ -482,16 +468,12 @@
 
     async function loadComps() {
       try {
-        const compsSnap = await getDocs(collection(db, "comps"));
-        const comps = [];
-        compsSnap.forEach(docSnap => {
-          comps.push({ id: docSnap.id, ...docSnap.data() });
-        });
+        const { data: comps, error } = await supabase.from('comps').select('*').neq('status', 'deleted');
+        if (error) throw error;
 
-        // Separate by status
         const now = DateTime.now().toJSDate();
-        const active = comps.filter(c => c.status === 'active' && new Date(c.endDate) > now);
-        const past = comps.filter(c => c.status === 'closed' || new Date(c.endDate) <= now);
+        const active = (comps || []).filter(c => c.status === 'active' && new Date(c.end_date) > now);
+        const past = (comps || []).filter(c => c.status === 'closed' || (c.status !== 'active' && new Date(c.end_date) <= now));
 
         await renderActiveComps(active);
         await renderJoinedComps();
@@ -515,10 +497,10 @@
         const card = document.createElement('div');
         card.className = 'card rounded-xl p-6 comp-card flex flex-col';
         
-        const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
-        const entryFee = (comp.entryFee || 0).toFixed(2);
-        const participantCount = comp.participantCount || 0;
-        
+        const endDate = DateTime.fromISO(comp.end_date).toFormat('MMM d, yyyy');
+        const entryFee = (comp.entry_fee || 0).toFixed(2);
+        const participantCount = comp.participant_count || 0;
+
         card.innerHTML = `
           <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium inline-block mb-3">${comp.status === 'active' ? '🔴 LIVE' : '✓ Closed'}</span>
           <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
@@ -530,7 +512,7 @@
             </div>
             <div class="flex justify-between">
               <span>Prize Pool:</span>
-              <span class="text-yellow-400 font-bold">$${(comp.prizePool || 0).toFixed(2)}</span>
+              <span class="text-yellow-400 font-bold">$${(comp.prize_pool || 0).toFixed(2)}</span>
             </div>
             <div class="flex justify-between">
               <span>Ends:</span>
@@ -547,38 +529,39 @@
 
     async function renderJoinedComps() {
       if (!currentUser) return;
-      
-      const grid = document.getElementById('joinedCompsGrid');
-      const joiningsSnap = await getDocs(
-        query(
-          collection(db, "userCompJoinings"),
-          where("userId", "==", currentUser.uid),
-          where("paymentStatus", "==", "completed")
-        )
-      );
 
-      if (joiningsSnap.empty) {
+      const grid = document.getElementById('joinedCompsGrid');
+      const { data: joinings, error } = await supabase
+        .from('user_comp_joinings')
+        .select('*')
+        .eq('user_id', currentUser.uid)
+        .eq('payment_status', 'completed');
+
+      if (error) { console.error(error); return; }
+
+      if (!joinings || joinings.length === 0) {
         grid.innerHTML = '<div class="col-span-full text-center py-12"><p class="text-gray-400">You haven\'t joined any competitions yet</p></div>';
         return;
       }
 
+      const compIds = joinings.map(j => j.comp_id);
+      const { data: compsData } = await supabase.from('comps').select('*').in('id', compIds);
+      const compsById = Object.fromEntries((compsData || []).map(c => [c.id, c]));
+
       grid.innerHTML = '';
-      for (const joinDoc of joiningsSnap.docs) {
-        const joining = joinDoc.data();
-        const compSnap = await getDoc(doc(db, "comps", joining.compId));
-        
-        if (!compSnap.exists()) continue;
-        
-        const comp = compSnap.data();
+      for (const joining of joinings) {
+        const comp = compsById[joining.comp_id];
+        if (!comp) continue;
+
         const card = document.createElement('div');
         card.className = 'card rounded-xl p-6 comp-card flex flex-col';
-        
-        const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
+
+        const endDate = DateTime.fromISO(comp.end_date).toFormat('MMM d, yyyy');
         const parsedRank = Number(joining.rank);
         const rankLabel = Number.isFinite(parsedRank) && parsedRank > 0 && parsedRank < 99999
           ? `#${parsedRank}`
           : '-';
-        
+
         card.innerHTML = `
           <span class="badge text-green-400 border-green-500/50 bg-green-500/10 px-2.5 py-1 rounded-lg text-xs font-medium inline-block mb-3">✓ Joined</span>
           <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
@@ -618,8 +601,8 @@
         const card = document.createElement('div');
         card.className = 'card rounded-xl p-6 opacity-75 flex flex-col';
         
-        const endDate = DateTime.fromISO(comp.endDate).toFormat('MMM d, yyyy');
-        
+        const endDate = DateTime.fromISO(comp.end_date).toFormat('MMM d, yyyy');
+
         card.innerHTML = `
           <span class="badge text-gray-400 border-gray-600 bg-gray-600/10 px-2.5 py-1 rounded-lg text-xs font-medium inline-block mb-3">Closed</span>
           <h3 class="text-xl font-bold text-white mb-2">${comp.name}</h3>
@@ -627,7 +610,7 @@
           <div class="space-y-2 text-sm text-gray-500 mb-4">
             <div class="flex justify-between">
               <span>Prize Pool:</span>
-              <span class="font-bold">$${(comp.prizePool || 0).toFixed(2)}</span>
+              <span class="font-bold">$${(comp.prize_pool || 0).toFixed(2)}</span>
             </div>
             <div class="flex justify-between">
               <span>Ended:</span>
@@ -644,8 +627,9 @@
 
     async function checkUserJoined(userId, compId) {
       try {
-        const snap = await getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`));
-        return snap.exists() && snap.data()?.paymentStatus === 'completed';
+        const { data } = await supabase.from('user_comp_joinings')
+          .select('payment_status').eq('user_id', userId).eq('comp_id', compId).single();
+        return data?.payment_status === 'completed';
       } catch {
         return false;
       }
@@ -659,28 +643,27 @@
         return;
       }
 
-      const compSnap = await getDoc(doc(db, "comps", compId));
-      if (!compSnap.exists()) return;
+      const { data: comp } = await supabase.from('comps').select('*').eq('id', compId).single();
+      if (!comp) return;
 
-      selectedComp = { id: compId, ...compSnap.data() };
-      
+      selectedComp = comp;
+
       document.getElementById('modalCompName').textContent = selectedComp.name;
       document.getElementById('modalCompDescription').textContent = selectedComp.description;
-      document.getElementById('modalEntryFee').textContent = `$${selectedComp.entryFee.toFixed(2)}`;
-      document.getElementById('modalPrizePool').textContent = `$${selectedComp.prizePool.toFixed(2)}`;
-      document.getElementById('modalParticipants').textContent = selectedComp.participantCount || 0;
-      document.getElementById('modalEndDate').textContent = DateTime.fromISO(selectedComp.endDate).toFormat('MMM d, yyyy');
-      document.getElementById('feeAmount').textContent = selectedComp.entryFee.toFixed(2);
-      
-      // Show correct payment section based on entry fee
-      if (selectedComp.entryFee > 0) {
+      document.getElementById('modalEntryFee').textContent = `$${(selectedComp.entry_fee || 0).toFixed(2)}`;
+      document.getElementById('modalPrizePool').textContent = `$${(selectedComp.prize_pool || 0).toFixed(2)}`;
+      document.getElementById('modalParticipants').textContent = selectedComp.participant_count || 0;
+      document.getElementById('modalEndDate').textContent = DateTime.fromISO(selectedComp.end_date).toFormat('MMM d, yyyy');
+      document.getElementById('feeAmount').textContent = (selectedComp.entry_fee || 0).toFixed(2);
+
+      if (selectedComp.entry_fee > 0) {
         document.getElementById('paidCompSection').classList.remove('hidden');
         document.getElementById('freeCompSection').classList.add('hidden');
       } else {
         document.getElementById('paidCompSection').classList.add('hidden');
         document.getElementById('freeCompSection').classList.remove('hidden');
       }
-      
+
       document.getElementById('joinCompModal').classList.add('active');
     };
 
@@ -697,7 +680,7 @@
         document.getElementById('paymentProcessing').classList.remove('hidden');
         
         // If comp has a fee, redirect to Stripe checkout
-        if (selectedComp.entryFee > 0) {
+        if (selectedComp.entry_fee > 0) {
           // In production: Create a Stripe checkout session via Cloud Function
           // For now, placeholder - see implementation guide below
           await createStripeCheckoutSession(selectedComp);
@@ -707,85 +690,102 @@
         }
       } catch (error) {
         console.error('Error in proceedToPayment:', error);
-        alert('Error processing join. Please try again.');
+        alert('Error processing join: ' + (error?.message || JSON.stringify(error)));
         document.getElementById('paymentSection').classList.remove('hidden');
         document.getElementById('paymentProcessing').classList.add('hidden');
       }
     };
 
     async function createStripeCheckoutSession(comp) {
-      try {
-        const response = await fetch('/api/create-payment-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: currentUser.uid,
-            compId: comp.id,
-            amount: comp.entryFee
-          })
-        });
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      const token = authSession?.access_token;
+      if (!token) throw new Error('Not authenticated');
 
-        if (response.ok) {
-          const payload = await response.json();
-          if (payload?.url) {
-            window.location.href = payload.url;
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn('Checkout session endpoint unavailable, using fallback join flow:', error);
-      }
+      const fnUrl = `${SUPABASE_URL}/functions/v1/create-checkout`;
+      const response = await fetch(fnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ comp_id: comp.id }),
+      });
 
-      const confirmed = window.confirm(
-        `Stripe checkout is not configured yet. To keep the competition launch on track, join ${comp.name} now and reconcile payment manually later?`
-      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'Failed to create checkout session');
+      if (!payload?.url) throw new Error('No checkout URL returned');
 
-      if (!confirmed) {
-        document.getElementById('paymentSection').classList.remove('hidden');
-        document.getElementById('paymentProcessing').classList.add('hidden');
+      window.location.href = payload.url;
+    }
+
+    async function handlePaymentReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const payment = params.get('payment');
+      const compId = params.get('comp_id');
+
+      if (!payment) return;
+
+      // Clean URL
+      const clean = new URL(window.location.href);
+      clean.searchParams.delete('payment');
+      clean.searchParams.delete('session_id');
+      clean.searchParams.delete('comp_id');
+      window.history.replaceState({}, '', clean.toString());
+
+      if (payment === 'cancelled') {
+        alert('Payment cancelled. You have not been charged.');
         return;
       }
 
-      await completeJoinComp('manual-launch-override');
+      if (payment === 'success' && compId) {
+        // Poll until webhook has marked payment_status = completed (up to 15s)
+        const statusEl = document.createElement('div');
+        statusEl.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;color:white;font-size:1.1rem;flex-direction:column;gap:12px';
+        statusEl.innerHTML = '<div style="border:3px solid #fbbf24;border-top-color:transparent;border-radius:50%;width:40px;height:40px;animation:spin 0.8s linear infinite"></div><p>Confirming your payment…</p>';
+        document.body.appendChild(statusEl);
+
+        let confirmed = false;
+        for (let i = 0; i < 15; i++) {
+          await new Promise(r => setTimeout(r, 1000));
+          const { data } = await supabase.from('user_comp_joinings')
+            .select('payment_status').eq('user_id', currentUser.uid).eq('comp_id', compId).single();
+          if (data?.payment_status === 'completed') { confirmed = true; break; }
+        }
+
+        document.body.removeChild(statusEl);
+
+        if (confirmed) {
+          await loadComps();
+          switchTab('joined');
+          alert('Payment confirmed! You\'ve successfully joined the competition.');
+        } else {
+          alert('Payment received but confirmation is taking longer than expected. Please refresh in a moment — your spot is secured.');
+        }
+      }
     }
 
     async function completeJoinComp(stripePaymentId = null) {
-      const joiningRef = doc(db, "userCompJoinings", `${currentUser.uid}_${selectedComp.id}`);
-      const existingJoin = await getDoc(joiningRef);
-      const existingData = existingJoin.exists() ? existingJoin.data() : {};
-      const wasCompleted = existingJoin.exists() && existingJoin.data()?.paymentStatus === 'completed';
+      const { data: existing } = await supabase.from('user_comp_joinings')
+        .select('*').eq('user_id', currentUser.uid).eq('comp_id', selectedComp.id).single();
+
+      const wasCompleted = existing?.payment_status === 'completed';
 
       const joinPayload = {
-        userId: currentUser.uid,
-        compId: selectedComp.id,
-        paymentStatus: 'completed',
-        stripePaymentId: stripePaymentId || existingData.stripePaymentId || null
+        id: `${currentUser.uid}_${selectedComp.id}`,
+        user_id: currentUser.uid,
+        comp_id: selectedComp.id,
+        payment_status: 'completed',
+        rank: existing?.rank ?? null,
+        points: existing?.points ?? 0,
+        wins: existing?.wins ?? 0,
+        jokers_remaining: existing?.jokers_remaining ?? (selectedComp.joker_allowance ?? 3)
       };
 
-      if (!existingJoin.exists()) {
-        joinPayload.joinDate = serverTimestamp();
-      }
+      const { error } = await supabase.from('user_comp_joinings').upsert(joinPayload, { onConflict: 'user_id,comp_id' });
+      if (error) throw error;
 
-      if (existingData.rank === undefined) {
-        joinPayload.rank = null;
-      }
-      if (existingData.points === undefined) {
-        joinPayload.points = 0;
-      }
-      if (existingData.wins === undefined) {
-        joinPayload.wins = 0;
-      }
-
-      await setDoc(joiningRef, joinPayload, { merge: true });
-
-      // Update comp participant count
       if (!wasCompleted) {
-        const compRef = doc(db, "comps", selectedComp.id);
-        const compData = await getDoc(compRef);
-        const existingCount = compData.exists() ? (compData.data().participantCount || 0) : 0;
-        await setDoc(compRef, {
-          participantCount: existingCount + 1
-        }, { merge: true });
+        await supabase.from('comps').update({ participant_count: (selectedComp.participant_count || 0) + 1 }).eq('id', selectedComp.id);
       }
 
       closeJoinModal();
@@ -800,14 +800,13 @@
       if (!intent?.compId || !currentUser) return;
 
       try {
-        const compSnap = await getDoc(doc(db, 'comps', intent.compId));
-        if (!compSnap.exists()) {
+        const { data: comp } = await supabase.from('comps').select('*').eq('id', intent.compId).single();
+        if (!comp) {
           alert('This join link is no longer valid.');
           clearJoinIntent();
           return;
         }
 
-        const comp = compSnap.data();
         if (comp.status !== 'active') {
           alert('This competition is no longer active.');
           clearJoinIntent();
@@ -839,35 +838,34 @@
       removeJoinIntentParamsFromUrl();
     }
 
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        if (pendingAuthRedirectTimer) {
-          clearTimeout(pendingAuthRedirectTimer);
-          pendingAuthRedirectTimer = null;
-        }
-
-        currentUser = user;
-
-        if (!hasInitializedPage) {
-          hasInitializedPage = true;
-          await loadComps();
-          await processPendingJoinIntent();
-          AOS.init({ duration: 800, once: true, offset: 50 });
-          feather.replace();
-        }
+    async function initPage(user) {
+      if (!user) {
+        window.location.href = buildLoginRedirectUrl();
         return;
       }
 
-      // Guard against transient null states during navigation/token refresh.
-      if (pendingAuthRedirectTimer) {
-        clearTimeout(pendingAuthRedirectTimer);
-      }
+      currentUser = { uid: user.id, email: user.email, ...user };
 
-      pendingAuthRedirectTimer = setTimeout(() => {
-        if (!auth.currentUser) {
-          window.location.href = buildLoginRedirectUrl();
-        }
-      }, 600);
+      if (!hasInitializedPage) {
+        hasInitializedPage = true;
+        await loadComps();
+        await handlePaymentReturn();
+        await processPendingJoinIntent();
+        AOS.init({ duration: 800, once: true, offset: 50 });
+        feather.replace();
+      }
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    await initPage(session?.user ?? null);
+
+    supabase.auth.onAuthStateChange(async (_event, session) => {
+      const user = session?.user ?? null;
+      if (!user && hasInitializedPage) {
+        window.location.href = buildLoginRedirectUrl();
+      } else if (user && !hasInitializedPage) {
+        await initPage(user);
+      }
     });
 
     // Eligibility modal
@@ -875,17 +873,19 @@
       document.getElementById('join-declare-18').checked = false;
       document.getElementById('join-declare-state').checked = false;
       updateEligibilityBtn();
+      document.getElementById('joinCompModal').classList.remove('active');
       document.getElementById('eligibility-modal').classList.remove('hidden');
       feather.replace();
     };
 
     window.closeEligibilityModal = function() {
       document.getElementById('eligibility-modal').classList.add('hidden');
+      if (selectedComp) document.getElementById('joinCompModal').classList.add('active');
     };
 
     window.confirmEligibilityAndProceed = function() {
       if (!document.getElementById('join-declare-18').checked || !document.getElementById('join-declare-state').checked) return;
-      closeEligibilityModal();
+      document.getElementById('eligibility-modal').classList.add('hidden');
       proceedToPayment();
     };
 
