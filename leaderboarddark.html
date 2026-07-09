@@ -236,14 +236,6 @@
       </div>
     </section>
 
-    <!-- Competition Selector -->
-    <div class="max-w-2xl mx-auto mb-8">
-      <label class="block text-sm font-semibold text-gray-300 mb-2">Select Competition</label>
-      <select id="comp-selector" class="search-input w-full px-5 py-3 rounded-xl text-gray-100 focus:outline-none transition-all">
-        <option value="">Loading competitions...</option>
-      </select>
-    </div>
-
     <!-- Search Section -->
     <div class="max-w-2xl mx-auto mb-8 space-y-3">
       <input id="search-input" type="text" placeholder="Search team name..."
@@ -278,13 +270,16 @@
 
   <!-- Footer -->
   <footer class="bg-gray-950 text-gray-400 py-8 mt-auto">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-      <p class="text-sm">&copy; 2026 The Mock Sports. All rights reserved.</p>
-      <div class="flex space-x-6">
-        <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Twitter"><i data-feather="twitter"></i></a>
-        <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Facebook"><i data-feather="facebook"></i></a>
-        <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Instagram"><i data-feather="instagram"></i></a>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-4">
+      <div class="flex justify-between items-center">
+        <p class="text-sm">&copy; 2026 The Mock Sports. All rights reserved.</p>
+        <div class="flex space-x-6">
+          <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Twitter"><i data-feather="twitter"></i></a>
+          <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Facebook"><i data-feather="facebook"></i></a>
+          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Instagram"><i data-feather="instagram"></i></a>
+        </div>
       </div>
+      <div id="footer-comp-switcher" class="flex justify-center md:justify-end"></div>
     </div>
   </footer>
 
@@ -320,6 +315,7 @@
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    import { resolveActiveCompId, mountCompFooterSwitcher } from './active-comp.js';
     const { DateTime } = luxon;
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
@@ -544,7 +540,6 @@
 
     async function loadUserComps() {
       try {
-        const selectEl = document.getElementById("comp-selector");
         const { data: joinings } = await supabase
           .from('user_comp_joinings').select('comp_id')
           .eq('user_id', currentUserId).eq('payment_status', 'completed');
@@ -555,49 +550,35 @@
           : { data: [] };
         const comps = (compsData||[]).map(c => ({ ...c, startDate: c.start_date }));
 
-        selectEl.innerHTML = "";
-        comps.forEach(comp => {
-          const option = document.createElement("option");
-          option.value = comp.id;
-          option.textContent = comp.name;
-          selectEl.appendChild(option);
-        });
-
         const activeComps = comps.filter(c => c.status === 'active').sort(sortByRecentStartDateDesc);
 
-        if (comps.length > 0) {
-          const selectedComp = comps.find(c => c.id === selectedCompId) || null;
-          if (selectedComp?.status === 'active') {
-            selectedCompId = selectedComp.id;
-          } else if (activeComps.length > 0) {
-            selectedCompId = activeComps[0].id;
-          } else {
-            selectedCompId = null;
-          }
-
-          if (selectedCompId) {
-            selectEl.value = selectedCompId;
-          }
-          const cached = readCachedLeaderboard();
-          if (cached && selectedCompId) {
-            cachedLeaderboard = cached;
-            renderLeaderboard(cachedLeaderboard);
-          }
-        } else {
-          selectEl.innerHTML = '<option value="">No joined competitions</option>';
+        if (activeComps.length === 0) {
           selectedCompId = null;
           renderLeaderboard([]);
           return;
         }
 
-        selectEl.onchange = async () => {
-          selectedCompId = selectEl.value;
-          modalCacheCompId = null;
-          cachedRaces = {};
-          cachedResults = {};
-          cachedTips = {};
-          await loadLeaderboard();
-        };
+        // Prefer whichever comp the admin/footer switcher has set as active, if the user has joined it.
+        const preferredCompId = await resolveActiveCompId(supabase);
+        const preferred = activeComps.find(c => c.id === preferredCompId);
+        selectedCompId = (preferred || activeComps[0]).id;
+
+        const cached = readCachedLeaderboard();
+        if (cached) {
+          cachedLeaderboard = cached;
+          renderLeaderboard(cachedLeaderboard);
+        }
+
+        await mountCompFooterSwitcher(supabase, document.getElementById('footer-comp-switcher'), {
+          onChange: async (compId) => {
+            selectedCompId = compId;
+            modalCacheCompId = null;
+            cachedRaces = {};
+            cachedResults = {};
+            cachedTips = {};
+            await loadLeaderboard();
+          }
+        });
       } catch (error) {
         console.error("Error loading user comps:", error);
       }

@@ -234,25 +234,6 @@
   </div>
 </section>
 
-<!-- Quick Select Competition -->
-<section class="mb-10" data-aos="fade-up">
-  <div class="card rounded-2xl shadow-2xl p-8 md:p-10">
-    <div class="flex flex-col md:flex-row items-center gap-4">
-      <label for="user-comp-select" class="flex items-center gap-2 font-semibold text-gray-300 whitespace-nowrap text-lg md:text-xl">
-        <i data-feather="filter" class="h-5 w-5 text-yellow-400"></i>
-        Select Competition:
-      </label>
-      <select id="user-comp-select" class="flex-1 w-full md:w-auto bg-gray-900 border border-gray-700 text-gray-100 px-4 py-2 rounded-lg focus:outline-none focus:border-yellow-400" onchange="window.handleUserCompSelectionChange()">
-        <option value="">Choose a competition...</option>
-      </select>
-      <button onclick="window.goToTipping()" class="w-full md:w-auto px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition" id="tip-now-btn" style="display: none;">
-        <i data-feather="arrow-right" class="h-4 w-4 inline mr-2"></i>
-        Tip Now
-      </button>
-    </div>
-  </div>
-</section>
-
     <!-- Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
       <div class="stat-card rounded-xl shadow-lg p-6" data-aos="fade-up">
@@ -347,12 +328,14 @@
           </a>
         </div>
       </div>
+      <div id="footer-comp-switcher" class="flex justify-center md:justify-end mt-4"></div>
     </div>
   </footer>
 
  <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    import { resolveActiveCompId, mountCompFooterSwitcher } from './active-comp.js';
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { DateTime } = luxon;
@@ -490,7 +473,8 @@
     // Load fresh data in the background (non-blocking)
     Promise.all([
       loadUserCompsToDropdown(currentUser.uid),
-      loadCurrentUserProfile(currentUser.uid)
+      loadCurrentUserProfile(currentUser.uid),
+      mountCompFooterSwitcher(supabase, document.getElementById('footer-comp-switcher'))
     ]).then(() => {
       const loadingOverlay = document.getElementById('loadingOverlay');
       if (loadingOverlay) loadingOverlay.style.display = 'none';
@@ -507,19 +491,11 @@
       window.scrollTo(0, 0);
     });
 
-    // --- User's Competitions (Replaced by dropdown selector) ---
-    // Old loadUserComps function kept for reference but no longer used
-    async function loadUserComps_deprecated(userId) {
-      // This function has been replaced by loadUserCompsToDropdown
-      // which uses a dropdown selector instead of cards
-    }
-
-    // Load user's competitions into dropdown selector and load default active comp stats
+    // Loads stats/races for whichever comp the user should currently see:
+    // the active comp they've joined that matches the admin-set default (or
+    // footer selection), falling back to their most recent joined active comp.
     async function loadUserCompsToDropdown(userId) {
       try {
-        const select = document.getElementById('user-comp-select');
-        if (!select) return;
-
         const { data: joinings } = await supabase
           .from('user_comp_joinings')
           .select('comp_id')
@@ -528,8 +504,6 @@
 
         const uniqueCompIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
         userCompIds = uniqueCompIds;
-
-        while (select.options.length > 1) select.remove(1);
         if (uniqueCompIds.length === 0) return;
 
         const { data: comps } = await supabase
@@ -539,23 +513,15 @@
 
         const activeComps = (comps || []).filter(c => c.status === 'active')
           .sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-        const completedComps = (comps || []).filter(c => c.status !== 'active')
-          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        if (activeComps.length === 0) return;
 
-        [...activeComps, ...completedComps].forEach(comp => {
-          const option = document.createElement('option');
-          option.value = comp.id;
-          option.textContent = `${comp.status === 'active' ? '🎯' : '✓'} ${comp.name}`;
-          select.appendChild(option);
-        });
+        const preferredCompId = await resolveActiveCompId(supabase);
+        const preferred = activeComps.find(c => c.id === preferredCompId);
+        const chosen = preferred || activeComps[0];
 
-        if (activeComps.length > 0) {
-          selectedHomeCompId = activeComps[0].id;
-          await loadCompStats(userId, activeComps[0].id);
-          await loadRaces(activeComps[0].id);
-          select.value = activeComps[0].id;
-          document.getElementById('tip-now-btn').style.display = '';
-        }
+        selectedHomeCompId = chosen.id;
+        await loadCompStats(userId, chosen.id);
+        await loadRaces(chosen.id);
       } catch (error) {
         console.error('Error loading comps to dropdown:', error);
       }
@@ -576,37 +542,6 @@
         console.log("Could not load profile silk:", err);
       }
     }
-
-    window.handleUserCompSelectionChange = async function() {
-      const select = document.getElementById('user-comp-select');
-      const tipBtn = document.getElementById('tip-now-btn');
-      const compId = select ? select.value : null;
-      
-      if (compId) {
-        selectedHomeCompId = compId;
-        // Show the tip now button
-        tipBtn.style.display = '';
-        // Load comp-specific stats
-        await loadCompStats(currentUser.uid, compId);
-        await loadRaces(compId);
-      } else {
-        selectedHomeCompId = null;
-        // Hide the tip now button
-        tipBtn.style.display = 'none';
-        document.getElementById("leaderboard-rank").textContent = "-";
-        document.getElementById("wins-count").textContent = 0;
-        document.getElementById("points").textContent = "0.00";
-        await loadRaces();
-      }
-    };
-
-    window.goToTipping = function() {
-      const select = document.getElementById('user-comp-select');
-      const compId = select ? select.value : null;
-      if (compId) {
-        window.location.href = `tipdark.html?compId=${compId}`;
-      }
-    };
 
     // Load competition-specific stats
     async function loadCompStats(userId, compId) {

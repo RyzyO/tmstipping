@@ -2301,16 +2301,20 @@ async function loadAllComps() {
     allComps.forEach(comp => {
       const option = document.createElement('option');
       option.value = comp.id;
-      const statusBadge = comp.status === 'active' ? '🎯' : '✓';
-      option.textContent = `${statusBadge} ${comp.name}`;
+      option.textContent = comp.status === 'active' ? comp.name : `${comp.name} (closed)`;
       select.appendChild(option);
     });
 
-    // Default to first active comp so completed comps are never implicit defaults.
+    // Default to whichever comp is marked as the site-wide default, so the admin
+    // dashboard matches what users are actually seeing. Fall back to the first
+    // active comp if none is marked default, and never implicitly default to a
+    // completed comp.
+    const defaultComp = allComps.find(comp => comp.is_default && comp.status === 'active') || null;
     const firstActiveComp = allComps.find(comp => comp.status === 'active') || null;
-    if (firstActiveComp) {
-      select.value = firstActiveComp.id;
-      selectedAdminCompId = firstActiveComp.id;
+    const initialComp = defaultComp || firstActiveComp;
+    if (initialComp) {
+      select.value = initialComp.id;
+      selectedAdminCompId = initialComp.id;
     } else {
       select.value = '';
       selectedAdminCompId = null;
@@ -2686,6 +2690,22 @@ function renderCompsManagementList() {
       ? `<button onclick="window.copyCompetitionJoinLink('${comp.id}')" class="btn-secondary flex-1"><i data-feather="link" class="h-4 w-4"></i>Copy Join Link</button>`
       : `<button class="btn-secondary flex-1" disabled title="Only active competitions can be joined"><i data-feather="link" class="h-4 w-4"></i>Join Link</button>`;
 
+    const isHidden = !!comp.is_hidden;
+    const hiddenBadge = isHidden
+      ? '<span class="inline-block bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full text-xs font-semibold">Hidden from users</span>'
+      : '';
+    const visibilityAction = isHidden
+      ? `<button onclick="window.toggleCompVisibility('${comp.id}', false)" class="btn-secondary flex-1"><i data-feather="eye" class="h-4 w-4"></i>Unhide</button>`
+      : `<button onclick="window.toggleCompVisibility('${comp.id}', true)" class="btn-secondary flex-1"><i data-feather="eye-off" class="h-4 w-4"></i>Hide</button>`;
+
+    const isDefault = !!comp.is_default;
+    const defaultBadge = isDefault
+      ? '<span class="inline-block bg-yellow-500/20 text-yellow-300 px-3 py-1 rounded-full text-xs font-semibold">Default competition</span>'
+      : '';
+    const defaultAction = isDefault
+      ? ''
+      : `<button onclick="window.setDefaultComp('${comp.id}')" class="btn-secondary flex-1" ${status === 'deleted' ? 'disabled' : ''}><i data-feather="star" class="h-4 w-4"></i>Set as Default</button>`;
+
     const card = document.createElement('div');
     card.className = 'card rounded-lg p-6';
     card.innerHTML = `
@@ -2695,7 +2715,11 @@ function renderCompsManagementList() {
           <p class="text-xs text-gray-500 mt-1">ID: ${comp.id}</p>
           <p class="text-sm text-gray-400 mt-2">${comp.description || 'No description'}</p>
         </div>
-        ${statusMeta.badge}
+        <div class="flex flex-col items-end gap-2">
+          ${statusMeta.badge}
+          ${defaultBadge}
+          ${hiddenBadge}
+        </div>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-4 py-4 border-t border-b border-gray-700">
         <div>
@@ -2725,6 +2749,8 @@ function renderCompsManagementList() {
           <i data-feather="edit-2" class="h-4 w-4"></i>
           Edit
         </button>
+        ${status === 'deleted' ? '' : visibilityAction}
+        ${status === 'deleted' ? '' : defaultAction}
         ${statusAction}
       </div>
     `;
@@ -2882,6 +2908,37 @@ window.deleteCompetition = async function(compId) {
     showNotification('Error deleting competition', 'error', 'comp-notifications');
   }
 }
+
+window.setDefaultComp = async function(compId) {
+  try {
+    // Only one comp can be default at a time: clear it everywhere, then set the chosen one.
+    const { error: clearError } = await supabase.from('comps').update({ is_default: false }).eq('is_default', true);
+    if (clearError) throw clearError;
+
+    const { error } = await supabase.from('comps').update({ is_default: true }).eq('id', compId);
+    if (error) throw error;
+
+    showNotification('Default competition updated', 'success', 'comp-notifications');
+    await loadCompsManagement();
+    await loadAllComps();
+  } catch (error) {
+    console.error('Error setting default competition:', error);
+    showNotification('Error setting default competition', 'error', 'comp-notifications');
+  }
+};
+
+window.toggleCompVisibility = async function(compId, hide) {
+  try {
+    const { error } = await supabase.from('comps').update({ is_hidden: hide }).eq('id', compId);
+    if (error) throw error;
+    showNotification(hide ? 'Competition hidden from users' : 'Competition visible to users again', 'success', 'comp-notifications');
+    await loadCompsManagement();
+    await loadAllComps();
+  } catch (error) {
+    console.error('Error toggling competition visibility:', error);
+    showNotification('Error updating competition visibility', 'error', 'comp-notifications');
+  }
+};
 
 window.restoreCompetition = async function(compId) {
   if (!confirm('Restore this competition as closed?')) {

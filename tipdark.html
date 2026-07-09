@@ -350,6 +350,7 @@
           </a>
         </div>
       </div>
+      <div id="footer-comp-switcher" class="flex justify-center md:justify-end mt-4"></div>
     </div>
   </footer>
 
@@ -365,6 +366,7 @@
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    import { resolveActiveCompId, mountCompFooterSwitcher } from './active-comp.js';
     const { DateTime } = luxon;
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -393,28 +395,16 @@
 
       if (!comps?.length) return null;
       comps.sort((a, b) => Date.parse(b.start_date || 0) - Date.parse(a.start_date || 0));
-      return comps[0].id;
+
+      // Prefer whichever comp the admin/footer switcher has set as active, if the user has joined it.
+      const preferredCompId = await resolveActiveCompId(supabase, { useQueryParam: false });
+      const preferred = comps.find(c => c.id === preferredCompId);
+      return (preferred || comps[0]).id;
     }
 
     function showLoading(){ document.getElementById('loading-overlay').classList.remove('hidden'); }
     function hideLoading(){ document.getElementById('loading-overlay').classList.add('hidden'); }
     function setBusy(b){ state.inFlight=b; if(b) showLoading(); else hideLoading(); }
-
-    async function resolveCompIdForSession(user){
-      if(state.selectedCompId) return state.selectedCompId;
-
-      if(state.pendingRaceId){
-        const { data: race } = await supabase.from('races').select('comp_id').eq('id', state.pendingRaceId).single();
-        if(race?.comp_id){ state.selectedCompId = race.comp_id; return state.selectedCompId; }
-      }
-
-      const { data: joinings } = await supabase.from('user_comp_joinings').select('comp_id').eq('user_id', user.uid);
-      const compId = (joinings||[])[0]?.comp_id;
-      if(compId){ state.selectedCompId = compId; return state.selectedCompId; }
-
-      state.selectedCompId = 'default-comp';
-      return state.selectedCompId;
-    }
 
     supabase.auth.onAuthStateChange((event, session) => {
       const _user = session?.user || null;
@@ -455,7 +445,7 @@
             }
           }
 
-          await Promise.all([refreshJokerCount(), loadRaces()]);
+          await Promise.all([refreshJokerCount(), loadRaces(), mountCompFooterSwitcher(supabase, document.getElementById('footer-comp-switcher'))]);
         }finally{ setBusy(false); }
       }, 0);
     });
