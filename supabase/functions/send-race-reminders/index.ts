@@ -56,14 +56,16 @@ serve(async (req) => {
       const jump = DateTime.fromFormat(`${race.date} ${timeStr}`, 'yyyy-MM-dd HH:mm', { zone: TZ })
       if (!jump.isValid || jump < startWindow || jump >= endWindow) continue
 
-      // Dedupe: skip if we've already sent a reminder for this exact race/date/time
-      const { data: existingMarker } = await supabase
+      // Dedupe: skip if we've already sent a reminder for this exact race/date/time.
+      // race_reminder_sends predates this function (migrated from Firestore) and uses
+      // a generic id + jsonb `data` shape, not dedicated columns.
+      const markerId = `${race.id}_${race.date}_${timeStr}`
+      const { data: existingMarker, error: markerError } = await supabase
         .from('race_reminder_sends')
-        .select('race_id')
-        .eq('race_id', race.id)
-        .eq('race_date', race.date)
-        .eq('race_time', timeStr)
+        .select('id')
+        .eq('id', markerId)
         .maybeSingle()
+      if (markerError) throw markerError
       if (existingMarker) continue
 
       let targetUserIds: string[] = []
@@ -74,6 +76,25 @@ serve(async (req) => {
           .eq('comp_id', race.comp_id)
           .eq('payment_status', 'completed')
         targetUserIds = [...new Set((joinings || []).map((j: { user_id: string }) => j.user_id).filter(Boolean))]
+      }
+
+      // Reserve the marker before sending, so a slow/overlapping run can't double-send.
+      const { error: insertMarkerError } = await supabase.from('race_reminder_sends').insert({
+        id: markerId,
+        data: {
+          id: markerId,
+          raceId: race.id,
+          raceDate: race.date,
+          raceTime: timeStr,
+          compId: race.comp_id || null,
+          sentAt: new Date().toISOString(),
+          targetUsers: targetUserIds.length,
+        },
+      })
+      if (insertMarkerError) {
+        // Unique violation means another run already claimed this race — skip, don't double-send.
+        if (insertMarkerError.code === '23505') continue
+        throw insertMarkerError
       }
 
       if (targetUserIds.length) {
@@ -99,13 +120,6 @@ serve(async (req) => {
           },
         })
       }
-
-      await supabase.from('race_reminder_sends').insert({
-        race_id: race.id,
-        race_date: race.date,
-        race_time: timeStr,
-        target_users: targetUserIds.length,
-      })
 
       results.push({ raceId: race.id, targetUsers: targetUserIds.length })
     }

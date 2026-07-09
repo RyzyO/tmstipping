@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../Downloads/OneSignalSDK-v16-ServiceWorker/OneSignalSDK-v16-ServiceWorker"
+		},
+		{
+			"path": "../../../Downloads/OneSignalSDK-v16-ServiceWorker/__MACOSX"
+		}
+	],
+	"settings": {
+		"liveServer.settings.port": 5507,
+		"liveServer.settings.multiRootWorkspaceName": "tmstipping"
+	}
+}

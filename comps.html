@@ -889,6 +889,7 @@
     window.confirmEligibilityAndProceed = function() {
       if (!document.getElementById('join-declare-18').checked || !document.getElementById('join-declare-state').checked) return;
       document.getElementById('eligibility-modal').classList.add('hidden');
+      document.getElementById('joinCompModal').classList.add('active');
       proceedToPayment();
     };
 
