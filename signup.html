@@ -136,6 +136,24 @@
           </div>
 
           <div>
+            <label for="state" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+              <i data-feather="map-pin" class="h-4 w-4 text-yellow-400"></i>
+              State
+            </label>
+            <select id="state" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100">
+              <option value="" disabled selected>Select your state</option>
+              <option value="QLD">Queensland (QLD)</option>
+              <option value="NSW">New South Wales (NSW)</option>
+              <option value="VIC">Victoria (VIC)</option>
+              <option value="ACT">Australian Capital Territory (ACT)</option>
+              <option value="SA">South Australia (SA)</option>
+              <option value="WA">Western Australia (WA)</option>
+              <option value="TAS">Tasmania (TAS)</option>
+              <option value="NT">Northern Territory (NT)</option>
+            </select>
+          </div>
+
+          <div>
             <label for="email" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
               <i data-feather="mail" class="h-4 w-4 text-yellow-400"></i>
               Email Address
@@ -208,23 +226,11 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, createUserWithEmailAndPassword, updateProfile } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
+    const ELIGIBLE_STATES = ['QLD', 'VIC', 'NSW'];
 
     const signupForm = document.getElementById('signup-form');
     const errorMessage = document.getElementById('error-message');
@@ -266,6 +272,7 @@
       const lastName = document.getElementById('lastName').value.trim();
       const teamName = document.getElementById('teamName').value.trim();
       const dob = document.getElementById('dob').value;
+      const state = document.getElementById('state').value;
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
 
@@ -281,40 +288,44 @@
         return;
       }
 
+      if (!ELIGIBLE_STATES.includes(state)) {
+        errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
+        errorMessage.textContent = 'Sign up is only available to residents of QLD, VIC, or NSW.';
+        return;
+      }
+
       try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { first_name: firstName, last_name: lastName, team_name: teamName }
+          }
+        });
 
-        await updateProfile(user, { displayName: `${firstName} ${lastName}`.trim() });
+        if (signUpError) throw signUpError;
 
-        await setDoc(doc(db, 'users', user.uid), {
-          firstName,
-          lastName,
-          teamName,
+        const user = signUpData.user;
+
+        const { error: insertError } = await supabase.from('users').insert({
+          id: user.id,
+          first_name: firstName,
+          last_name: lastName,
+          team_name: teamName,
           email,
           dob,
+          state,
           joker: 3,
-          paid: false,
-          createdAt: serverTimestamp()
+          paid: false
         });
 
-        await setDoc(doc(db, 'leaderboard', user.uid), {
-          userId: user.uid,
-          teamName,
-          points: 0,
-          winners: 0,
-          rank: 0
-        });
+        if (insertError) throw insertError;
 
         window.location.href = getSafeRedirectTarget();
       } catch (error) {
-        console.error('Signup error:', error.code, error.message);
-        const friendly = String(error.message || 'Unable to create account')
-          .replace('Firebase: ', '')
-          .replace(/auth\//g, '')
-          .replace(/-/g, ' ');
+        console.error('Signup error:', error.message);
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
-        errorMessage.textContent = friendly;
+        errorMessage.textContent = error.message || 'Unable to create account';
       }
     });
 
