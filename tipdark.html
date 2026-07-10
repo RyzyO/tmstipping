@@ -277,7 +277,7 @@
     </section>
 
     <!-- Race Card Section (hidden until a race is selected) -->
-    <section id="race-card-section" class="hidden" data-aos="fade-up">
+    <section id="race-card-section" class="hidden">
       <div class="w-full">
         <button id="exit-race-btn" class="mb-6 px-5 py-2.5 card rounded-lg hover:border-yellow-500/50 transition-all flex items-center gap-2 text-gray-200 font-medium">
           <i data-feather="arrow-left" class="h-4 w-4"></i>
@@ -834,7 +834,7 @@
               </div>
               ${(last10Html||h.prizemoney) ? `
               <div class="flex flex-wrap items-center gap-2 mt-1">
-                ${last10Html ? `<div class="flex items-center gap-1"><span class="text-xs text-gray-500 mr-0.5">Last 10</span>${last10Html}</div>` : ''}
+                ${last10Html ? `<div class="flex flex-wrap items-center gap-1 max-w-full"><span class="text-xs text-gray-500 mr-0.5 md:hidden">Last 5</span><span class="text-xs text-gray-500 mr-0.5 hidden md:inline">Last 10</span>${last10Html}</div>` : ''}
                 ${h.prizemoney ? `<span class="text-xs text-emerald-400 font-semibold">${h.prizemoney}</span>` : ''}
               </div>` : ''}
               ${hasForm ? `
@@ -891,12 +891,13 @@
 
     // Render last-10 form string as coloured bubbles (1=win green, 2=place blue, x=DNF red, else gray)
     function renderLast10(str){
-      return (str||'').split('').map(c=>{
+      return (str||'').split('').map((c,i)=>{
         const colour = c==='1'?'bg-green-500 text-white'
                      : c==='2'||c==='3'?'bg-blue-500 text-white'
                      : c.toLowerCase()==='x'?'bg-red-500 text-white'
                      : 'bg-gray-600 text-gray-300';
-        return `<span class="inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${colour}">${c}</span>`;
+        const visibility = i>=5 ? 'hidden md:inline-flex' : 'inline-flex';
+        return `<span class="${visibility} items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${colour}">${c}</span>`;
       }).join('');
     }
 
