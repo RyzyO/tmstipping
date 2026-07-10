@@ -144,6 +144,52 @@
       border: 1px solid rgba(239, 68, 68, 0.3);
       color: #fca5a5;
     }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: none; }
+    }
+    .card-animate {
+      animation: cardIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .race-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2rem;
+      height: 2rem;
+      padding: 0 0.5rem;
+      border-radius: 0.6rem;
+      font-weight: 800;
+      font-size: 0.8rem;
+      color: #111827;
+      background: linear-gradient(135deg, #fbbf24, #d97706);
+      box-shadow: 0 4px 12px rgba(251, 191, 36, 0.25);
+    }
+    .tipped-chip {
+      display: inline-block;
+      max-width: 11rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #86efac;
+      background: rgba(22, 101, 52, 0.4);
+      border: 1px solid rgba(74, 222, 128, 0.35);
+    }
+    .race-watermark {
+      position: absolute;
+      top: -1.5rem;
+      right: -0.5rem;
+      font-size: 7rem;
+      line-height: 1;
+      font-weight: 900;
+      color: rgba(255, 255, 255, 0.05);
+      pointer-events: none;
+      user-select: none;
+    }
     select {
       background-color: #111827;
       color: #f3f4f6;
@@ -677,40 +723,42 @@
           : "";
         const actionText = tipped ? "Tip Submitted" : "Tip Now";
         const actionClass = tipped
-          ? "bg-green-600 text-white hover:bg-green-500"
-          : "bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 hover:from-yellow-400 hover:to-amber-400 shadow-lg shadow-yellow-900/30";
+          ? "bg-green-600/90 text-white hover:bg-green-500"
+          : "bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 hover:from-yellow-400 hover:to-amber-400 shadow-lg shadow-yellow-900/40";
+
+        const raceNumMatch = (race.name || "").match(/race\s*(\d+)/i);
+        const raceNum = raceNumMatch ? raceNumMatch[1] : "";
 
         const card = document.createElement("div");
-        card.className = "card rounded-xl shadow-lg overflow-hidden";
+        card.className = "card card-animate rounded-2xl shadow-xl overflow-hidden relative";
+        card.style.animationDelay = Math.min((shown - 1) * 70, 420) + "ms";
 
         card.innerHTML = `
-          <div class="h-36 relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent z-10"></div>
-            <img src="images/${photo}" alt="Race track" class="w-full h-full object-cover" onerror="this.src='images/default.jpg'">
-            ${tipped && tippedHorseName
-              ? `<div class="absolute top-2 left-2 z-20 bg-green-600/95 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md max-w-[90%] truncate" title="Tipped: ${tippedHorseName}">Tipped: ${tippedHorseName}</div>`
-              : ""}
+          <div class="absolute inset-0">
+            <img src="images/${photo}" alt="" class="w-full h-full object-cover" onerror="this.src='images/default.jpg'">
+            <div class="absolute inset-0" style="background:linear-gradient(120deg, rgba(3,7,18,0.96) 30%, rgba(3,7,18,0.86) 60%, rgba(17,24,39,0.55));"></div>
           </div>
-          <div class="p-6">
-            <div class="flex justify-between items-start mb-3">
-              <div class="flex-1">
-                <h3 class="text-lg font-bold text-gray-100 mb-1 line-clamp-2">${race.name}</h3>
-                <div class="flex items-center text-sm text-gray-400">
-                  <i data-feather="clock" class="h-4 w-4 mr-1"></i>
-                  <span>${dt.toFormat("EEE, LLL d • h:mm a")}</span>
-                </div>
-              </div>
-              <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap ml-2">${race.type || "Open"}</span>
+          ${raceNum ? `<div class="race-watermark">${raceNum}</div>` : ''}
+          <div class="relative p-5">
+            <div class="flex items-center gap-2 mb-3 flex-wrap">
+              ${raceNum ? `<span class="race-chip">R${raceNum}</span>` : ''}
+              <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap">${race.type || "Open"}</span>
+              ${tipped && tippedHorseName ? `<span class="tipped-chip">✓ ${tippedHorseName}</span>` : ''}
+            </div>
+            <h3 class="text-lg font-bold text-white mb-1.5 leading-snug">${race.name}</h3>
+            <div class="flex items-center text-sm text-gray-300 mb-4">
+              <i data-feather="clock" class="h-4 w-4 mr-1.5 text-yellow-400"></i>
+              <span>${dt.toFormat("EEE, LLL d • h:mm a")}</span>
             </div>
             <div class="mb-4">
-              <div id="${timerId}" class="${isClosed ? 'countdown-closed' : 'bg-gray-800/50 border border-gray-700'} text-center py-2 rounded-lg text-sm font-semibold ${isClosed ? '' : 'text-yellow-400'}"></div>
+              <div id="${timerId}" class="${isClosed ? 'bg-red-900/20 border border-red-700/30 text-red-400' : 'bg-gray-800/50 border border-gray-700 text-yellow-400'} text-center py-2 rounded-lg text-sm font-semibold"></div>
             </div>
             <div class="space-y-2">
-              <a href="tipdark.html?compId=${compId}&raceId=${race.id}" 
-                 class="block w-full text-center ${actionClass} font-semibold py-2.5 rounded-lg transition-all duration-200">
+              <a href="tipdark.html?compId=${compId}&raceId=${race.id}"
+                 class="block w-full text-center ${actionClass} font-semibold py-2.5 rounded-xl transition-all duration-200 active:scale-[0.98]">
                 ${actionText}
               </a>
-              ${hasPreview ? `<a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="block w-full text-center bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold py-2.5 rounded-lg hover:from-red-500 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-900/30">Preview</a>` : ""}
+              ${hasPreview ? `<a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="block w-full text-center bg-gradient-to-r from-red-600 to-rose-600 text-white font-semibold py-2.5 rounded-xl hover:from-red-500 hover:to-rose-500 transition-all duration-200 shadow-lg shadow-red-900/30">Preview</a>` : ""}
             </div>
           </div>
         `;
