@@ -315,21 +315,21 @@
       <section class="panel">
         <div class="panel-header">
           <h5>User Selection</h5>
-          <span class="panel-hint">Pick a user first, then pick one of their competitions.</span>
+          <span class="panel-hint">Pick a competition first, then pick one of its users.</span>
         </div>
         <div class="mb-3">
-          <label for="user-select" class="form-label">User</label>
-          <select id="user-select" class="form-select">
-            <option value="">Loading users...</option>
+          <label for="comp-select" class="form-label">Competition</label>
+          <select id="comp-select" class="form-select">
+            <option value="">Loading competitions...</option>
           </select>
         </div>
         <div class="mb-2">
-          <label for="comp-select" class="form-label">Competition</label>
-          <select id="comp-select" class="form-select" disabled>
-            <option value="">Select a user first</option>
+          <label for="user-select" class="form-label">User</label>
+          <select id="user-select" class="form-select" disabled>
+            <option value="">Select a competition first</option>
           </select>
         </div>
-        <div id="selection-summary" class="panel-hint mt-3">Choose a user and competition to begin editing.</div>
+        <div id="selection-summary" class="panel-hint mt-3">Choose a competition and a user to begin editing.</div>
       </section>
     </div>
     <div class="col-lg-8">
@@ -388,6 +388,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let users = [];
+let comps = [];
 let selectedUserId = null;
 let selectedUserData = null;
 let selectedCompId = null;
@@ -420,7 +421,8 @@ supabase.auth.onAuthStateChange((event, session) => {
       return;
     }
     await loadRaces();
-    await loadUsers();
+    await loadComps();
+    await updateFeesCounter();
   }, 0);
 });
 
@@ -444,16 +446,41 @@ async function loadResultsCache() {
   resultsLoaded = true;
 }
 
-async function updateFeesCounter() {
-  const { count } = await supabase.from('user_comp_joinings').select('*', { count: 'exact', head: true }).eq('payment_status', 'completed');
+async function updateFeesCounter(compId) {
+  let query = supabase.from('user_comp_joinings').select('*', { count: 'exact', head: true }).eq('payment_status', 'completed');
+  if (compId) query = query.eq('comp_id', compId);
+  const { count } = await query;
   feesCounter.textContent = `$${(count || 0) * 30}`;
 }
 
-async function loadUsers() {
-  userSelect.innerHTML = '<option value="">Loading users...</option>';
+async function loadComps() {
+  compSelect.innerHTML = '<option value="">Loading competitions...</option>';
 
-  const { data } = await supabase.from('users').select('*');
-  users = data || [];
+  const { data } = await supabase.from('comps').select('*');
+  comps = data || [];
+  comps.sort((a, b) => (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()));
+
+  compSelect.innerHTML = '<option value="">Select competition...</option>';
+  comps.forEach(comp => {
+    const option = document.createElement('option');
+    option.value = comp.id;
+    option.textContent = comp.name || comp.id;
+    compSelect.appendChild(option);
+  });
+}
+
+async function loadUsersForComp(compId) {
+  userSelect.innerHTML = '<option value="">Loading users...</option>';
+  userSelect.disabled = true;
+
+  const { data: joinings } = await supabase
+    .from('user_comp_joinings')
+    .select('*, users(*)')
+    .eq('comp_id', compId);
+
+  users = (joinings || [])
+    .filter(j => j.users)
+    .map(j => j.users);
 
   users.sort((a, b) => {
     const aName = (a.team_name || a.teamName || a.email || a.id || '').toLowerCase();
@@ -461,42 +488,37 @@ async function loadUsers() {
     return aName.localeCompare(bName);
   });
 
+  renderUserOptions(users);
+  userSelect.disabled = false;
+}
+
+/* -------------------------------
+   Rendering helpers
+--------------------------------*/
+function renderUserOptions(list) {
   userSelect.innerHTML = '<option value="">Select user...</option>';
-  users.forEach(user => {
+  list.forEach(user => {
     const option = document.createElement('option');
     option.value = user.id;
     const name = `${user.first_name || user.firstName || ''} ${user.last_name || user.lastName || ''}`.trim();
     option.textContent = `${user.team_name || user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
     userSelect.appendChild(option);
   });
-
-  await updateFeesCounter();
 }
 
-/* -------------------------------
-   Rendering helpers
---------------------------------*/
 function filterUserDropdown() {
   const q = (searchInput.value || '').trim().toLowerCase();
-
   const currentValue = userSelect.value;
-  userSelect.innerHTML = '<option value="">Select user...</option>';
 
-  users
-    .filter((u) =>
-      (!q ||
-        (u.email && u.email.toLowerCase().includes(q)) ||
-        ((u.first_name || u.firstName) && (u.first_name || u.firstName).toLowerCase().includes(q)) ||
-        ((u.last_name || u.lastName) && (u.last_name || u.lastName).toLowerCase().includes(q)) ||
-        ((u.team_name || u.teamName) && (u.team_name || u.teamName).toLowerCase().includes(q)))
-    )
-    .forEach((user) => {
-      const option = document.createElement('option');
-      option.value = user.id;
-      const name = `${user.first_name || user.firstName || ''} ${user.last_name || user.lastName || ''}`.trim();
-      option.textContent = `${user.team_name || user.teamName || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
-      userSelect.appendChild(option);
-    });
+  const filtered = users.filter((u) =>
+    !q ||
+    (u.email && u.email.toLowerCase().includes(q)) ||
+    ((u.first_name || u.firstName) && (u.first_name || u.firstName).toLowerCase().includes(q)) ||
+    ((u.last_name || u.lastName) && (u.last_name || u.lastName).toLowerCase().includes(q)) ||
+    ((u.team_name || u.teamName) && (u.team_name || u.teamName).toLowerCase().includes(q))
+  );
+
+  renderUserOptions(filtered);
 
   if (currentValue && Array.from(userSelect.options).some(o => o.value === currentValue)) {
     userSelect.value = currentValue;
@@ -504,28 +526,34 @@ function filterUserDropdown() {
 }
 
 searchInput.oninput = filterUserDropdown;
+
+compSelect.onchange = async () => {
+  selectedCompId = compSelect.value || null;
+  selectedUserId = null;
+  document.getElementById('user-edit-section').style.display = 'none';
+
+  if (!selectedCompId) {
+    userSelect.innerHTML = '<option value="">Select a competition first</option>';
+    userSelect.disabled = true;
+    selectionSummary.textContent = 'Choose a competition and a user to begin editing.';
+    await updateFeesCounter();
+    return;
+  }
+
+  selectionSummary.textContent = 'Choose a user to begin editing.';
+  await loadUsersForComp(selectedCompId);
+  await updateFeesCounter(selectedCompId);
+};
+
 userSelect.onchange = async () => {
   const userId = userSelect.value;
   if (!userId) {
     selectedUserId = null;
-    selectedCompId = null;
-    compSelect.innerHTML = '<option value="">Select a user first</option>';
-    compSelect.disabled = true;
     document.getElementById('user-edit-section').style.display = 'none';
-    selectionSummary.textContent = 'Choose a user and competition to begin editing.';
+    selectionSummary.textContent = 'Choose a user to begin editing.';
     return;
   }
   await selectUser(userId);
-};
-
-compSelect.onchange = async () => {
-  selectedCompId = compSelect.value || null;
-  if (!selectedUserId || !selectedCompId) return;
-
-  const selectedJoining = selectedUserJoinings.find(j => (j.comp_id || j.compId) === selectedCompId) || null;
-  document.getElementById('edit-paid').checked = (selectedJoining?.payment_status || selectedJoining?.paymentStatus) === 'completed';
-  selectionSummary.textContent = `Editing ${selectedUserData?.teamName || selectedUserData?.email || selectedUserId} in ${compSelect.options[compSelect.selectedIndex]?.textContent || selectedCompId}`;
-  await loadUserTips(selectedUserId, selectedCompId);
 };
 
 /* -------------------------------
@@ -534,7 +562,6 @@ compSelect.onchange = async () => {
 async function selectUser(userId) {
   selectedUserId = userId;
   selectedUserData = null;
-  selectedCompId = null;
   selectedUserJoinings = [];
 
   document.getElementById('user-edit-section').style.display = '';
@@ -552,41 +579,15 @@ async function selectUser(userId) {
   document.getElementById('edit-teamName').value = user.team_name || user.teamName || '';
   document.getElementById('edit-joker').value =
     typeof user.joker === "number" ? user.joker : (user.joker ? Number(user.joker) : 0);
-  document.getElementById('edit-paid').checked = false;
 
-  const { data: joiningsData } = await supabase.from('user_comp_joinings').select('*').eq('user_id', userId);
+  const { data: joining } = await supabase.from('user_comp_joinings')
+    .select('*').eq('user_id', userId).eq('comp_id', selectedCompId).single();
 
-  selectedUserJoinings = [];
-  for (const joining of (joiningsData || [])) {
-    const compId = joining.comp_id || joining.compId;
-    const { data: compRow } = await supabase.from('comps').select('name').eq('id', compId).single();
-    const compName = compRow?.name || compId;
-    selectedUserJoinings.push({ ...joining, compName });
-  }
+  selectedUserJoinings = joining ? [joining] : [];
+  document.getElementById('edit-paid').checked = (joining?.payment_status || joining?.paymentStatus) === 'completed';
 
-  selectedUserJoinings.sort((a, b) => (a.compName || '').localeCompare(b.compName || ''));
-
-  compSelect.innerHTML = '';
-  if (selectedUserJoinings.length === 0) {
-    compSelect.innerHTML = '<option value="">No competitions joined</option>';
-    compSelect.disabled = true;
-    selectionSummary.textContent = 'This user has not joined any competitions.';
-    document.getElementById('user-tips-list').innerHTML = '<div class="text-muted p-2">No competitions joined for this user.</div>';
-    return;
-  }
-
-  compSelect.disabled = false;
-  selectedUserJoinings.forEach(joining => {
-    const option = document.createElement('option');
-    option.value = joining.comp_id || joining.compId;
-    option.textContent = `${joining.compName} (${joining.payment_status || joining.paymentStatus || 'pending'})`;
-    compSelect.appendChild(option);
-  });
-
-  selectedCompId = selectedUserJoinings[0].comp_id || selectedUserJoinings[0].compId;
-  compSelect.value = selectedCompId;
-  document.getElementById('edit-paid').checked = (selectedUserJoinings[0].payment_status || selectedUserJoinings[0].paymentStatus) === 'completed';
-  selectionSummary.textContent = `Editing ${selectedUserData?.teamName || selectedUserData?.email || selectedUserId} in ${selectedUserJoinings[0].compName}`;
+  const compName = comps.find(c => c.id === selectedCompId)?.name || selectedCompId;
+  selectionSummary.textContent = `Editing ${selectedUserData?.team_name || selectedUserData?.email || selectedUserId} in ${compName}`;
 
   await loadUserTips(userId, selectedCompId);
 }
@@ -875,7 +876,9 @@ document.getElementById('export-csv').onclick = function() {
 };
 
 document.getElementById('export-ladder-csv').onclick = async function() {
-  const { data: joinings } = await supabase.from('user_comp_joinings').select('*,users(team_name,email)');
+  let query = supabase.from('user_comp_joinings').select('*,users(team_name,email)');
+  if (selectedCompId) query = query.eq('comp_id', selectedCompId);
+  const { data: joinings } = await query;
   const leaderboard = (joinings || []);
   leaderboard.sort((a, b) => (Number(b.points || 0) - Number(a.points || 0)));
 
