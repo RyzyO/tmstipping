@@ -232,21 +232,9 @@
   </div>
 
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.firebasestorage.app",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     const loginForm = document.getElementById('login-form');
     const errorMessage = document.getElementById('error-message');
@@ -260,13 +248,13 @@
       const email = loginForm['email'].value;
       const password = loginForm['password'].value;
 
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = 'admin-dark.html';
-      } catch (error) {
-        console.error('Login error:', error.code, error.message);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error('Login error:', error.message);
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
         errorMessage.textContent = "Invalid email or password.";
+      } else {
+        window.location.href = 'admin-dark.html';
       }
     });
 
@@ -278,13 +266,15 @@
       const email = prompt("Enter your email address to reset your password:");
       if (!email) return;
       
-      try {
-        await sendPasswordResetEmail(auth, email);
-        errorMessage.className = 'text-center text-sm min-h-[24px] text-green-400 font-medium';
-        errorMessage.textContent = "✓ Password reset email sent. Please check your inbox.";
-      } catch (error) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/reset-password.html'
+      });
+      if (error) {
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
         errorMessage.textContent = "Failed to send reset email. Please check your email address.";
+      } else {
+        errorMessage.className = 'text-center text-sm min-h-[24px] text-green-400 font-medium';
+        errorMessage.textContent = "✓ Password reset email sent. Please check your inbox.";
       }
     });
 
