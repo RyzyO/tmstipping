@@ -793,7 +793,7 @@
         // Last 10 form chars coloured by result
         const last10Html = h.last10 ? renderLast10(h.last10) : '';
         // Form history rows (up to 5 most recent)
-        const formRows = (h.formHistory||[]).slice(0,5).map(f=>`
+        const formRows = (h.formHistory||[]).slice(-5).map(f=>`
           <tr class="border-t border-gray-700/50">
             <td class="py-1 pr-2 text-gray-400 whitespace-nowrap">${f.date||''}</td>
             <td class="py-1 pr-2 text-gray-300 whitespace-nowrap">${f.track||''}</td>
@@ -891,12 +891,13 @@
 
     // Render last-10 form string as coloured bubbles (1=win green, 2=place blue, x=DNF red, else gray)
     function renderLast10(str){
-      return (str||'').split('').map((c,i)=>{
+      const chars = (str||'').split('');
+      return chars.map((c,i)=>{
         const colour = c==='1'?'bg-green-500 text-white'
                      : c==='2'||c==='3'?'bg-blue-500 text-white'
                      : c.toLowerCase()==='x'?'bg-red-500 text-white'
                      : 'bg-gray-600 text-gray-300';
-        const visibility = i>=5 ? 'hidden md:inline-flex' : 'inline-flex';
+        const visibility = i < chars.length - 5 ? 'hidden md:inline-flex' : 'inline-flex';
         return `<span class="${visibility} items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${colour}">${c}</span>`;
       }).join('');
     }
