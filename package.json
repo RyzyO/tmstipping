@@ -1,0 +1,17 @@
+{
+  "name": "tmstipping",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:smoke": "node tests/smoke.js"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "@supabase/supabase-js": "^2.38.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0"
+  }
+}

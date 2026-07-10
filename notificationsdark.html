@@ -124,7 +124,10 @@
           when = DateTime.fromISO(n.createdAt).setZone("Australia/Sydney").toFormat("EEE d LLL, h:mm a");
         }
 
-        const audience = n.audienceType === "competition" ? "Competition update" : "Global update";
+        const audienceType = n.audienceType || n.audience_type || "all";
+        const audience = audienceType === "competition" ? "Competition update"
+          : audienceType === "user" ? "Personal update"
+          : "Global update";
 
         const row = document.createElement("div");
         row.className = "bg-gray-800 rounded-lg border border-gray-700 p-4";
@@ -146,8 +149,10 @@
     let currentUser = null;
 
     async function fetchAndRenderNotifications() {
+      // Notification IDs are random UUIDs, so ordering by id is not chronological.
+      // The real timestamp lives in the JSONB payload as an ISO string, which sorts chronologically.
       const { data: rows } = await supabase
-        .from('notifications').select('*').order('id', { ascending: false }).limit(120);
+        .from('notifications').select('*').order('data->>createdAt', { ascending: false }).limit(120);
 
       const filtered = (rows||[]).filter(row => {
         const n = row.data || row;

@@ -69,15 +69,18 @@ function applyCachedAdminStats() {
     if (cached.paidUsers !== undefined) {
       document.getElementById('paid-users').textContent = cached.paidUsers;
     }
+    if (cached.pendingPayments !== undefined) {
+      document.getElementById('pending-payments').textContent = cached.pendingPayments;
+    }
   } catch (error) {
     localStorage.removeItem(ADMIN_STATS_CACHE_KEY);
   }
 }
 
-function saveAdminStatsToCache({ totalRaces, upcoming, fullyTipped, paidUsers }) {
+function saveAdminStatsToCache({ totalRaces, upcoming, fullyTipped, paidUsers, pendingPayments }) {
   localStorage.setItem(
     ADMIN_STATS_CACHE_KEY,
-    JSON.stringify({ totalRaces, upcoming, fullyTipped, paidUsers, updatedAt: Date.now() })
+    JSON.stringify({ totalRaces, upcoming, fullyTipped, paidUsers, pendingPayments, updatedAt: Date.now() })
   );
 }
 
@@ -101,18 +104,20 @@ async function loadDashboardStats(compId = null) {
 
     let paidUsers = 0;
     let feesCollected = 0;
+    let pendingPayments = 0;
 
     if (compId) {
       const { data: joinings } = await supabase.from('user_comp_joinings')
-        .select('user_id').eq('comp_id', compId).eq('payment_status', 'completed');
-      paidUsers = (joinings || []).length;
+        .select('user_id,payment_status').eq('comp_id', compId);
+      paidUsers = (joinings || []).filter(j => j.payment_status === 'completed').length;
+      pendingPayments = (joinings || []).filter(j => j.payment_status !== 'completed').length;
 
       const { data: comp } = await supabase.from('comps').select('entry_fee').eq('id', compId).single();
       if (comp) feesCollected = paidUsers * (comp.entry_fee || 0);
     } else {
-      const { data: joinings } = await supabase.from('user_comp_joinings')
-        .select('user_id').eq('payment_status', 'completed');
-      paidUsers = new Set((joinings || []).map(j => j.user_id)).size;
+      const { data: joinings } = await supabase.from('user_comp_joinings').select('user_id,payment_status');
+      paidUsers = new Set((joinings || []).filter(j => j.payment_status === 'completed').map(j => j.user_id)).size;
+      pendingPayments = (joinings || []).filter(j => j.payment_status !== 'completed').length;
     }
 
     document.getElementById('total-races').textContent = (races || []).length;
@@ -120,10 +125,34 @@ async function loadDashboardStats(compId = null) {
     document.getElementById('fully-tipped').textContent = fullyTipped;
     document.getElementById('paid-users').textContent = paidUsers;
     document.getElementById('fees-collected').textContent = feesCollected > 0 ? `$${feesCollected.toFixed(2)}` : '$0.00';
+    document.getElementById('pending-payments').textContent = pendingPayments;
 
-    saveAdminStatsToCache({ totalRaces: (races || []).length, upcoming, fullyTipped, paidUsers });
+    saveAdminStatsToCache({ totalRaces: (races || []).length, upcoming, fullyTipped, paidUsers, pendingPayments });
   } catch (error) {
     console.error('Error loading dashboard stats:', error);
+  }
+  loadPushSubscriberCount();
+}
+
+async function loadPushSubscriberCount() {
+  const el = document.getElementById('push-subscribers');
+  if (!el) return;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return;
+
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/send-onesignal`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ action: 'app-stats' }),
+    });
+    const stats = await response.json();
+    if (!response.ok) throw new Error(stats?.error || 'Failed to load subscriber count');
+    el.textContent = stats.subscribers ?? 0;
+  } catch (error) {
+    console.error('Error loading push subscriber count:', error);
+    el.textContent = '—';
   }
 }
 
@@ -1941,13 +1970,25 @@ async function saveResults() {
   }
 }
 
+// Canonical scoring rule: if a user's tipped horse was scratched, their points
+// fall to the horse nominated as the race's substitute. Mirrors resultsdark.html
+// so the leaderboard totals match what users see on the results page.
+function resolveScoredHorseId(race, tippedHorseId) {
+  if (race?.horses && tippedHorseId && race.horses[tippedHorseId]?.scratched) {
+    const sub = Object.entries(race.horses).find(([, h]) => h.substitute);
+    if (sub) return sub[0];
+  }
+  return tippedHorseId;
+}
+
 async function calculateAndSaveLeaderboard(compId) {
   try {
     const { data: results } = await supabase.from('results').select('*');
     const compLeaderboardMap = {};
 
     const raceCompIdMap = {};
-    allRaces.forEach(r => { raceCompIdMap[r.id] = r.comp_id || r.compId || null; });
+    const raceById = {};
+    allRaces.forEach(r => { raceCompIdMap[r.id] = r.comp_id || r.compId || null; raceById[r.id] = r; });
 
     for (const result of (results || [])) {
       const raceId = result.race_id || result.id;
@@ -1968,11 +2009,14 @@ async function calculateAndSaveLeaderboard(compId) {
         if (!compLeaderboardMap[tipCompId]) compLeaderboardMap[tipCompId] = {};
         if (!compLeaderboardMap[tipCompId][userId]) compLeaderboardMap[tipCompId][userId] = { user_id: userId, points: 0, wins: 0 };
 
+        // If the tipped horse was scratched, points fall to the nominated substitute.
+        const scoredHorseId = resolveScoredHorseId(raceById[raceId], tip.horse_id);
+
         let pts = 0;
         let wasWin = false;
-        if (winnerHorseId && tip.horse_id == winnerHorseId) { pts += winnerPoints; wasWin = true; }
-        else if (place1HorseId && tip.horse_id == place1HorseId) pts += place1Points;
-        else if (place2HorseId && tip.horse_id == place2HorseId) pts += place2Points;
+        if (winnerHorseId && scoredHorseId == winnerHorseId) { pts += winnerPoints; wasWin = true; }
+        else if (place1HorseId && scoredHorseId == place1HorseId) pts += place1Points;
+        else if (place2HorseId && scoredHorseId == place2HorseId) pts += place2Points;
         if (pts > 0 && tip.joker === true) pts *= 2;
 
         compLeaderboardMap[tipCompId][userId].points += pts;
@@ -2348,13 +2392,17 @@ window.switchMainTab = function(tab) {
   const newRacePanel = document.getElementById('new-race-panel');
   const compsPanel = document.getElementById('comps-panel');
   const notificationsPanel = document.getElementById('notifications-panel');
+  const usersPanel = document.getElementById('users-panel');
+  const leaderboardPanel = document.getElementById('leaderboard-panel');
 
   racePanel?.classList.add('hidden');
   noSelectionPanel?.classList.add('hidden');
   newRacePanel?.classList.add('hidden');
   compsPanel?.classList.add('hidden');
   notificationsPanel?.classList.add('hidden');
-  
+  usersPanel?.classList.add('hidden');
+  leaderboardPanel?.classList.add('hidden');
+
   if (tab === 'comps') {
     compsPanel?.classList.remove('hidden');
     loadCompsManagement();
@@ -2362,6 +2410,12 @@ window.switchMainTab = function(tab) {
     notificationsPanel?.classList.remove('hidden');
     populateAdminNotificationCompOptions();
     loadAdminNotifications();
+  } else if (tab === 'users') {
+    usersPanel?.classList.remove('hidden');
+    initUserAdminPanel();
+  } else if (tab === 'leaderboard') {
+    leaderboardPanel?.classList.remove('hidden');
+    initLeaderboardPanel();
   } else {
     if (currentRaceId) {
       racePanel?.classList.remove('hidden');
@@ -2391,6 +2445,551 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function downloadCsv(filename, header, rows) {
+  const csv = header.join(',') + '\n' + rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ============ USER ADMIN PANEL ============
+let uaUsers = [];
+let uaSelectedUserId = null;
+let uaSelectedCompId = null;
+let uaResultsCache = {};
+let uaResultsLoaded = false;
+let uaTipsByRace = {};
+let uaFormBound = false;
+
+async function initUserAdminPanel() {
+  const select = document.getElementById('user-admin-comp');
+  if (!select) return;
+
+  const previousValue = select.value;
+  select.innerHTML = '<option value="">Select competition...</option>';
+  allComps.forEach(comp => {
+    const option = document.createElement('option');
+    option.value = comp.id;
+    option.textContent = comp.name || comp.id;
+    select.appendChild(option);
+  });
+  if (previousValue && allComps.some(c => c.id === previousValue)) {
+    select.value = previousValue;
+  }
+
+  bindUserAdminForm();
+}
+
+function bindUserAdminForm() {
+  if (uaFormBound) return;
+  uaFormBound = true;
+
+  document.getElementById('user-admin-edit-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (!uaSelectedUserId) return;
+
+    const email = document.getElementById('user-admin-edit-email').value;
+    const firstName = document.getElementById('user-admin-edit-firstName').value;
+    const lastName = document.getElementById('user-admin-edit-lastName').value;
+    const teamName = document.getElementById('user-admin-edit-teamName').value;
+    const paidForComp = document.getElementById('user-admin-edit-paid').checked;
+    const jokersRemaining = Number(document.getElementById('user-admin-edit-joker').value) || 0;
+    const statusEl = document.getElementById('user-admin-save-status');
+
+    statusEl.textContent = 'Saving...';
+    statusEl.className = 'text-sm text-yellow-400';
+
+    try {
+      await supabase.from('users').update({
+        email, first_name: firstName, last_name: lastName, team_name: teamName
+      }).eq('id', uaSelectedUserId);
+
+      if (uaSelectedCompId) {
+        await supabase.from('user_comp_joinings').upsert({
+          id: `${uaSelectedUserId}_${uaSelectedCompId}`,
+          user_id: uaSelectedUserId,
+          comp_id: uaSelectedCompId,
+          payment_status: paidForComp ? 'completed' : 'pending',
+          jokers_remaining: jokersRemaining
+        }, { onConflict: 'user_id,comp_id' });
+      }
+
+      const idx = uaUsers.findIndex(u => u.id === uaSelectedUserId);
+      if (idx !== -1) {
+        uaUsers[idx] = { ...uaUsers[idx], email, first_name: firstName, last_name: lastName, team_name: teamName };
+      }
+      window.filterUserAdminList();
+      statusEl.textContent = 'Saved';
+      statusEl.className = 'text-sm text-green-400';
+    } catch (error) {
+      console.error('Error saving user:', error);
+      statusEl.textContent = 'Error saving';
+      statusEl.className = 'text-sm text-red-400';
+    } finally {
+      setTimeout(() => {
+        if (statusEl.textContent === 'Saved') statusEl.textContent = '';
+      }, 2000);
+    }
+  });
+}
+
+window.handleUserAdminCompChange = async function() {
+  const userSelect = document.getElementById('user-admin-user');
+  uaSelectedCompId = document.getElementById('user-admin-comp')?.value || null;
+  uaSelectedUserId = null;
+  document.getElementById('user-admin-edit-section')?.classList.add('hidden');
+
+  if (!uaSelectedCompId) {
+    userSelect.innerHTML = '<option value="">Select a competition first</option>';
+    userSelect.disabled = true;
+    document.getElementById('user-admin-summary').textContent = 'Choose a competition and a user to begin editing.';
+    return;
+  }
+
+  document.getElementById('user-admin-summary').textContent = 'Choose a user to begin editing.';
+  await loadUsersForUserAdminComp(uaSelectedCompId);
+};
+
+async function loadUsersForUserAdminComp(compId) {
+  const userSelect = document.getElementById('user-admin-user');
+  userSelect.innerHTML = '<option value="">Loading users...</option>';
+  userSelect.disabled = true;
+
+  const { data: joinings } = await supabase.from('user_comp_joinings').select('user_id').eq('comp_id', compId);
+  const userIds = [...new Set((joinings || []).map(j => j.user_id).filter(Boolean))];
+
+  uaUsers = [];
+  if (userIds.length) {
+    const { data: usersData } = await supabase.from('users').select('*').in('id', userIds);
+    uaUsers = usersData || [];
+  }
+  uaUsers.sort((a, b) => (a.team_name || a.email || a.id || '').toLowerCase().localeCompare((b.team_name || b.email || b.id || '').toLowerCase()));
+
+  renderUserAdminOptions(uaUsers);
+  userSelect.disabled = false;
+}
+
+function renderUserAdminOptions(list) {
+  const userSelect = document.getElementById('user-admin-user');
+  userSelect.innerHTML = '<option value="">Select user...</option>';
+  list.forEach(user => {
+    const option = document.createElement('option');
+    option.value = user.id;
+    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    option.textContent = `${user.team_name || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
+    userSelect.appendChild(option);
+  });
+}
+
+window.filterUserAdminList = function() {
+  const q = (document.getElementById('user-admin-search')?.value || '').trim().toLowerCase();
+  const userSelect = document.getElementById('user-admin-user');
+  if (!userSelect) return;
+  const currentValue = userSelect.value;
+
+  const filtered = uaUsers.filter(u => !q ||
+    (u.email && u.email.toLowerCase().includes(q)) ||
+    (u.first_name && u.first_name.toLowerCase().includes(q)) ||
+    (u.last_name && u.last_name.toLowerCase().includes(q)) ||
+    (u.team_name && u.team_name.toLowerCase().includes(q))
+  );
+
+  renderUserAdminOptions(filtered);
+  if (currentValue && Array.from(userSelect.options).some(o => o.value === currentValue)) {
+    userSelect.value = currentValue;
+  }
+};
+
+window.handleUserAdminUserChange = async function() {
+  const userId = document.getElementById('user-admin-user')?.value;
+  if (!userId) {
+    uaSelectedUserId = null;
+    document.getElementById('user-admin-edit-section')?.classList.add('hidden');
+    document.getElementById('user-admin-summary').textContent = 'Choose a user to begin editing.';
+    return;
+  }
+  await selectUserAdminUser(userId);
+};
+
+async function selectUserAdminUser(userId) {
+  uaSelectedUserId = userId;
+  document.getElementById('user-admin-edit-section')?.classList.remove('hidden');
+  document.getElementById('user-admin-save-status').textContent = '';
+
+  const { data: userRow } = await supabase.from('users').select('*').eq('id', userId).single();
+  const user = userRow || {};
+
+  document.getElementById('user-admin-edit-email').value = user.email || '';
+  document.getElementById('user-admin-edit-firstName').value = user.first_name || '';
+  document.getElementById('user-admin-edit-lastName').value = user.last_name || '';
+  document.getElementById('user-admin-edit-teamName').value = user.team_name || '';
+
+  const { data: joining } = await supabase.from('user_comp_joinings')
+    .select('*').eq('user_id', userId).eq('comp_id', uaSelectedCompId).single();
+  document.getElementById('user-admin-edit-paid').checked = joining?.payment_status === 'completed';
+
+  let jokersRemaining = joining?.jokers_remaining;
+  if (jokersRemaining == null) {
+    const { data: comp } = await supabase.from('comps').select('joker_allowance').eq('id', uaSelectedCompId).single();
+    jokersRemaining = comp?.joker_allowance ?? 3;
+  }
+  document.getElementById('user-admin-edit-joker').value = jokersRemaining;
+
+  const compName = allComps.find(c => c.id === uaSelectedCompId)?.name || uaSelectedCompId;
+  document.getElementById('user-admin-summary').textContent =
+    `Editing ${user.team_name || user.email || userId} in ${compName}`;
+
+  await loadUserAdminTips(userId, uaSelectedCompId);
+}
+
+async function loadUaResultsCache() {
+  if (uaResultsLoaded) return;
+  uaResultsCache = {};
+  const { data } = await supabase.from('results').select('*');
+  (data || []).forEach(r => { uaResultsCache[r.race_id || r.id] = r; });
+  uaResultsLoaded = true;
+}
+
+function calculateUaPoints(race, horseId, jokerUsed) {
+  let points = 0;
+  let matched = false;
+  const result = race ? (uaResultsCache[race.id] || null) : null;
+  // If the tipped horse was scratched, points fall to the nominated substitute.
+  const scoredHorseId = resolveScoredHorseId(race, horseId);
+  if (result && scoredHorseId) {
+    if (result.winning_horse_id === scoredHorseId) { points += Number(result.points) || 0; matched = true; }
+    if (result.place1_horse_id === scoredHorseId) { points += Number(result.place1_points) || 0; matched = true; }
+    if (result.place2_horse_id === scoredHorseId) { points += Number(result.place2_points) || 0; matched = true; }
+    if (matched && jokerUsed && points > 0) points *= 2;
+  }
+  return points;
+}
+
+async function loadUserAdminTips(userId, compId) {
+  const tipsDiv = document.getElementById('user-admin-tips-list');
+  if (!compId) {
+    tipsDiv.innerHTML = '<div class="text-gray-400 text-sm">Select a competition to view tips.</div>';
+    return;
+  }
+
+  tipsDiv.innerHTML = '<div class="text-gray-400 text-sm">Loading tips...</div>';
+  await loadUaResultsCache();
+
+  const { data: tipsData } = await supabase.from('tips').select('*').eq('user_id', userId).eq('comp_id', compId);
+  uaTipsByRace = {};
+  (tipsData || []).forEach(t => { uaTipsByRace[t.race_id] = t; });
+
+  const compRaces = allRaces
+    .filter(r => (r.compId || r.comp_id) === compId)
+    .sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`));
+
+  if (!compRaces.length) {
+    tipsDiv.innerHTML = '<div class="text-gray-400 text-sm">No races in this competition yet.</div>';
+    return;
+  }
+
+  tipsDiv.innerHTML = compRaces.map(race => {
+    const tip = uaTipsByRace[race.id];
+    const horseId = tip ? (tip.horse_id || '') : '';
+    const jokerUsed = tip ? tip.joker === true : false;
+    const points = calculateUaPoints(race, horseId, jokerUsed);
+    const horseOptions = Object.entries(race.horses || {})
+      .filter(([, h]) => !h.scratched)
+      .sort((a, b) => (a[1].number || 0) - (b[1].number || 0))
+      .map(([hId, h]) => `<option value="${hId}" ${hId === horseId ? 'selected' : ''}>#${h.number} ${escapeHtml(h.name)}</option>`)
+      .join('');
+
+    return `
+      <div class="bg-gray-800 rounded-lg border border-gray-700 p-3" data-race-row="${race.id}">
+        <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+          <div>
+            <strong class="text-gray-100">${escapeHtml(race.name)}</strong>
+            <div class="text-xs text-gray-500">${race.date} ${race.time}</div>
+          </div>
+          <span class="text-xs px-2 py-1 rounded-full ${points > 0 ? 'bg-green-900/40 text-green-300' : 'bg-gray-700 text-gray-400'}" data-points-for="${race.id}">
+            ${points > 0 ? `Points: ${points}` : 'No points'}
+          </span>
+        </div>
+        <div class="flex items-center flex-wrap gap-2">
+          <select class="form-group !m-0 !w-auto" data-race-id="${race.id}">
+            <option value="">No Tip</option>
+            ${horseOptions}
+          </select>
+          <label class="text-sm text-gray-300 flex items-center gap-1">
+            <input type="checkbox" class="joker-checkbox h-4 w-4" data-race-id="${race.id}" ${jokerUsed ? 'checked' : ''}>
+            Joker
+          </label>
+          <button class="btn-secondary save-tip-btn" data-race-id="${race.id}">Save</button>
+          <span class="text-xs text-gray-400" data-status-for="${race.id}"></span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  tipsDiv.onchange = async function(e) {
+    if (e.target.matches('select[data-race-id], .joker-checkbox[data-race-id]')) {
+      await saveUserAdminTip(e.target.dataset.raceId);
+    }
+  };
+  tipsDiv.onclick = async function(e) {
+    const btn = e.target.closest('.save-tip-btn');
+    if (btn) await saveUserAdminTip(btn.dataset.raceId);
+  };
+}
+
+async function saveUserAdminTip(raceId) {
+  if (!raceId || !uaSelectedUserId || !uaSelectedCompId) return;
+  const tipsDiv = document.getElementById('user-admin-tips-list');
+  const row = tipsDiv.querySelector(`[data-race-row="${raceId}"]`);
+  if (!row) return;
+
+  const select = row.querySelector(`select[data-race-id="${raceId}"]`);
+  const jokerCheckbox = row.querySelector(`.joker-checkbox[data-race-id="${raceId}"]`);
+  const status = row.querySelector(`[data-status-for="${raceId}"]`);
+  const pointsEl = row.querySelector(`[data-points-for="${raceId}"]`);
+
+  const chosenHorseId = select ? select.value : '';
+  const joker = jokerCheckbox ? jokerCheckbox.checked : false;
+
+  status.textContent = 'Saving...';
+
+  try {
+    await supabase.from('tips').upsert({
+      id: `${uaSelectedUserId}_${raceId}`,
+      user_id: uaSelectedUserId,
+      comp_id: uaSelectedCompId,
+      race_id: raceId,
+      horse_id: chosenHorseId || '',
+      timestamp: Date.now(),
+      joker
+    }, { onConflict: 'user_id,race_id' });
+
+    uaTipsByRace[raceId] = { user_id: uaSelectedUserId, comp_id: uaSelectedCompId, race_id: raceId, horse_id: chosenHorseId || '', joker };
+    await recalculateUserAdminPoints(uaSelectedUserId, uaSelectedCompId);
+
+    const points = calculateUaPoints(allRaces.find(r => r.id === raceId), chosenHorseId, joker);
+    if (pointsEl) {
+      pointsEl.textContent = points > 0 ? `Points: ${points}` : 'No points';
+      pointsEl.className = `text-xs px-2 py-1 rounded-full ${points > 0 ? 'bg-green-900/40 text-green-300' : 'bg-gray-700 text-gray-400'}`;
+    }
+    status.textContent = 'Saved';
+    setTimeout(() => { if (status.textContent === 'Saved') status.textContent = ''; }, 1500);
+  } catch (error) {
+    console.error('Error saving tip:', error);
+    status.textContent = 'Error';
+  }
+}
+
+async function recalculateUserAdminPoints(userId, compId) {
+  if (!compId) return;
+  await loadUaResultsCache();
+
+  let totalPoints = 0;
+  let totalWins = 0;
+  for (const race of allRaces) {
+    if ((race.compId || race.comp_id) !== compId) continue;
+    const tip = uaTipsByRace[race.id];
+    const horseId = tip?.horse_id;
+    if (!tip || !horseId) continue;
+    const result = uaResultsCache[race.id] || null;
+    const scoredHorseId = resolveScoredHorseId(race, horseId);
+    if (result?.winning_horse_id === scoredHorseId) totalWins += 1;
+    totalPoints += calculateUaPoints(race, horseId, !!tip.joker);
+  }
+
+  await supabase.from('user_comp_joinings').upsert({
+    id: `${userId}_${compId}`,
+    user_id: userId,
+    comp_id: compId,
+    points: totalPoints,
+    wins: totalWins
+  }, { onConflict: 'user_id,comp_id' });
+}
+
+window.exportUsersCsv = async function() {
+  if (!uaUsers.length) return;
+
+  let paidSet = new Set();
+  if (uaSelectedCompId) {
+    const { data: joinings } = await supabase.from('user_comp_joinings')
+      .select('user_id,payment_status').eq('comp_id', uaSelectedCompId);
+    (joinings || []).forEach(j => { if (j.payment_status === 'completed') paidSet.add(j.user_id); });
+  }
+
+  const header = ['UserID', 'Email', 'First Name', 'Last Name', 'Team Name', 'Paid'];
+  const rows = uaUsers.map(u => [
+    `"${u.id}"`, `"${u.email || ''}"`, `"${u.first_name || ''}"`, `"${u.last_name || ''}"`,
+    `"${u.team_name || ''}"`, paidSet.has(u.id) ? 'true' : 'false'
+  ]);
+  downloadCsv('users.csv', header, rows);
+};
+
+window.exportLadderCsv = async function() {
+  let query = supabase.from('user_comp_joinings').select('user_id,points');
+  if (uaSelectedCompId) query = query.eq('comp_id', uaSelectedCompId);
+  const { data: joinings } = await query;
+  const leaderboard = (joinings || []).sort((a, b) => Number(b.points || 0) - Number(a.points || 0));
+
+  const userIds = [...new Set(leaderboard.map(j => j.user_id).filter(Boolean))];
+  const teamNameById = {};
+  if (userIds.length) {
+    const { data: usersData } = await supabase.from('users').select('id,team_name').in('id', userIds);
+    (usersData || []).forEach(u => { teamNameById[u.id] = u.team_name; });
+  }
+
+  const header = ['Rank', 'Team Name', 'Points'];
+  const rows = leaderboard.map((entry, idx) => [
+    idx + 1, `"${teamNameById[entry.user_id] || entry.user_id || ''}"`, Number(entry.points || 0)
+  ]);
+  downloadCsv('ladder.csv', header, rows);
+};
+
+// ============ LEADERBOARD PANEL ============
+let lbSelectedCompId = null;
+let lbWeekRaceMap = {};
+let lbWeekList = [];
+let lbWeekLeaderboard = {};
+
+async function initLeaderboardPanel() {
+  const select = document.getElementById('lb-comp-select');
+  if (!select) return;
+
+  const previousValue = select.value;
+  select.innerHTML = '<option value="">Select a competition...</option>';
+  allComps.forEach(comp => {
+    const option = document.createElement('option');
+    option.value = comp.id;
+    option.textContent = `${comp.name || comp.id}${comp.status === 'active' ? '' : ' (closed)'}`;
+    select.appendChild(option);
+  });
+
+  if (previousValue && allComps.some(c => c.id === previousValue)) {
+    select.value = previousValue;
+    lbSelectedCompId = previousValue;
+    await loadLeaderboardData();
+    return;
+  }
+
+  const firstActive = allComps.find(c => c.status === 'active') || allComps[0];
+  if (firstActive) {
+    select.value = firstActive.id;
+    lbSelectedCompId = firstActive.id;
+    await loadLeaderboardData();
+  }
+}
+
+window.handleLeaderboardCompChange = async function() {
+  lbSelectedCompId = document.getElementById('lb-comp-select')?.value || null;
+  if (lbSelectedCompId) {
+    await loadLeaderboardData();
+  } else {
+    document.getElementById('lb-leaderboard-body').innerHTML =
+      '<tr><td colspan="3" class="text-center text-gray-400 py-6">Select a competition</td></tr>';
+  }
+};
+
+window.handleLeaderboardWeekChange = function() {
+  renderLeaderboardWeek(document.getElementById('lb-week-select')?.value);
+};
+
+function getLeaderboardWeekNumber(dateStr) {
+  const d = new Date(dateStr);
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const days = Math.floor((d - jan1) / 86400000);
+  return Math.ceil((days + jan1.getDay() + 1) / 7);
+}
+
+async function loadLeaderboardData() {
+  if (!lbSelectedCompId) return;
+  const tbody = document.getElementById('lb-leaderboard-body');
+  tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-400 py-6">Loading...</td></tr>';
+
+  const compRaces = allRaces.filter(r => (r.compId || r.comp_id) === lbSelectedCompId);
+  lbWeekRaceMap = {};
+  compRaces.forEach(race => {
+    if (!race.date) return;
+    const week = getLeaderboardWeekNumber(race.date);
+    if (!lbWeekRaceMap[week]) lbWeekRaceMap[week] = [];
+    lbWeekRaceMap[week].push(race.id);
+  });
+  lbWeekList = Object.keys(lbWeekRaceMap).map(Number).sort((a, b) => a - b);
+
+  if (!lbWeekList.length) {
+    document.getElementById('lb-week-select').innerHTML = '';
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-400 py-6">No races in this competition yet.</td></tr>';
+    return;
+  }
+
+  const { data: usersData } = await supabase.from('users').select('id,team_name,email');
+  const userIdToTeam = {};
+  (usersData || []).forEach(u => { userIdToTeam[u.id] = u.team_name || u.email || u.id; });
+
+  const { data: tipsData } = await supabase.from('tips').select('*').eq('comp_id', lbSelectedCompId);
+  const tips = tipsData || [];
+
+  const { data: resultsData } = await supabase.from('results').select('*');
+  const results = {};
+  (resultsData || []).forEach(r => { results[r.race_id || r.id] = r; });
+
+  lbWeekLeaderboard = {};
+  for (const week of lbWeekList) {
+    const raceIds = lbWeekRaceMap[week];
+    const userPoints = {};
+    for (const tip of tips) {
+      if (!raceIds.includes(tip.race_id)) continue;
+      if (!userPoints[tip.user_id]) userPoints[tip.user_id] = 0;
+      const result = results[tip.race_id];
+      if (!result) continue;
+      // If the tipped horse was scratched, points fall to the nominated substitute.
+      const scoredHorseId = resolveScoredHorseId(allRaces.find(r => r.id === tip.race_id), tip.horse_id);
+      let points = 0;
+      if (scoredHorseId === result.winning_horse_id) points += Number(result.points) || 0;
+      if (scoredHorseId === result.place1_horse_id) points += Number(result.place1_points) || 0;
+      if (scoredHorseId === result.place2_horse_id) points += Number(result.place2_points) || 0;
+      if (tip.joker && points > 0) points *= 2;
+      userPoints[tip.user_id] += points;
+    }
+    lbWeekLeaderboard[week] = Object.keys(userPoints)
+      .map(userId => ({ user: userIdToTeam[userId] || userId, points: userPoints[userId] }))
+      .sort((a, b) => b.points - a.points);
+  }
+
+  const weekSelect = document.getElementById('lb-week-select');
+  const previousWeek = weekSelect.value;
+  weekSelect.innerHTML = '';
+  lbWeekList.forEach(week => {
+    const option = document.createElement('option');
+    option.value = week;
+    option.textContent = `Week ${week}`;
+    weekSelect.appendChild(option);
+  });
+  weekSelect.value = lbWeekList.includes(Number(previousWeek)) ? previousWeek : lbWeekList[0];
+
+  renderLeaderboardWeek(weekSelect.value);
+}
+
+function renderLeaderboardWeek(week) {
+  const tbody = document.getElementById('lb-leaderboard-body');
+  const data = lbWeekLeaderboard[week] || [];
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-400 py-6">No tips recorded for this week.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map((entry, idx) => `
+    <tr>
+      <td>${idx + 1}</td>
+      <td>${escapeHtml(entry.user)}</td>
+      <td>${entry.points}</td>
+    </tr>
+  `).join('');
 }
 
 function getNotificationUserSearchText(user) {
@@ -2497,7 +3096,9 @@ async function loadAdminNotifications() {
   if (!listEl) return;
 
   try {
-    const { data: rows } = await supabase.from('notifications').select('*').order('id', { ascending: false }).limit(30);
+    // Notification IDs are random UUIDs, so ordering by id is not chronological.
+    // The real timestamp lives in the JSONB payload as an ISO string, which sorts chronologically.
+    const { data: rows } = await supabase.from('notifications').select('*').order('data->>createdAt', { ascending: false }).limit(30);
 
     if (!rows?.length) {
       listEl.innerHTML = '<div class="text-sm text-gray-400">No notifications sent yet.</div>';
@@ -2527,6 +3128,7 @@ async function loadAdminNotifications() {
             <div class="font-semibold text-gray-100">${n.title || 'Notification'}</div>
             <div class="text-sm text-gray-300 mt-1">${n.body || ''}</div>
             <div class="text-xs text-gray-500 mt-2">${audience}</div>
+            <div class="text-xs text-gray-500 mt-1" data-stats-for="${n.oneSignalId || ''}">${n.oneSignalId ? 'Loading delivery stats...' : ''}</div>
           </div>
           <div class="text-xs text-gray-500 whitespace-nowrap">${when}</div>
         </div>
@@ -2535,9 +3137,37 @@ async function loadAdminNotifications() {
     });
 
     feather.replace();
+    loadNotificationDeliveryStats(rows.slice(0, 10));
   } catch (error) {
     console.error('Error loading admin notifications:', error);
     listEl.innerHTML = '<div class="text-sm text-red-300">Could not load notifications.</div>';
+  }
+}
+
+async function loadNotificationDeliveryStats(rows) {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  if (!token) return;
+
+  for (const notifRow of rows) {
+    const n = notifRow.data || notifRow;
+    if (!n.oneSignalId) continue;
+    const statsEl = document.querySelector(`[data-stats-for="${n.oneSignalId}"]`);
+    if (!statsEl) continue;
+
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-onesignal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ action: 'notification-stats', notificationId: n.oneSignalId }),
+      });
+      const stats = await response.json();
+      if (!response.ok) throw new Error(stats?.error || 'Failed to load stats');
+
+      statsEl.textContent = `Delivered ${stats.successful ?? 0} · Clicked ${stats.converted ?? 0}${stats.failed ? ` · Failed ${stats.failed}` : ''}`;
+    } catch (error) {
+      statsEl.textContent = '';
+    }
   }
 }
 
@@ -2581,6 +3211,7 @@ window.sendAdminNotification = async function() {
         userId: targetUser?.id || null,
         userDisplayName: targetUser ? formatNotificationUserLabel(targetUser) : null,
         userEmail: targetUser?.email || null,
+        oneSignalId: pushResult.oneSignalId || null,
         createdAt: new Date().toISOString()
       }
     });

@@ -720,14 +720,21 @@
           const place1Name = race.horses?.[place1HorseId]?.name || "—";
           const place2Name = race.horses?.[place2HorseId]?.name || "—";
 
+          // If the tipped horse was scratched, points fall to the nominated substitute.
+          let scoredHorseId = tip.horseId;
+          if (race.horses && tip.horseId && race.horses[tip.horseId]?.scratched) {
+            const sub = Object.entries(race.horses).find(([_, h]) => h.substitute);
+            if (sub) scoredHorseId = sub[0];
+          }
+
           let pts = 0, correct = false;
-          if (tip.horseId === winnerHorseId) {
+          if (scoredHorseId === winnerHorseId) {
             pts = winnerPoints;
             correct = true;
-          } else if (tip.horseId === place1HorseId) {
+          } else if (scoredHorseId === place1HorseId) {
             pts = place1Points;
             correct = true;
-          } else if (tip.horseId === place2HorseId) {
+          } else if (scoredHorseId === place2HorseId) {
             pts = place2Points;
             correct = true;
           }

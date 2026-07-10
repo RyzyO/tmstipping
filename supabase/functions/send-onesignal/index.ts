@@ -8,20 +8,42 @@ const corsHeaders = {
 
 const ONESIGNAL_APP_ID = '6521b586-f3af-4422-b488-449a78cb8a44'
 
-async function sendOneSignalPush(payload: Record<string, unknown>) {
-  const res = await fetch('https://onesignal.com/api/v1/notifications', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Authorization': `Basic ${Deno.env.get('ONESIGNAL_REST_API_KEY')}`,
-    },
-    body: JSON.stringify({ app_id: ONESIGNAL_APP_ID, ...payload }),
-  })
+const ONESIGNAL_AUTH_HEADERS = {
+  'Content-Type': 'application/json; charset=utf-8',
+  'Authorization': `Basic ${Deno.env.get('ONESIGNAL_REST_API_KEY')}`,
+}
+
+async function onesignalRequest(path: string, init?: RequestInit) {
+  const res = await fetch(`https://onesignal.com${path}`, { ...init, headers: ONESIGNAL_AUTH_HEADERS })
   const json = await res.json()
   if (!res.ok) {
     throw new Error(json?.errors?.join?.(', ') || JSON.stringify(json))
   }
   return json
+}
+
+async function sendOneSignalPush(payload: Record<string, unknown>) {
+  return onesignalRequest('/api/v1/notifications', {
+    method: 'POST',
+    body: JSON.stringify({ app_id: ONESIGNAL_APP_ID, ...payload }),
+  })
+}
+
+async function getNotificationStats(notificationId: string) {
+  const json = await onesignalRequest(`/api/v1/notifications/${notificationId}?app_id=${ONESIGNAL_APP_ID}`)
+  return {
+    successful: json?.successful ?? 0,
+    failed: json?.failed ?? 0,
+    converted: json?.converted ?? 0,
+    remaining: json?.remaining ?? 0,
+  }
+}
+
+async function getAppSubscriberCount() {
+  const json = await onesignalRequest(`/api/v1/apps/${ONESIGNAL_APP_ID}`)
+  return {
+    subscribers: json?.messageable_players ?? json?.players ?? 0,
+  }
 }
 
 serve(async (req) => {
@@ -47,6 +69,21 @@ serve(async (req) => {
     }
 
     const body = await req.json()
+    const action = body?.action || 'send'
+
+    if (action === 'notification-stats' || action === 'app-stats') {
+      const { data: adminRow } = await supabase.from('users').select('admin').eq('id', user.id).single()
+      if (!adminRow?.admin) {
+        return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: corsHeaders })
+      }
+      const result = action === 'notification-stats'
+        ? await getNotificationStats(String(body?.notificationId || ''))
+        : await getAppSubscriberCount()
+      return new Response(JSON.stringify({ success: true, ...result }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const title = String(body?.title || '').trim()
     const message = String(body?.body || '').trim()
     const audienceType = body?.audienceType || 'self'
