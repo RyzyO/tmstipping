@@ -1,21 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TMS Tipping</title>
-
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Web app meta -->
-  <link rel="manifest" href="site.webmanifest" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Great Spring Tip Off - By The Mock Sports</title>
+  <link rel="icon" type="image/x-icon" href="icon.png">
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script src="onesignal-init.js" defer></script>
+  
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
    <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" content="#fbbf24">
+  
   
   <!-- Critical CSS inline to avoid FOUC -->
   <style>
@@ -235,25 +234,6 @@
   </div>
 </section>
 
-<!-- Quick Select Competition -->
-<section class="mb-10" data-aos="fade-up">
-  <div class="card rounded-2xl shadow-2xl p-8 md:p-10">
-    <div class="flex flex-col md:flex-row items-center gap-4">
-      <label for="user-comp-select" class="flex items-center gap-2 font-semibold text-gray-300 whitespace-nowrap text-lg md:text-xl">
-        <i data-feather="filter" class="h-5 w-5 text-yellow-400"></i>
-        Select Competition:
-      </label>
-      <select id="user-comp-select" class="flex-1 w-full md:w-auto bg-gray-900 border border-gray-700 text-gray-100 px-4 py-2 rounded-lg focus:outline-none focus:border-yellow-400" onchange="window.handleUserCompSelectionChange()">
-        <option value="">Choose a competition...</option>
-      </select>
-      <button onclick="window.goToTipping()" class="w-full md:w-auto px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition" id="tip-now-btn" style="display: none;">
-        <i data-feather="arrow-right" class="h-4 w-4 inline mr-2"></i>
-        Tip Now
-      </button>
-    </div>
-  </div>
-</section>
-
     <!-- Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
       <div class="stat-card rounded-xl shadow-lg p-6" data-aos="fade-up">
@@ -348,37 +328,23 @@
           </a>
         </div>
       </div>
+      <div id="footer-comp-switcher" class="flex justify-center md:justify-end mt-4"></div>
     </div>
   </footer>
 
  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, getDocs, collection, query, where, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-    import { getAuth, onAuthStateChanged, signOut as firebaseSignOut } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-    import { getMessaging } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-messaging.js";
-    import { initUserNotificationCenter, scheduleRaceReminderNotifications } from "./user-notification-service.js";
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    import { resolveActiveCompId, mountCompFooterSwitcher } from './active-comp.js';
 
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { DateTime } = luxon;
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyCrgNrA4n62hg1U3ujZMRCOYcbLcwT77ZA",
-      authDomain: "tmstipping.firebaseapp.com",
-      projectId: "tmstipping",
-      storageBucket: "tmstipping.appspot.com",
-      messagingSenderId: "401677933527",
-      appId: "1:401677933527:web:2312ad4ef69aef6551c992",
-      measurementId: "G-GXLRCHV687"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    const messaging = getMessaging(app);
+    function scheduleRaceReminderNotifications() {} // stub — FCM not yet migrated
     let currentUser = null;
     let currentUserProfile = null;
     let selectedHomeCompId = null;
     let userCompIds = [];
-    let stopUserNotificationCenter = null;
     const HOME_RACES_CACHE_PREFIX = 'tmstipping:homeRacesCache';
 
     function toggleMenu() {
@@ -386,23 +352,68 @@
       menu.classList.toggle("hidden");
     }
 
-    function signOut() {
-      firebaseSignOut(auth).then(() => {
-        window.location.href = "landing.html";
-      }).catch((error) => {
-        console.error('Sign out error:', error);
-        alert('Error signing out. Please try again.');
-      });
+    async function signOut() {
+      await supabase.auth.signOut();
+      window.location.href = "landing.html";
     }
 
     window.toggleMenu = toggleMenu;
     window.signOut = signOut;
 
-    onAuthStateChanged(auth, async (user) => {
+    const HOME_STATS_CACHE_PREFIX = "tmstipping:homeStats";
+
+    function getOrdinalSuffix(num) {
+      if (typeof num !== 'number' || num < 1) return num;
+      const j = num % 10, k = num % 100;
+      if (j === 1 && k !== 11) return num + "st";
+      if (j === 2 && k !== 12) return num + "nd";
+      if (j === 3 && k !== 13) return num + "rd";
+      return num + "th";
+    }
+
+    function formatRankForDisplay(rawRank) {
+      const rank = Number(rawRank);
+      if (!Number.isFinite(rank) || rank < 1 || rank >= 99999) return "-";
+      return getOrdinalSuffix(rank);
+    }
+
+    function getHomeStatsCacheKey(userId, compId) {
+      return `${HOME_STATS_CACHE_PREFIX}:${userId || 'anon'}:${compId || 'none'}`;
+    }
+
+    function applyCachedHomeStats(userId, compId) {
+      try {
+        const raw = localStorage.getItem(getHomeStatsCacheKey(userId, compId));
+        if (!raw) return;
+        const cached = JSON.parse(raw);
+        if (!cached) return;
+        if (cached.userName) document.getElementById("userName").textContent = cached.userName;
+        if (cached.rank !== undefined) document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(cached.rank);
+        if (cached.wins !== undefined) document.getElementById("wins-count").textContent = cached.wins;
+        if (cached.points !== undefined) document.getElementById("points").textContent = Number(cached.points || 0).toFixed(2);
+      } catch (error) {
+        localStorage.removeItem(getHomeStatsCacheKey(userId, compId));
+      }
+    }
+
+    function saveHomeStatsToCache({ userId, compId, userName, rank, wins, points }) {
+      localStorage.setItem(
+        getHomeStatsCacheKey(userId, compId),
+        JSON.stringify({ userName, rank, wins, points, updatedAt: Date.now() })
+      );
+    }
+
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      const user = session?.user || null;
       if (!user) {
-        window.location.href = "landing.html";
+        if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
+          window.location.href = "landing.html";
+        }
         return;
       }
+      window.TMS_OneSignal?.login(user.id);
+      // Map Supabase user to Firebase-style shape
+      user.uid = user.id;
 
       // Add loading class to prevent scrolling during initial load (will be removed when complete or if cache exists)
       document.body.classList.add('loading');
@@ -412,65 +423,19 @@
 
       currentUser = user;
 
-      const HOME_STATS_CACHE_KEY = "tmstipping:homeStats";
-
-      function getOrdinalSuffix(num) {
-        if (typeof num !== 'number' || num < 1) return num;
-        const j = num % 10, k = num % 100;
-        if (j === 1 && k !== 11) return num + "st";
-        if (j === 2 && k !== 12) return num + "nd";
-        if (j === 3 && k !== 13) return num + "rd";
-        return num + "th";
-      }
-
-      function formatRankForDisplay(rawRank) {
-        const rank = Number(rawRank);
-        if (!Number.isFinite(rank) || rank < 1 || rank >= 99999) {
-          return "-";
-        }
-        return getOrdinalSuffix(rank);
-      }
-
-    function applyCachedHomeStats() {
-      try {
-        const raw = localStorage.getItem(HOME_STATS_CACHE_KEY);
-        if (!raw) return;
-        const cached = JSON.parse(raw);
-        if (!cached) return;
-
-        if (cached.userName) {
-          document.getElementById("userName").textContent = cached.userName;
-        }
-        if (cached.rank !== undefined) {
-          document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(cached.rank);
-        }
-        if (cached.wins !== undefined) {
-          document.getElementById("wins-count").textContent = cached.wins;
-        }
-        if (cached.points !== undefined) {
-          document.getElementById("points").textContent = cached.points;
-        }
-      } catch (error) {
-        localStorage.removeItem(HOME_STATS_CACHE_KEY);
-      }
-    }
-
-    function saveHomeStatsToCache({ userName, rank, wins, points }) {
-      localStorage.setItem(
-        HOME_STATS_CACHE_KEY,
-        JSON.stringify({ userName, rank, wins, points, updatedAt: Date.now() })
-      );
-    }
-
     // Apply cached content IMMEDIATELY - DO NOT AWAIT
-    applyCachedHomeStats();
+    applyCachedHomeStats(currentUser?.uid, selectedHomeCompId);
 
     // Check if we have ANY cached data (stats or races) - if so, hide loading indicator immediately for instant load
     const hasCachedData = (() => {
       try {
         // Check for cached stats
-        const statsRaw = localStorage.getItem(HOME_STATS_CACHE_KEY);
-        if (statsRaw) return true;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(HOME_STATS_CACHE_PREFIX)) {
+            return true;
+          }
+        }
         
         // Also check for any cached races (user might have navigated away before first load completed)
         for (let i = 0; i < localStorage.length; i++) {
@@ -508,28 +473,13 @@
     // Load fresh data in the background (non-blocking)
     Promise.all([
       loadUserCompsToDropdown(currentUser.uid),
-      loadCurrentUserProfile(currentUser.uid)
+      loadCurrentUserProfile(currentUser.uid),
+      mountCompFooterSwitcher(supabase, document.getElementById('footer-comp-switcher'))
     ]).then(() => {
-      // Hide loading indicator once main data loads (if it's still showing)
       const loadingOverlay = document.getElementById('loadingOverlay');
-      if (loadingOverlay) {
-        loadingOverlay.style.display = 'none';
-      }
+      if (loadingOverlay) loadingOverlay.style.display = 'none';
       document.body.classList.remove('loading');
       window.scrollTo(0, 0);
-      
-      // Start notification center after main data loads
-      if (stopUserNotificationCenter) {
-        stopUserNotificationCenter();
-      }
-      return initUserNotificationCenter({
-        db,
-        messaging,
-        user: currentUser,
-        getRelevantCompIds: async () => userCompIds
-      }).then(stopFn => {
-        stopUserNotificationCenter = stopFn;
-      });
     }).catch(error => {
       console.error('Error initializing user features:', error);
       // Hide loading indicator even on error
@@ -541,77 +491,37 @@
       window.scrollTo(0, 0);
     });
 
-    // --- User's Competitions (Replaced by dropdown selector) ---
-    // Old loadUserComps function kept for reference but no longer used
-    async function loadUserComps_deprecated(userId) {
-      // This function has been replaced by loadUserCompsToDropdown
-      // which uses a dropdown selector instead of cards
-    }
-
-    // Load user's competitions into dropdown selector and load default active comp stats
+    // Loads stats/races for whichever comp the user should currently see:
+    // the active comp they've joined that matches the admin-set default (or
+    // footer selection), falling back to their most recent joined active comp.
     async function loadUserCompsToDropdown(userId) {
       try {
-        const select = document.getElementById('user-comp-select');
-        if (!select) return;
-        
-        const joiningsSnap = await getDocs(
-          query(
-            collection(db, 'userCompJoinings'),
-            where('userId', '==', userId),
-            where('paymentStatus', '==', 'completed')
-          )
-        );
-        
-        const compIds = [];
-        joiningsSnap.forEach(doc => {
-          compIds.push(doc.data().compId);
-        });
-        const uniqueCompIds = Array.from(new Set(compIds.filter(Boolean)));
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings')
+          .select('comp_id')
+          .eq('user_id', userId)
+          .eq('payment_status', 'completed');
+
+        const uniqueCompIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
         userCompIds = uniqueCompIds;
-        
-        // Clear existing options except the first one
-        while (select.options.length > 1) {
-          select.remove(1);
-        }
-        
         if (uniqueCompIds.length === 0) return;
-        
-        // Fetch comp details in parallel
-        const compSnaps = await Promise.all(uniqueCompIds.map(compId => getDoc(doc(db, 'comps', compId))));
-        const comps = compSnaps
-          .map((compDoc, idx) => compDoc.exists() ? { id: uniqueCompIds[idx], ...compDoc.data() } : null)
-          .filter(Boolean);
-        
-        // Filter to only active comps
-        const activeComps = comps.filter(c => c.status === 'active');
-        
-        // Sort by start date (most recent first)
-        activeComps.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
-        
-        // Also add completed comps for display
-        const completedComps = comps.filter(c => c.status !== 'active')
-          .sort((a, b) => a.name.localeCompare(b.name));
-        
-        const allComps = [...activeComps, ...completedComps];
-        
-        // Add each comp as an option
-        allComps.forEach(comp => {
-          const option = document.createElement('option');
-          option.value = comp.id;
-          const statusBadge = comp.status === 'active' ? '🎯' : '✓';
-          option.textContent = `${statusBadge} ${comp.name}`;
-          select.appendChild(option);
-        });
-        
-        // Load stats for the most recent active comp by default
-        if (activeComps.length > 0) {
-          const mostRecentActiveComp = activeComps[0];
-          selectedHomeCompId = mostRecentActiveComp.id;
-          await loadCompStats(userId, mostRecentActiveComp.id);
-          await loadRaces(mostRecentActiveComp.id);
-          select.value = mostRecentActiveComp.id;
-          document.getElementById('tip-now-btn').style.display = '';
-        }
+
+        const { data: comps } = await supabase
+          .from('comps')
+          .select('*')
+          .in('id', uniqueCompIds);
+
+        const activeComps = (comps || []).filter(c => c.status === 'active')
+          .sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+        if (activeComps.length === 0) return;
+
+        const preferredCompId = await resolveActiveCompId(supabase);
+        const preferred = activeComps.find(c => c.id === preferredCompId);
+        const chosen = preferred || activeComps[0];
+
+        selectedHomeCompId = chosen.id;
+        await loadCompStats(userId, chosen.id);
+        await loadRaces(chosen.id);
       } catch (error) {
         console.error('Error loading comps to dropdown:', error);
       }
@@ -619,11 +529,12 @@
 
     async function loadCurrentUserProfile(userId) {
       try {
-        const userSnap = await getDoc(doc(db, "users", userId));
-        if (!userSnap.exists()) return;
+        const { data: userData } = await supabase
+          .from('users').select('*').eq('id', userId).single();
+        if (!userData) return;
 
-        currentUserProfile = userSnap.data();
-        const silkNumber = currentUserProfile.silk || 1;
+        currentUserProfile = userData;
+        const silkNumber = userData.silk || 1;
         const silkImg = document.getElementById("welcomeSilk");
         silkImg.src = `static/silks/${silkNumber}.png`;
         silkImg.style.display = "block";
@@ -632,57 +543,37 @@
       }
     }
 
-    window.handleUserCompSelectionChange = async function() {
-      const select = document.getElementById('user-comp-select');
-      const tipBtn = document.getElementById('tip-now-btn');
-      const compId = select ? select.value : null;
-      
-      if (compId) {
-        selectedHomeCompId = compId;
-        // Show the tip now button
-        tipBtn.style.display = '';
-        // Load comp-specific stats
-        await loadCompStats(currentUser.uid, compId);
-        await loadRaces(compId);
-      } else {
-        selectedHomeCompId = null;
-        // Hide the tip now button
-        tipBtn.style.display = 'none';
-        document.getElementById("leaderboard-rank").textContent = "-";
-        document.getElementById("wins-count").textContent = 0;
-        document.getElementById("points").textContent = "0.00";
-        await loadRaces();
-      }
-    };
-
-    window.goToTipping = function() {
-      const select = document.getElementById('user-comp-select');
-      const compId = select ? select.value : null;
-      if (compId) {
-        window.location.href = `tipdark.html?compId=${compId}`;
-      }
-    };
-
     // Load competition-specific stats
     async function loadCompStats(userId, compId) {
       try {
-        const joiningSnap = await getDoc(doc(db, "userCompJoinings", `${userId}_${compId}`));
-        const userData = currentUserProfile || {};
-        const joining = joiningSnap.exists() ? joiningSnap.data() : {};
+        applyCachedHomeStats(userId, compId);
 
-        const userName = userData.teamName || currentUser.displayName || currentUser.email || "Guest";
-        const userRank = joining.rank;
-        const wins = joining.wins || 0;
+        const [{ data: joiningRow }, { data: allJoinings }] = await Promise.all([
+          supabase.from('user_comp_joinings').select('*').eq('user_id', userId).eq('comp_id', compId).single(),
+          supabase.from('user_comp_joinings').select('user_id,points,wins,winners').eq('comp_id', compId).eq('payment_status', 'completed')
+        ]);
+
+        const userData = currentUserProfile || {};
+        const joining = joiningRow || {};
+        const userName = userData.team_name || currentUser.email || "Guest";
+        const wins = Number(joining.wins ?? joining.winners ?? 0) || 0;
         const points = Number(joining.points || 0);
 
-        // Update display
+        const sortedEntries = (allJoinings || [])
+          .filter(e => !!e.user_id)
+          .sort((a, b) => {
+            const diff = Number(b.points || 0) - Number(a.points || 0);
+            return diff !== 0 ? diff : Number(b.wins ?? b.winners ?? 0) - Number(a.wins ?? a.winners ?? 0);
+          });
+
+        let userRank = sortedEntries.findIndex(e => e.user_id === userId) + 1;
+        if (!userRank) userRank = Number(joining.rank || 0) || null;
+
         document.getElementById("userName").textContent = userName;
         document.getElementById("leaderboard-rank").textContent = formatRankForDisplay(userRank);
         document.getElementById("wins-count").textContent = wins;
         document.getElementById("points").textContent = points.toFixed(2);
-        
-        // Save to cache for instant loads on return visits
-        saveHomeStatsToCache({ userName, rank: userRank, wins, points });
+        saveHomeStatsToCache({ userId, compId, userName, rank: userRank, wins, points });
       } catch (error) {
         console.error('Error loading comp stats:', error);
         document.getElementById("leaderboard-rank").textContent = "-";
@@ -724,36 +615,23 @@
     }
 
     async function fetchRacesAndTipsForComp(compId) {
-      const tipsPromise = currentUser
-        ? getDocs(
-            query(
-              collection(db, "tips"),
-              where("userId", "==", currentUser.uid),
-              where("compId", "==", compId)
-            )
-          )
-        : Promise.resolve(null);
-
-      const racesPromise = getDocs(query(collection(db, "races"), where("compId", "==", compId)));
-      const [tipsSnap, racesSnap] = await Promise.all([tipsPromise, racesPromise]);
+      const [racesRes, tipsRes] = await Promise.all([
+        supabase.from('races').select('*').eq('comp_id', compId),
+        currentUser
+          ? supabase.from('tips').select('*').eq('user_id', currentUser.uid).eq('comp_id', compId)
+          : Promise.resolve({ data: [] })
+      ]);
 
       const tipByRace = {};
       const tipsMap = new Set();
-      if (tipsSnap) {
-        tipsSnap.forEach((tipDoc) => {
-          const tipData = tipDoc.data();
-          if (tipData?.raceId) {
-            tipsMap.add(tipData.raceId);
-            tipByRace[tipData.raceId] = tipData;
-          }
-        });
+      for (const tip of (tipsRes.data || [])) {
+        if (tip.race_id) {
+          tipsMap.add(tip.race_id);
+          tipByRace[tip.race_id] = { ...tip, raceId: tip.race_id, horseId: tip.horse_id, userId: tip.user_id, compId: tip.comp_id };
+        }
       }
 
-      const races = [];
-      racesSnap.forEach(docSnap => {
-        races.push({ id: docSnap.id, ...docSnap.data() });
-      });
-
+      const races = (racesRes.data || []).map(r => ({ ...r, compId: r.comp_id }));
       return { races, tipsMap, tipByRace };
     }
 
@@ -894,7 +772,6 @@
       // Always refresh in background and repaint with newest data.
       const fresh = await fetchRacesAndTipsForComp(compId);
       renderRacesGrid(compId, fresh.races, fresh.tipsMap, fresh.tipByRace);
-      scheduleRaceReminderNotifications(fresh.races, { compId });
       if (currentUser) {
         writeHomeRacesCache(currentUser.uid, compId, fresh.races, fresh.tipByRace);
       }
