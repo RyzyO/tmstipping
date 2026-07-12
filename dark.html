@@ -13,6 +13,7 @@
    <link rel="apple-touch-icon" href="icon.png">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <link rel="manifest" href="/site.webmanifest">
+  
   <meta name="theme-color" content="#fbbf24">
   
   
@@ -854,6 +855,93 @@
       const timer = setInterval(update, 1000);
     }
     });
+  </script>
+
+  <!-- PWA Install Prompt -->
+  <div id="pwa-install-popup" style="display:none; position:fixed; left:0; right:0; bottom:0; z-index:9999; padding:16px; box-sizing:border-box;">
+    <div style="max-width:420px; margin:0 auto; background:#1f2937; border:1px solid #374151; border-radius:12px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,0.5); display:flex; align-items:center; gap:12px;">
+      <img src="icon.png" alt="" style="width:44px; height:44px; border-radius:10px; flex-shrink:0;">
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600; font-size:14px; color:#f3f4f6;">Install The Great Spring Tip Off</div>
+        <div id="pwa-install-desc" style="font-size:12px; color:#9ca3af; margin-top:2px;">Add this app to your home screen for quick access.</div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+        <button id="pwa-install-btn" style="background:#fbbf24; color:#111827; border:none; border-radius:8px; padding:8px 14px; font-weight:600; font-size:13px; cursor:pointer; white-space:nowrap;">Install</button>
+        <button id="pwa-install-dismiss" style="background:transparent; color:#9ca3af; border:none; font-size:12px; cursor:pointer;">Not now</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var STORAGE_KEY = 'pwaInstallDismissedAt';
+    var DISMISS_DAYS = 14;
+
+    function isStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
+    }
+
+    function recentlyDismissed() {
+      var ts = localStorage.getItem(STORAGE_KEY);
+      if (!ts) return false;
+      var elapsedDays = (Date.now() - parseInt(ts, 10)) / (1000 * 60 * 60 * 24);
+      return elapsedDays < DISMISS_DAYS;
+    }
+
+    if (isStandalone() || recentlyDismissed()) return;
+
+    var isIOS = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    var popup = document.getElementById('pwa-install-popup');
+    var desc = document.getElementById('pwa-install-desc');
+    var installBtn = document.getElementById('pwa-install-btn');
+    var dismissBtn = document.getElementById('pwa-install-dismiss');
+    var deferredPrompt = null;
+
+    function showPopup() {
+      popup.style.display = 'block';
+    }
+
+    function hidePopup(remember) {
+      popup.style.display = 'none';
+      if (remember) localStorage.setItem(STORAGE_KEY, String(Date.now()));
+    }
+
+    dismissBtn.addEventListener('click', function () {
+      hidePopup(true);
+    });
+
+    if (isIOS) {
+      desc.textContent = 'Tap the Share icon, then "Add to Home Screen".';
+      installBtn.textContent = 'Got it';
+      installBtn.addEventListener('click', function () {
+        hidePopup(true);
+      });
+      setTimeout(showPopup, 2000);
+    } else {
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        setTimeout(showPopup, 2000);
+      });
+
+      installBtn.addEventListener('click', function () {
+        if (!deferredPrompt) {
+          hidePopup(false);
+          return;
+        }
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.finally(function () {
+          deferredPrompt = null;
+          hidePopup(true);
+        });
+      });
+
+      window.addEventListener('appinstalled', function () {
+        hidePopup(true);
+      });
+    }
+  })();
   </script>
 </body>
 </html>

@@ -44,6 +44,7 @@
       background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
       border: 1px solid rgba(75, 85, 99, 0.4);
       transition: all 0.2s ease;
+      overflow: hidden;
     }
     .leaderboard-card:hover {
       border-color: rgba(251, 191, 36, 0.5);
@@ -494,8 +495,8 @@
               <div class="rank-badge ${rankBadgeClass}" style="width: 2.25rem; height: 2.25rem; font-size: 0.875rem;">${i + 1}</div>
               <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover object-top border border-gray-600 flex-shrink-0">
               <div class="flex-1 min-w-0">
-                <h4 class="font-bold text-gray-100 truncate flex items-center gap-1">
-                  <span>${entry.teamName || entry.userId}</span>
+                <h4 class="font-bold text-gray-100 flex items-center gap-1">
+                  <span class="truncate min-w-0">${entry.teamName || entry.userId}</span>
                   ${isVerified ? '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#1DA1F2"/><path d="M9.5 14.5L6 11L7.5 9.5L9.5 11.5L14.5 6.5L16 8L9.5 14.5Z" fill="white"/></svg>' : ''}
                   ${isDeveloper ? '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#10B981"/><path d="M8 7L6 11L8 15M14 7L16 11L14 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
                 </h4>
