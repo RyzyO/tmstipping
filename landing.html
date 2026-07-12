@@ -345,10 +345,23 @@
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        window.location.href = "dark.html";
+    // Only redirect on a session Supabase has actually verified with the server —
+    // trusting the cached session straight off onAuthStateChange's INITIAL_SESSION
+    // event caused a redirect loop with dark.html when that cached token was stale:
+    // landing.html would send a stale-but-present session to dark.html, dark.html's
+    // own verification would then fail and bounce back here, and back again.
+    async function redirectIfSignedIn() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) window.location.href = "dark.html";
+      } catch (err) {
+        console.warn('Session check failed, staying on landing page:', err.message);
       }
+    }
+    redirectIfSignedIn();
+
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') redirectIfSignedIn();
     });
   </script>
 

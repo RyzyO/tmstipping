@@ -4236,30 +4236,31 @@ window.selectRARace = function(idx) {
   enrichRAHorsesInBackground(race.horses, race.sourceUrl);
 };
 
-// Fetch the raw meeting HTML and map each runner's normalized name → HorseFullForm
-// query string (horseHref). Names are unique across a meeting, so this is collision-free.
+// Map each runner's normalized name → an absolute HorseFullForm URL (horseHref).
+//
+// Form.aspx (the page races/horses get parsed from) apparently injects its horse
+// links client-side via JS — they're absent from both the raw HTML our proxies
+// fetch AND Jina's markdown rendering of that page, so scraping Form.aspx itself
+// for links doesn't work. Acceptances.aspx, RA's sibling page for the same
+// meeting, renders reliably in Jina's markdown as real "[Name](HorseFullForm...)"
+// links (see parseRAAcceptancesFromMarkdown), so we fetch that instead and reuse
+// the already-proven parser rather than re-inventing link extraction here.
 async function fetchRAHorseHrefs(meetingUrl) {
-  const html = await fetchHtmlViaProxy(meetingUrl.split('#')[0], 'ra-href-resolve', true);
   const map = new Map();
+  const acceptancesUrl = meetingUrl.replace(/Form\.aspx/i, 'Acceptances.aspx');
+  if (acceptancesUrl === meetingUrl) return map; // not a Form.aspx URL, nothing to swap
 
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
+  const markdown = await fetchHtmlViaProxy(acceptancesUrl, 'ra-href-resolve-acceptances', false);
+  const races = parseRAAcceptancesFromMarkdown(markdown, acceptancesUrl);
 
-  // Each runner name is an <a> linking to HorseFullForm.aspx (via href or onclick)
-  const links = doc.querySelectorAll('a');
-  for (const a of links) {
-    const href    = a.getAttribute('href') || '';
-    const onclick = a.getAttribute('onclick') || '';
-    const m = (href + '|' + onclick).match(/HorseFullForm\.aspx\?([^"'\s|)]+)/i);
-    if (!m) continue;
-    const name = (a.textContent || '').trim();
-    const key = normalizeHorseName(name);
-    if (key && !map.has(key)) map.set(key, m[1]);
+  for (const race of races) {
+    for (const horse of race.horses) {
+      if (!horse.horseHref) continue;
+      const key = normalizeHorseName(horse.name);
+      if (key && !map.has(key)) map.set(key, horse.horseHref);
+    }
   }
 
-  // Fallback for proxied HTML where anchors are flattened: pair each HorseFullForm
-  // query with the nearest preceding capitalised horse name isn't reliable, so we
-  // only use the anchor-based map above. If empty, the caller degrades gracefully.
   return map;
 }
 
@@ -4269,9 +4270,9 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
   const barEl     = document.getElementById('ra-enrich-bar');
 
   // Races are parsed from Jina markdown, which has no horse links — so horseHref
-  // is empty. Resolve it from the raw meeting HTML (allorigins) so we can fetch
-  // each horse's form page for silks + prizemoney. Best-effort: if the raw proxy
-  // is unavailable, silks simply won't populate but the rest still works.
+  // is empty. Resolve it from the raw meeting HTML so we can fetch each horse's
+  // form page for silks + prizemoney.
+  let hrefResolveError = null;
   if (!horses.some(h => h.horseHref) && sourceUrl) {
     statusEl.classList.remove('hidden');
     if (msgEl) msgEl.textContent = 'Resolving horse links for silks…';
@@ -4284,11 +4285,19 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
       }
     } catch (err) {
       console.warn('[enrichRA] could not resolve horse hrefs:', err.message);
+      hrefResolveError = err.message;
     }
   }
 
   const enrichable = horses.filter(h => h.horseHref);
-  if (!enrichable.length) { statusEl.classList.add('hidden'); return; }
+  if (!enrichable.length) {
+    if (msgEl) msgEl.textContent = hrefResolveError
+      ? `Couldn't load silks: ${hrefResolveError}`
+      : "Couldn't match any horses to silk links — you'll need to add silks manually for this race.";
+    showNotification('Silk auto-fetch failed for this race — add silks manually or retry.', 'error', 'form-notifications');
+    setTimeout(() => statusEl.classList.add('hidden'), 6000);
+    return;
+  }
 
   statusEl.classList.remove('hidden');
   barEl.style.width = '0%';
@@ -4312,7 +4321,7 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
       // Jina-first (preferRaw=false): the silk image URL and prizemoney are present in
       // Jina's markdown, and this avoids the slow allorigins timeout that stalls
       // production when that proxy is down.
-      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, true);
+      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, false);
 
       // Silk ID
       const silkM = horseHtml.match(/JockeySilks\/(\d+)\.png/i);
