@@ -202,6 +202,38 @@
     </div>
   </div>
 
+  <!-- Profile completion modal -->
+  <div id="profile-complete-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; padding:16px;">
+    <div class="card rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+      <h2 class="text-xl font-bold text-gray-100 mb-2">Just a couple more details</h2>
+      <p class="text-gray-400 text-sm mb-6">We're finishing the setup of your account — pop in your tipper details below to get your leaderboard name showing correctly.</p>
+      <form id="profile-complete-form" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="pc-firstName" class="block text-sm font-semibold text-gray-300 mb-2">First Name</label>
+            <input type="text" id="pc-firstName" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500">
+          </div>
+          <div>
+            <label for="pc-lastName" class="block text-sm font-semibold text-gray-300 mb-2">Last Name</label>
+            <input type="text" id="pc-lastName" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500">
+          </div>
+        </div>
+        <div>
+          <label for="pc-teamName" class="block text-sm font-semibold text-gray-300 mb-2">Tipper Name (Leaderboard)</label>
+          <input type="text" id="pc-teamName" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500">
+        </div>
+        <div>
+          <label for="pc-dob" class="block text-sm font-semibold text-gray-300 mb-2">Date of Birth</label>
+          <input type="date" id="pc-dob" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100">
+        </div>
+        <button type="submit" class="w-full py-3 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-bold hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 shadow-lg shadow-yellow-900/30">
+          Save & Continue
+        </button>
+        <div id="profile-complete-error" class="text-center text-sm min-h-[20px] text-red-400 font-medium"></div>
+      </form>
+    </div>
+  </div>
+
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
@@ -243,7 +275,11 @@
         errorMessage.textContent = "Invalid email or password.";
       } else {
         await ensureUserProfile(signInData.user);
-        window.location.href = getSafeRedirectTarget();
+        if (NEEDS_PROFILE_COMPLETION.has(signInData.user.id)) {
+          promptProfileCompletion(signInData.user);
+        } else {
+          window.location.href = getSafeRedirectTarget();
+        }
       }
     });
 
@@ -265,6 +301,51 @@
         joker: 3,
         paid: false
       }, { onConflict: 'id' });
+    }
+
+    // A handful of accounts from an earlier signup step never had their
+    // tipper details captured. Ask for them once, framed as finishing setup.
+    const NEEDS_PROFILE_COMPLETION = new Set([
+      '36286641-fb17-41c0-a83b-271dd1f254dc', // jackkennedy25@outlook.com
+      '9ec5115f-816d-4da1-a6ed-f76811876879', // lachlan.howard161@gmail.com
+      '820d47f4-b527-466e-b841-1f8f66571f9e', // billyg_21@outlook.com
+      '8c6b402f-a5c1-438e-9ba5-88986ecdc683', // elegantnoble1@gmail.com
+      '14c7d92a-c7ba-4080-b728-00739587dbc1'  // paulkabalan07@icloud.com
+    ]);
+
+    const profileModal = document.getElementById('profile-complete-modal');
+    const profileForm = document.getElementById('profile-complete-form');
+    const profileError = document.getElementById('profile-complete-error');
+
+    function promptProfileCompletion(user) {
+      profileModal.style.display = 'flex';
+
+      profileForm.onsubmit = async (e) => {
+        e.preventDefault();
+        profileError.textContent = '';
+
+        const firstName = document.getElementById('pc-firstName').value.trim();
+        const lastName = document.getElementById('pc-lastName').value.trim();
+        const teamName = document.getElementById('pc-teamName').value.trim();
+        const dob = document.getElementById('pc-dob').value;
+
+        const { error: updateError } = await supabase.from('users').update({
+          first_name: firstName,
+          last_name: lastName,
+          team_name: teamName,
+          dob
+        }).eq('id', user.id);
+
+        if (updateError) {
+          console.error('Profile completion error:', updateError.message);
+          profileError.textContent = 'Something went wrong saving your details — please try again.';
+          return;
+        }
+
+        NEEDS_PROFILE_COMPLETION.delete(user.id);
+        profileModal.style.display = 'none';
+        window.location.href = getSafeRedirectTarget();
+      };
     }
 
     forgotPasswordLink.addEventListener('click', async (e) => {
