@@ -311,17 +311,16 @@
 
         const user = signUpData.user;
 
-        const { error: insertError } = await supabase.from('users').insert({
+        const { error: insertError } = await supabase.from('users').upsert({
           id: user.id,
           first_name: firstName,
           last_name: lastName,
           team_name: teamName,
           email,
           dob,
-          state,
           joker: 3,
           paid: false
-        });
+        }, { onConflict: 'id' });
 
         if (insertError) throw insertError;
 

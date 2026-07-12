@@ -236,15 +236,36 @@
       const email = loginForm['email'].value;
       const password = loginForm['password'].value;
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         console.error('Login error:', error.message);
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
         errorMessage.textContent = "Invalid email or password.";
       } else {
+        await ensureUserProfile(signInData.user);
         window.location.href = getSafeRedirectTarget();
       }
     });
+
+    // Safety net: if a signup ever left an auth account without a matching
+    // public.users row (e.g. a broken insert before the DB trigger existed),
+    // create it here from the auth metadata instead of leaving them broken.
+    async function ensureUserProfile(user) {
+      if (!user) return;
+      const { data: existing } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle();
+      if (existing) return;
+
+      const meta = user.user_metadata || {};
+      await supabase.from('users').upsert({
+        id: user.id,
+        first_name: meta.first_name || null,
+        last_name: meta.last_name || null,
+        team_name: meta.team_name || null,
+        email: user.email,
+        joker: 3,
+        paid: false
+      }, { onConflict: 'id' });
+    }
 
     forgotPasswordLink.addEventListener('click', async (e) => {
       e.preventDefault();
