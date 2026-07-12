@@ -474,7 +474,7 @@
         tr.onclick = () => loadUserResults(entry);
         tr.setAttribute('role', 'button');
         tr.setAttribute('tabindex', '0');
-        tr.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
+        tr.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points.toFixed(2)} points, click to view details`);
         tr.addEventListener('keypress', (e) => {
           if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
         });
@@ -517,7 +517,7 @@
         card.onclick = () => loadUserResults(entry);
         card.setAttribute('role', 'button');
         card.setAttribute('tabindex', '0');
-        card.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points} points, click to view details`);
+        card.setAttribute('aria-label', `${entry.teamName || entry.userId}, ${entry.points.toFixed(2)} points, click to view details`);
         card.addEventListener('keypress', (e) => {
           if (e.key === 'Enter' || e.key === ' ') loadUserResults(entry);
         });

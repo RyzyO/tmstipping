@@ -103,7 +103,7 @@ function renderLeaderboard(week) {
         tr.innerHTML = `
             <td>${idx + 1}</td>
             <td>${entry.user}</td>
-            <td>${entry.points}</td>
+            <td>${entry.points.toFixed(2)}</td>
         `;
         tbody.appendChild(tr);
     });

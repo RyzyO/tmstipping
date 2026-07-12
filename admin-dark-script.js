@@ -2715,7 +2715,7 @@ async function loadUserAdminTips(userId, compId) {
             <div class="text-xs text-gray-500">${race.date} ${race.time}</div>
           </div>
           <span class="text-xs px-2 py-1 rounded-full ${points > 0 ? 'bg-green-900/40 text-green-300' : 'bg-gray-700 text-gray-400'}" data-points-for="${race.id}">
-            ${points > 0 ? `Points: ${points}` : 'No points'}
+            ${points > 0 ? `Points: ${points.toFixed(2)}` : 'No points'}
           </span>
         </div>
         <div class="flex items-center flex-wrap gap-2">
@@ -2777,7 +2777,7 @@ async function saveUserAdminTip(raceId) {
 
     const points = calculateUaPoints(allRaces.find(r => r.id === raceId), chosenHorseId, joker);
     if (pointsEl) {
-      pointsEl.textContent = points > 0 ? `Points: ${points}` : 'No points';
+      pointsEl.textContent = points > 0 ? `Points: ${points.toFixed(2)}` : 'No points';
       pointsEl.className = `text-xs px-2 py-1 rounded-full ${points > 0 ? 'bg-green-900/40 text-green-300' : 'bg-gray-700 text-gray-400'}`;
     }
     status.textContent = 'Saved';
@@ -2987,7 +2987,7 @@ function renderLeaderboardWeek(week) {
     <tr>
       <td>${idx + 1}</td>
       <td>${escapeHtml(entry.user)}</td>
-      <td>${entry.points}</td>
+      <td>${entry.points.toFixed(2)}</td>
     </tr>
   `).join('');
 }
