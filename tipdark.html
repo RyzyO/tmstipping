@@ -51,6 +51,10 @@
       100% { background-position: -200% 0; }
     }
     .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 2rem;
+      border-radius: 0.6rem !important;
       background: rgba(217, 119, 6, 0.2);
       border: 1px solid rgba(251, 191, 36, 0.3);
     }
@@ -132,18 +136,32 @@
       box-shadow: 0 4px 12px rgba(251, 191, 36, 0.25);
     }
     .tipped-chip {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       max-width: 11rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      padding: 0.25rem 0.65rem;
-      border-radius: 9999px;
+      height: 2rem;
+      padding: 0 0.65rem 0 0.3rem;
+      border-radius: 0.6rem;
       font-size: 0.7rem;
       font-weight: 600;
       color: #86efac;
       background: rgba(22, 101, 52, 0.4);
       border: 1px solid rgba(74, 222, 128, 0.35);
+    }
+    .tipped-chip .tipped-chip-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tipped-chip-silk {
+      width: 1.15rem;
+      height: 1.15rem;
+      border-radius: 0.3rem;
+      object-fit: cover;
+      object-position: top center;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.08);
     }
     .race-watermark {
       position: absolute;
@@ -524,6 +542,16 @@
       return { races, tipsMap, tipByRace };
     }
 
+    function getSilkUrl(horse, raceName) {
+      if (!horse) return '';
+      if (horse.silksId) {
+        return `https://www.racingaustralia.horse/JockeySilks/${horse.silksId}.png`;
+      }
+      if (horse.silkUrl) return horse.silkUrl;
+      const venueName = (raceName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return horse.number ? `https://content.tab.com.au/content/dam/tab-corp/silks/${venueName}/${horse.number}.png` : '';
+    }
+
     function renderTipRacesGrid(races, tipsMap, tipByRace) {
       const grid=document.getElementById('raceGrid');
       grid.innerHTML="";
@@ -556,9 +584,11 @@
         if(n.includes("valley")) photo="valley.jpg"; else if(n.includes("randwick")) photo="randwick.jpg"; else if(n.includes("rosehill")) photo="rosehill.jpg"; else if(n.includes("caulfield")) photo="caulfield.jpg"; else if(n.includes("flemington")) photo="flemington.jpg";
         const isLocked=now>=dt; const timerId="timer-"+race.id; const tipped=tipsMap.has(race.id);
         const tipData=tipByRace[race.id]||null;
+        const tippedHorse=tipped ? (race.horses?.[tipData?.horseId] || null) : null;
         const tippedHorseName=tipped
-          ? ((tipData?.horseId && race.horses?.[tipData.horseId]?.name) || tipData?.horse || tipData?.horseName || "")
+          ? (tippedHorse?.name || tipData?.horse || tipData?.horseName || "")
           : "";
+        const tippedSilkUrl = tipped ? getSilkUrl(tippedHorse, race.name) : "";
         const previewUrl=(race.preview||"").trim(); const hasPreview=previewUrl.length>0;
 
         // Extract race number from race name
@@ -577,7 +607,7 @@
             <div class="flex items-center gap-2 mb-3 flex-wrap">
               ${raceNum ? `<span class="race-chip">R${raceNum}</span>` : ''}
               <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap">${race.type||"Open"}</span>
-              ${tipped && tippedHorseName ? `<span class="tipped-chip">✓ ${tippedHorseName}</span>` : ''}
+              ${tipped && tippedHorseName ? `<span class="tipped-chip">${tippedSilkUrl ? `<img src="${tippedSilkUrl}" alt="" class="tipped-chip-silk" onerror="this.style.display='none'">` : ''}<span class="tipped-chip-name">${tippedHorse?.number ? `#${tippedHorse.number} ` : ''}${tippedHorseName}</span></span>` : ''}
             </div>
             <h3 class="text-lg font-bold text-white mb-1.5 leading-snug">${race.name}</h3>
             <div class="flex items-center text-sm text-gray-300 mb-4">

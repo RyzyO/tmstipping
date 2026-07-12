@@ -137,6 +137,10 @@
       100% { background-position: -200% 0; }
     }
     .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 2rem;
+      border-radius: 0.6rem !important;
       background: rgba(217, 119, 6, 0.2);
       border: 1px solid rgba(251, 191, 36, 0.3);
     }
@@ -167,18 +171,32 @@
       box-shadow: 0 4px 12px rgba(251, 191, 36, 0.25);
     }
     .tipped-chip {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       max-width: 11rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      padding: 0.25rem 0.65rem;
-      border-radius: 9999px;
+      height: 2rem;
+      padding: 0 0.65rem 0 0.3rem;
+      border-radius: 0.6rem;
       font-size: 0.7rem;
       font-weight: 600;
       color: #86efac;
       background: rgba(22, 101, 52, 0.4);
       border: 1px solid rgba(74, 222, 128, 0.35);
+    }
+    .tipped-chip .tipped-chip-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tipped-chip-silk {
+      width: 1.15rem;
+      height: 1.15rem;
+      border-radius: 0.3rem;
+      object-fit: cover;
+      object-position: top center;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.08);
     }
     .race-watermark {
       position: absolute;
@@ -382,6 +400,7 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     import { resolveActiveCompId, mountCompFooterSwitcher } from './active-comp.js';
+    import { guardedRedirect, clearRedirectGuard } from './auth-redirect-guard.js';
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { DateTime } = luxon;
@@ -407,6 +426,16 @@
     window.signOut = signOut;
 
     const HOME_STATS_CACHE_PREFIX = "tmstipping:homeStats";
+
+    function getSilkUrl(horse, raceName) {
+      if (!horse) return '';
+      if (horse.silksId) {
+        return `https://www.racingaustralia.horse/JockeySilks/${horse.silksId}.png`;
+      }
+      if (horse.silkUrl) return horse.silkUrl;
+      const venueName = (raceName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return horse.number ? `https://content.tab.com.au/content/dam/tab-corp/silks/${venueName}/${horse.number}.png` : '';
+    }
 
     function getOrdinalSuffix(num) {
       if (typeof num !== 'number' || num < 1) return num;
@@ -449,14 +478,24 @@
       );
     }
 
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      const user = session?.user || null;
-      if (!user) {
-        if (event === 'SIGNED_OUT' || event === 'INITIAL_SESSION') {
-          window.location.href = "landing.html";
-        }
-        return;
-      }
+    // A handful of accounts from an earlier signup step never had their
+    // tipper details captured. Ask for them once, framed as finishing setup.
+    // Must be declared before startHomeApp runs: checkProfileCompletion reads
+    // it early in that function, and a later const in the same scope is in its
+    // temporal dead zone at that point (ReferenceError that killed page init).
+    const NEEDS_PROFILE_COMPLETION = new Set([
+      '36286641-fb17-41c0-a83b-271dd1f254dc', // jackkennedy25@outlook.com
+      '9ec5115f-816d-4da1-a6ed-f76811876879', // lachlan.howard161@gmail.com
+      '820d47f4-b527-466e-b841-1f8f66571f9e', // billyg_21@outlook.com
+      '8c6b402f-a5c1-438e-9ba5-88986ecdc683', // elegantnoble1@gmail.com
+      '14c7d92a-c7ba-4080-b728-00739587dbc1'  // paulkabalan07@icloud.com
+    ]);
+
+    let appStarted = false;
+    async function startHomeApp(user) {
+      if (appStarted) return;
+      appStarted = true;
+      clearRedirectGuard();
       window.TMS_OneSignal?.login(user.id);
       // Map Supabase user to Firebase-style shape
       user.uid = user.id;
@@ -538,16 +577,6 @@
       document.body.classList.remove('loading');
       window.scrollTo(0, 0);
     });
-
-    // A handful of accounts from an earlier signup step never had their
-    // tipper details captured. Ask for them once, framed as finishing setup.
-    const NEEDS_PROFILE_COMPLETION = new Set([
-      '36286641-fb17-41c0-a83b-271dd1f254dc', // jackkennedy25@outlook.com
-      '9ec5115f-816d-4da1-a6ed-f76811876879', // lachlan.howard161@gmail.com
-      '820d47f4-b527-466e-b841-1f8f66571f9e', // billyg_21@outlook.com
-      '8c6b402f-a5c1-438e-9ba5-88986ecdc683', // elegantnoble1@gmail.com
-      '14c7d92a-c7ba-4080-b728-00739587dbc1'  // paulkabalan07@icloud.com
-    ]);
 
     function checkProfileCompletion(user) {
       if (!user || !NEEDS_PROFILE_COMPLETION.has(user.id)) return;
@@ -763,14 +792,16 @@
         const hasPreview = previewUrl.length > 0;
         const tipped = tipsMap.has(race.id);
         const tipData = tipByRace[race.id] || null;
+        const tippedHorse = tipped ? (race.horses?.[tipData?.horseId] || null) : null;
         const tippedHorseName = tipped
           ? (
-              (tipData?.horseId && race.horses?.[tipData.horseId]?.name) ||
+              tippedHorse?.name ||
               tipData?.horse ||
               tipData?.horseName ||
               ""
             )
           : "";
+        const tippedSilkUrl = tipped ? getSilkUrl(tippedHorse, race.name) : "";
         const actionText = tipped ? "Tip Submitted" : "Tip Now";
         const actionClass = tipped
           ? "bg-green-600/90 text-white hover:bg-green-500"
@@ -793,7 +824,7 @@
             <div class="flex items-center gap-2 mb-3 flex-wrap">
               ${raceNum ? `<span class="race-chip">R${raceNum}</span>` : ''}
               <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap">${race.type || "Open"}</span>
-              ${tipped && tippedHorseName ? `<span class="tipped-chip">✓ ${tippedHorseName}</span>` : ''}
+              ${tipped && tippedHorseName ? `<span class="tipped-chip">${tippedSilkUrl ? `<img src="${tippedSilkUrl}" alt="" class="tipped-chip-silk" onerror="this.style.display='none'">` : ''}<span class="tipped-chip-name">${tippedHorse?.number ? `#${tippedHorse.number} ` : ''}${tippedHorseName}</span></span>` : ''}
             </div>
             <h3 class="text-lg font-bold text-white mb-1.5 leading-snug">${race.name}</h3>
             <div class="flex items-center text-sm text-gray-300 mb-4">
@@ -903,6 +934,28 @@
       update(); // initial
       const timer = setInterval(update, 1000);
     }
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      // Deferred with setTimeout: supabase-js holds an internal auth lock while
+      // dispatching this callback, so calls like getUser() must run outside it.
+      setTimeout(async () => {
+        if (session?.user) { startHomeApp(session.user); return; }
+        if (event === 'SIGNED_OUT') { guardedRedirect('landing.html', supabase); return; }
+        if (event !== 'INITIAL_SESSION' || appStarted) return;
+        // INITIAL_SESSION arrives with a null session while an expired cached
+        // token is still being refreshed — treating that null as "logged out"
+        // bounced freshly logged-in users to landing, which verified the session
+        // fine and sent them straight back: an infinite loop. Verify with the
+        // server before concluding they're actually signed out.
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) { startHomeApp(user); return; }
+        } catch (err) {
+          console.warn('Auth verification failed:', err.message);
+        }
+        if (!appStarted) guardedRedirect('landing.html', supabase);
+      }, 0);
     });
   </script>
 

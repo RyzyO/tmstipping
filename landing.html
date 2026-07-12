@@ -342,8 +342,13 @@
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    import { guardedRedirect, clearRedirectGuard } from './auth-redirect-guard.js';
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    if (new URLSearchParams(window.location.search).get('authError')) {
+      console.warn('Signed out automatically after a repeated redirect loop — please sign in again.');
+    }
 
     // Only redirect on a session Supabase has actually verified with the server —
     // trusting the cached session straight off onAuthStateChange's INITIAL_SESSION
@@ -353,7 +358,11 @@
     async function redirectIfSignedIn() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) window.location.href = "dark.html";
+        if (user) {
+          guardedRedirect('dark.html', supabase);
+        } else {
+          clearRedirectGuard();
+        }
       } catch (err) {
         console.warn('Session check failed, staying on landing page:', err.message);
       }
@@ -361,7 +370,9 @@
     redirectIfSignedIn();
 
     supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') redirectIfSignedIn();
+      // Deferred with setTimeout: supabase-js holds an internal auth lock while
+      // dispatching this callback, so getUser() inside it can deadlock.
+      if (event === 'SIGNED_IN') setTimeout(redirectIfSignedIn, 0);
     });
   </script>
 
