@@ -112,14 +112,14 @@
                 <i data-feather="user" class="h-4 w-4 text-yellow-400"></i>
                 First Name
               </label>
-              <input type="text" id="firstName" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="First name">
+              <input type="text" id="firstName" required autocomplete="given-name" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="First name">
             </div>
             <div>
               <label for="lastName" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
                 <i data-feather="user" class="h-4 w-4 text-yellow-400"></i>
                 Last Name
               </label>
-              <input type="text" id="lastName" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="Last name">
+              <input type="text" id="lastName" required autocomplete="family-name" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="Last name">
             </div>
           </div>
 
@@ -136,7 +136,32 @@
               <i data-feather="calendar" class="h-4 w-4 text-yellow-400"></i>
               Date of Birth
             </label>
-            <input type="date" id="dob" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100">
+            <input type="date" id="dob" required autocomplete="bday" class="input-field w-full px-4 py-3 rounded-lg text-gray-100">
+          </div>
+
+          <div>
+            <label for="address" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+              <i data-feather="home" class="h-4 w-4 text-yellow-400"></i>
+              Residential Address
+            </label>
+            <input type="text" id="address" required autocomplete="street-address" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="Start typing your address">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="suburb" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+                <i data-feather="map" class="h-4 w-4 text-yellow-400"></i>
+                Suburb
+              </label>
+              <input type="text" id="suburb" required autocomplete="address-level2" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="Suburb">
+            </div>
+            <div>
+              <label for="postcode" class="block text-sm font-semibold text-gray-300 mb-2 flex items-center gap-2">
+                <i data-feather="hash" class="h-4 w-4 text-yellow-400"></i>
+                Postcode
+              </label>
+              <input type="text" id="postcode" required inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="postal-code" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="e.g. 2000">
+            </div>
           </div>
 
           <div>
@@ -144,7 +169,7 @@
               <i data-feather="map-pin" class="h-4 w-4 text-yellow-400"></i>
               State
             </label>
-            <select id="state" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100">
+            <select id="state" required autocomplete="address-level1" class="input-field w-full px-4 py-3 rounded-lg text-gray-100">
               <option value="" disabled selected>Select your state</option>
               <option value="QLD">Queensland (QLD)</option>
               <option value="NSW">New South Wales (NSW)</option>
@@ -162,7 +187,7 @@
               <i data-feather="mail" class="h-4 w-4 text-yellow-400"></i>
               Email Address
             </label>
-            <input type="email" id="email" required class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="you@example.com">
+            <input type="email" id="email" required autocomplete="email" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="you@example.com">
           </div>
 
           <div>
@@ -170,7 +195,7 @@
               <i data-feather="lock" class="h-4 w-4 text-yellow-400"></i>
               Password
             </label>
-            <input type="password" id="password" required minlength="6" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="Minimum 6 characters">
+            <input type="password" id="password" required minlength="6" autocomplete="new-password" class="input-field w-full px-4 py-3 rounded-lg text-gray-100 placeholder-gray-500" placeholder="Minimum 6 characters">
           </div>
 
           <button
@@ -232,7 +257,16 @@
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    import { attachAddressAutocomplete } from './address-autocomplete.js';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    attachAddressAutocomplete(document.getElementById('address'), {
+      onSelect: (suggestion) => {
+        if (suggestion.suburb) document.getElementById('suburb').value = suggestion.suburb;
+        if (suggestion.postcode) document.getElementById('postcode').value = suggestion.postcode;
+        if (suggestion.state) document.getElementById('state').value = suggestion.state;
+      }
+    });
 
     const ELIGIBLE_STATES = ['QLD', 'VIC', 'NSW'];
 
@@ -276,6 +310,9 @@
       const lastName = document.getElementById('lastName').value.trim();
       const teamName = document.getElementById('teamName').value.trim();
       const dob = document.getElementById('dob').value;
+      const address = document.getElementById('address').value.trim();
+      const suburb = document.getElementById('suburb').value.trim();
+      const postcode = document.getElementById('postcode').value.trim();
       const state = document.getElementById('state').value;
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
@@ -289,6 +326,12 @@
       if (getAgeFromDob(dob) < 18) {
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
         errorMessage.textContent = 'You must be at least 18 years old to sign up.';
+        return;
+      }
+
+      if (!address || !suburb || !postcode) {
+        errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
+        errorMessage.textContent = 'Please enter your full residential address.';
         return;
       }
 
@@ -318,6 +361,10 @@
           team_name: teamName,
           email,
           dob,
+          address,
+          suburb,
+          postcode,
+          state,
           joker: 3,
           paid: false
         }, { onConflict: 'id' });

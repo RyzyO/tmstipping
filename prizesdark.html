@@ -100,7 +100,7 @@
           <i data-feather="award" class="h-8 w-8 text-yellow-400"></i>
         </div>
         <h2 class="text-2xl md:text-4xl font-bold gradient-text mb-2">Prize Pool</h2>
-        <p class="text-gray-300">Nearly $5,000 in cash prizes up for grabs!</p>
+        <p class="text-gray-300" id="prize-pool-subtitle">Loading live prize pool&hellip;</p>
       </div>
     </div>
   </section>
@@ -113,8 +113,9 @@
         <div class="relative z-10 text-center">
           <div class="text-5xl mb-4">🏆</div>
           <h3 class="text-2xl font-bold gradient-text mb-2">1st Place</h3>
-          <p class="text-5xl font-extrabold text-white mb-2">$2,950</p>
-          <p class="text-gray-400 text-sm">The Champion</p>
+          <p class="text-6xl font-extrabold text-white mb-1">40%</p>
+          <p class="text-gray-400 text-sm" id="prize-amount-1">&mdash;</p>
+          <p class="text-gray-500 text-xs mt-1">The Champion</p>
         </div>
       </div>
       <div class="prize-card rounded-2xl p-8 relative overflow-hidden">
@@ -122,8 +123,9 @@
         <div class="relative z-10 text-center">
           <div class="text-5xl mb-4">🥈</div>
           <h3 class="text-2xl font-bold gradient-text mb-2">2nd Place</h3>
-          <p class="text-5xl font-extrabold text-white mb-2">$1,450</p>
-          <p class="text-gray-400 text-sm">Runner Up</p>
+          <p class="text-6xl font-extrabold text-white mb-1">20%</p>
+          <p class="text-gray-400 text-sm" id="prize-amount-2">&mdash;</p>
+          <p class="text-gray-500 text-xs mt-1">Runner Up</p>
         </div>
       </div>
       <div class="prize-card rounded-2xl p-8 relative overflow-hidden">
@@ -131,80 +133,27 @@
         <div class="relative z-10 text-center">
           <div class="text-5xl mb-4">🥉</div>
           <h3 class="text-2xl font-bold gradient-text mb-2">3rd Place</h3>
-          <p class="text-5xl font-extrabold text-white mb-2">$500</p>
-          <p class="text-gray-400 text-sm">Third Best</p>
+          <p class="text-6xl font-extrabold text-white mb-1">15%</p>
+          <p class="text-gray-400 text-sm" id="prize-amount-3">&mdash;</p>
+          <p class="text-gray-500 text-xs mt-1">Third Best</p>
         </div>
       </div>
     </div>
+
+    <!-- 4th - 10th -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8" id="prize-ranks-4-10">
+      <!-- Rendered by script for places 4-10 -->
+    </div>
+
     <div class="text-center">
-      <p class="text-lg text-gray-300">That's nearly <span class="gradient-text font-bold text-2xl">$5,000</span> in cash prizes for the sharpest minds!*</p>
+      <p class="text-lg text-gray-300">That's <span class="gradient-text font-bold text-2xl" id="prize-pool-total">&mdash;</span> in cash prizes for the sharpest minds!*</p>
+      <p class="text-sm text-gray-500 mt-2" id="prize-pool-players">&nbsp;</p>
     </div>
   </section>
 
   <!-- ATC Members Tickets Section -->
-  <section data-aos="fade-up" class="mb-8">
-    <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
-      <div class="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-blue-600/10 to-transparent rounded-full blur-3xl"></div>
-      <div class="relative z-10">
-        <div class="flex items-center justify-center mb-6">
-          <i data-feather="ticket" class="h-10 w-10 text-yellow-400 mr-3"></i>
-          <h3 class="text-2xl md:text-3xl font-bold gradient-text">ATC Members Tickets</h3>
-          <i data-feather="ticket" class="h-10 w-10 text-yellow-400 ml-3"></i>
-        </div>
-        <div class="space-y-4 text-gray-300">
-          <p>
-            It's not just about the final leaderboard — <span class="font-bold text-yellow-400">consistency pays!</span>
-          </p>
-          <p>
-            Each week that there is an <span class="font-bold text-white">ATC Group 1 Raceday</span>, the highest performing player will score 
-            <span class="font-bold text-yellow-400">2 x Members' Tickets</span> to an ATC Raceday (excludes Everest Day).
-          </p>
-          <p>
-            That means prizes will be awarded in the weeks of:<br>
-            <span class="italic text-gray-400">Winx Stakes, Golden Rose, Epsom, Everest, Spring Champion Stakes, Golden Eagle</span>.
-          </p>
-          <p>
-            <span class="font-bold text-white">6 separate winners</span> throughout the comp will get the chance to experience the thrill of a day at the track in style!
-          </p>
-          <p class="text-center pt-4">
-            <span class="gradient-text font-bold text-lg">Special thanks to the ATC</span><br>
-            <span class="text-gray-400 text-sm">for making the Sydney weeks of the comp even bigger and better!</span>
-          </p>
-        </div>
-        
-        <div class="mt-8 p-6 bg-gray-800/50 rounded-xl border border-gray-700">
-          <h4 class="text-lg font-semibold mb-4 gradient-text flex items-center">
-            <i data-feather="trophy" class="h-5 w-5 mr-2"></i>
-            2025 Winners:
-          </h4>
-          <ul class="space-y-2 text-gray-200">
-            <li class="flex items-start">
-              <i data-feather="check-circle" class="h-5 w-5 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-              <span><span class="text-gray-400">Week 1 (Winx Stakes):</span> <span class="font-bold text-yellow-400">GrainMan</span></span>
-            </li>
-            <li class="flex items-start">
-              <i data-feather="check-circle" class="h-5 w-5 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-              <span><span class="text-gray-400">Week 6 (Golden Rose):</span> <span class="font-bold text-yellow-400">Not here to copulate arachnids!</span></span>
-            </li>
-            <li class="flex items-start">
-              <i data-feather="check-circle" class="h-5 w-5 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-              <span><span class="text-gray-400">Week 7 (Epsom):</span> <span class="font-bold text-yellow-400">DMO</span></span>
-            </li>
-            <li class="flex items-start">
-              <i data-feather="check-circle" class="h-5 w-5 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-              <span><span class="text-gray-400">Week 9 (Everest):</span> <span class="font-bold text-yellow-400">Felmo</span></span>
-            </li>
-            <li class="flex items-start">
-              <i data-feather="check-circle" class="h-5 w-5 text-green-400 mr-2 mt-0.5 flex-shrink-0"></i>
-              <span><span class="text-gray-400">Week 12 (Five Diamonds):</span> <span class="font-bold text-yellow-400">Felmo</span></span>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <p class="text-center text-gray-400 mt-12">*Prizes rounded to nearest $50</p>
+  
+  <p class="text-center text-gray-400 mt-12">*Prizes rounded to the nearest dollar. 1st: 40% &middot; 2nd: 20% &middot; 3rd: 15% &middot; 4th: 9% &middot; 5th: 6% &middot; 6th&ndash;10th: 2% each of the total paid entry pool.</p>
 </main>
 
 <!-- Footer -->
@@ -217,6 +166,8 @@
           <span class="font-semibold text-gray-300">The Mock Sports</span>
         </div>
         <p class="text-sm text-gray-500">&copy; 2026 All rights reserved.</p>
+          <a href="terms.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Terms &amp; Conditions</a>
+          <a href="privacy.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Privacy Policy</a>
       </div>
       <div class="flex space-x-6">
         <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on X">
@@ -233,7 +184,90 @@
   </div>
 </footer>
 
-<script>
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+  import { resolveActiveCompId } from './active-comp.js';
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // 1st gets 40%, then 20/15/9/6, then 2% each from 6th through 10th.
+  const PRIZE_PERCENTAGES = [40, 20, 15, 9, 6, 2, 2, 2, 2, 2];
+  const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+  const DEFAULT_ENTRY_FEE = 30;
+
+  function formatCurrency(amount) {
+    return `$${Math.round(amount).toLocaleString('en-AU')}`;
+  }
+
+  function renderTop3(amounts) {
+    for (let i = 0; i < 3; i++) {
+      const el = document.getElementById(`prize-amount-${i + 1}`);
+      if (el) el.textContent = `≈ ${formatCurrency(amounts[i])}`;
+    }
+  }
+
+  function renderRanks4to10(amounts) {
+    const container = document.getElementById('prize-ranks-4-10');
+    if (!container) return;
+    container.innerHTML = amounts.slice(3, 10).map((amount, idx) => `
+      <div class="prize-card rounded-xl p-4 text-center">
+        <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 3]}</p>
+        <p class="text-2xl font-extrabold gradient-text">${PRIZE_PERCENTAGES[idx + 3]}%</p>
+        <p class="text-xs text-gray-500 mt-1">≈ ${formatCurrency(amount)}</p>
+      </div>
+    `).join('');
+  }
+
+  function renderFallback() {
+    document.getElementById('prize-pool-subtitle').textContent = `$${DEFAULT_ENTRY_FEE} entry · prize pool grows with every paid player!`;
+    document.getElementById('prize-pool-total').textContent = 'Prizes TBC';
+    document.getElementById('prize-pool-players').textContent = '';
+    ['prize-amount-1', 'prize-amount-2', 'prize-amount-3'].forEach(id => {
+      document.getElementById(id).textContent = 'TBC';
+    });
+    document.getElementById('prize-ranks-4-10').innerHTML = PRIZE_PERCENTAGES.slice(3, 10).map((pct, idx) => `
+      <div class="prize-card rounded-xl p-4 text-center">
+        <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 3]}</p>
+        <p class="text-2xl font-extrabold gradient-text">${pct}%</p>
+        <p class="text-xs text-gray-500 mt-1">TBC</p>
+      </div>
+    `).join('');
+  }
+
+  async function loadPrizePool() {
+    try {
+      const compId = await resolveActiveCompId(supabase);
+      if (!compId) { renderFallback(); return; }
+
+      const [{ data: comp }, { count: paidCount }] = await Promise.all([
+        supabase.from('comps').select('entry_fee').eq('id', compId).single(),
+        supabase.from('user_comp_joinings').select('id', { count: 'exact', head: true })
+          .eq('comp_id', compId).eq('payment_status', 'completed')
+      ]);
+
+      const entryFee = comp?.entry_fee || DEFAULT_ENTRY_FEE;
+      const players = paidCount || 0;
+      const totalPool = entryFee * players;
+
+      const amounts = PRIZE_PERCENTAGES.map(pct => totalPool * (pct / 100));
+
+      renderTop3(amounts);
+      renderRanks4to10(amounts);
+
+      document.getElementById('prize-pool-subtitle').textContent =
+        totalPool > 0 ? `${formatCurrency(totalPool)} prize pool so far!` : `$${entryFee} entry · prize pool grows with every paid player!`;
+      document.getElementById('prize-pool-total').textContent = formatCurrency(totalPool);
+      document.getElementById('prize-pool-players').textContent =
+        `Based on ${players} paid player${players === 1 ? '' : 's'}, updates live as more players join`;
+    } catch (err) {
+      console.error('Failed to load live prize pool', err);
+      renderFallback();
+    }
+  }
+
+  loadPrizePool();
+
   function toggleMenu() {
     document.getElementById('mobileMenu').classList.toggle('hidden');
   }
