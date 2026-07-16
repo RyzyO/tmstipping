@@ -42,11 +42,20 @@
       background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
       border: 2px solid rgba(251, 191, 36, 0.2);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 220px;
     }
     .prize-card:hover {
       transform: translateY(-8px) scale(1.02);
       box-shadow: 0 25px 50px rgba(251, 191, 36, 0.2);
       border-color: rgba(251, 191, 36, 0.5);
+    }
+    .prize-card--compact {
+      min-height: 140px;
+      padding: 0.75rem 1rem;
     }
   </style>
 </head>
@@ -140,9 +149,14 @@
       </div>
     </div>
 
-    <!-- 4th - 10th -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8" id="prize-ranks-4-10">
-      <!-- Rendered by script for places 4-10 -->
+    <!-- 4th - 5th -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6" id="prize-ranks-4-5">
+      <!-- Rendered by script for places 4-5 -->
+    </div>
+
+    <!-- 6th - 10th -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8" id="prize-ranks-6-10">
+      <!-- Rendered by script for places 6-10 -->
     </div>
 
     <div class="text-center">
@@ -207,13 +221,25 @@
     }
   }
 
-  function renderRanks4to10(amounts) {
-    const container = document.getElementById('prize-ranks-4-10');
+  function renderRanks4to5(amounts) {
+    const container = document.getElementById('prize-ranks-4-5');
     if (!container) return;
-    container.innerHTML = amounts.slice(3, 10).map((amount, idx) => `
-      <div class="prize-card rounded-xl p-4 text-center">
+    container.innerHTML = amounts.slice(3, 5).map((amount, idx) => `
+      <div class="prize-card prize-card--compact rounded-xl p-3 text-center w-full">
         <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 3]}</p>
         <p class="text-2xl font-extrabold gradient-text">${PRIZE_PERCENTAGES[idx + 3]}%</p>
+        <p class="text-xs text-gray-500 mt-1">≈ ${formatCurrency(amount)}</p>
+      </div>
+    `).join('');
+  }
+
+  function renderRanks6to10(amounts) {
+    const container = document.getElementById('prize-ranks-6-10');
+    if (!container) return;
+    container.innerHTML = amounts.slice(5, 10).map((amount, idx) => `
+      <div class="prize-card prize-card--compact rounded-xl p-3 text-center w-full">
+        <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 5]}</p>
+        <p class="text-2xl font-extrabold gradient-text">${PRIZE_PERCENTAGES[idx + 5]}%</p>
         <p class="text-xs text-gray-500 mt-1">≈ ${formatCurrency(amount)}</p>
       </div>
     `).join('');
@@ -226,9 +252,16 @@
     ['prize-amount-1', 'prize-amount-2', 'prize-amount-3'].forEach(id => {
       document.getElementById(id).textContent = 'TBC';
     });
-    document.getElementById('prize-ranks-4-10').innerHTML = PRIZE_PERCENTAGES.slice(3, 10).map((pct, idx) => `
-      <div class="prize-card rounded-xl p-4 text-center">
+    document.getElementById('prize-ranks-4-5').innerHTML = PRIZE_PERCENTAGES.slice(3, 5).map((pct, idx) => `
+      <div class="prize-card prize-card--compact rounded-xl p-3 text-center w-full">
         <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 3]}</p>
+        <p class="text-2xl font-extrabold gradient-text">${pct}%</p>
+        <p class="text-xs text-gray-500 mt-1">TBC</p>
+      </div>
+    `).join('');
+    document.getElementById('prize-ranks-6-10').innerHTML = PRIZE_PERCENTAGES.slice(5, 10).map((pct, idx) => `
+      <div class="prize-card prize-card--compact rounded-xl p-3 text-center w-full">
+        <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 5]}</p>
         <p class="text-2xl font-extrabold gradient-text">${pct}%</p>
         <p class="text-xs text-gray-500 mt-1">TBC</p>
       </div>
@@ -253,7 +286,8 @@
       const amounts = PRIZE_PERCENTAGES.map(pct => totalPool * (pct / 100));
 
       renderTop3(amounts);
-      renderRanks4to10(amounts);
+      renderRanks4to5(amounts);
+      renderRanks6to10(amounts);
 
       document.getElementById('prize-pool-subtitle').textContent =
         totalPool > 0 ? `${formatCurrency(totalPool)} prize pool so far!` : `$${entryFee} entry · prize pool grows with every paid player!`;
