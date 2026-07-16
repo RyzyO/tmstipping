@@ -298,6 +298,15 @@
   </div>
 </section>
 
+    <!-- Competition Selector (only shown when you're in more than one active comp) -->
+    <div id="dashboardCompSelectorWrap" class="hidden mb-6" data-aos="fade-up">
+      <div class="card rounded-xl px-5 py-4 flex items-center gap-3">
+        <i data-feather="layers" class="h-5 w-5 text-yellow-400 flex-shrink-0"></i>
+        <label for="dashboardCompSelect" class="text-sm font-semibold text-gray-300 whitespace-nowrap">Comp</label>
+        <select id="dashboardCompSelect" class="flex-1 bg-gray-900 border border-gray-700 text-gray-100 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-yellow-500/50 cursor-pointer"></select>
+      </div>
+    </div>
+
     <!-- Stats Grid -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
       <div class="stat-card rounded-xl shadow-lg p-6" data-aos="fade-up">
@@ -401,7 +410,7 @@
  <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
-    import { resolveActiveCompId, mountCompFooterSwitcher } from './active-comp.js';
+    import { resolveActiveCompId, mountCompFooterSwitcher, setStoredCompId } from './active-comp.js';
     import { guardedRedirect, clearRedirectGuard } from './auth-redirect-guard.js';
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -655,11 +664,40 @@
         const chosen = preferred || activeComps[0];
 
         selectedHomeCompId = chosen.id;
+        renderDashboardCompSelector(activeComps, chosen.id);
         await loadCompStats(userId, chosen.id);
         await loadRaces(chosen.id);
       } catch (error) {
         console.error('Error loading comps to dropdown:', error);
       }
+    }
+
+    // Stateful competition selector shown between the welcome widget and the
+    // stat cards — only appears when the user is in more than one active
+    // comp. Switching persists via setStoredCompId (same storage the footer
+    // switcher uses) and refreshes stats/races in place, no page reload.
+    function renderDashboardCompSelector(activeComps, selectedId) {
+      const wrap = document.getElementById('dashboardCompSelectorWrap');
+      const select = document.getElementById('dashboardCompSelect');
+      if (!wrap || !select) return;
+
+      if (activeComps.length < 2) {
+        wrap.classList.add('hidden');
+        return;
+      }
+
+      select.innerHTML = activeComps.map(c =>
+        `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.name}</option>`
+      ).join('');
+      wrap.classList.remove('hidden');
+
+      select.onchange = async () => {
+        const newCompId = select.value;
+        setStoredCompId(newCompId);
+        selectedHomeCompId = newCompId;
+        await loadCompStats(currentUser.uid, newCompId);
+        await loadRaces(newCompId);
+      };
     }
 
     async function loadCurrentUserProfile(userId) {
