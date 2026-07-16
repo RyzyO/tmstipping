@@ -19,25 +19,28 @@
       }
     }
   </script>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/higherorlower/styles.css" />
 </head>
 
-<body class="min-h-[100dvh] bg-[#030712] text-white">
-  <main class="relative h-[100dvh] overflow-hidden">
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.18),_transparent_42%)]"></div>
+<body class="min-h-[100dvh] bg-[#030712] text-white flex flex-col">
+  <div class="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.18),_transparent_42%)]"></div>
 
-    <header class="relative z-10 flex h-16 items-center justify-between px-4 md:h-[92px] md:px-10">
-      <div>
-        <p class="text-xs font-bold uppercase tracking-[0.28em] text-[#d4af37]">The Mock Sports</p>
-        <h1 class="font-display text-lg font-bold leading-tight sm:text-2xl md:text-3xl">Racehorse Higher or Lower</h1>
+  <header class="relative z-10 flex shrink-0 items-center justify-between gap-3 px-4 py-3 md:px-10 md:py-5">
+    <div class="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <img src="/higherorlower/logo.png" alt="The Mock Sports" class="h-9 w-9 shrink-0 object-contain sm:h-11 sm:w-11 md:h-14 md:w-14" />
+      <div class="min-w-0">
+        <p class="text-[9px] font-bold uppercase tracking-[0.24em] text-[#d4af37] sm:text-xs sm:tracking-[0.28em]">The Mock Sports</p>
+        <h1 class="font-display truncate text-base font-bold leading-tight sm:text-2xl md:text-3xl">Racehorse Higher or Lower</h1>
       </div>
+    </div>
 
-      <div class="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs backdrop-blur sm:px-4 sm:py-2 sm:text-sm">
-        Streak: <span id="streak" class="font-bold text-[#d4af37]">0</span>
-      </div>
-    </header>
+    <div class="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs backdrop-blur sm:px-4 sm:py-2 sm:text-sm">
+      Streak: <span id="streak" class="font-bold text-[#d4af37]">0</span>
+    </div>
+  </header>
 
-    <section id="gameScreen" class="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] max-w-7xl flex-col px-3 pb-2 md:h-[calc(100dvh-92px)] md:px-8 md:pb-6">
+  <main class="relative z-10 flex min-h-0 flex-1 flex-col">
+    <section id="gameScreen" class="mx-auto flex w-full min-h-0 flex-1 max-w-7xl flex-col px-3 pb-3 md:px-8 md:pb-6">
       <div class="mb-2 shrink-0 text-center md:mb-5">
         <p class="text-xs text-slate-300 sm:text-sm">Which horse earned more career prizemoney?</p>
       </div>
@@ -90,7 +93,7 @@
       </p>
     </section>
 
-    <section id="gameOverScreen" class="relative z-10 hidden h-[calc(100dvh-4rem)] items-center justify-center px-4 pb-6 md:h-[calc(100dvh-92px)] md:pb-20">
+    <section id="gameOverScreen" class="hidden min-h-0 flex-1 items-center justify-center px-4 pb-6 md:pb-10">
       <div class="w-full max-w-lg rounded-3xl border border-white/10 bg-white/5 p-6 text-center shadow-2xl backdrop-blur-xl md:p-8">
         <p class="text-xs font-bold uppercase tracking-[0.3em] text-[#d4af37]">Game over</p>
         <h2 class="mt-2 font-display text-4xl font-bold md:mt-3 md:text-5xl">Final streak</h2>
@@ -110,17 +113,17 @@
   </main>
 
   <!-- Footer -->
-  <footer class="bg-gray-950 border-t border-gray-800 text-gray-400 py-10">
+  <footer class="relative z-10 bg-gray-950 border-t border-gray-800 text-gray-400 py-10 shrink-0">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="flex flex-col items-center md:items-start">
           <div class="flex items-center mb-2">
-            <img src="../images/logo.png" alt="Logo" class="h-6 w-auto mr-2" style="object-fit: contain;" />
+            <img src="/images/logo.png" alt="Logo" class="h-6 w-auto mr-2" style="object-fit: contain;" />
             <span class="font-semibold text-gray-300">The Mock Sports</span>
           </div>
           <p class="text-sm text-gray-500">&copy; 2026 All rights reserved.</p>
-          <a href="../terms.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Terms &amp; Conditions</a>
-          <a href="../privacy.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Privacy Policy</a>
+          <a href="/terms.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Terms &amp; Conditions</a>
+          <a href="/privacy.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Privacy Policy</a>
         </div>
         <div class="flex space-x-6">
           <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on X">
@@ -137,6 +140,6 @@
     </div>
   </footer>
 
-  <script src="script.js"></script>
+  <script src="/higherorlower/script.js"></script>
 </body>
 </html>
