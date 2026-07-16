@@ -268,7 +268,9 @@
       }
     });
 
-    const ELIGIBLE_STATES = ['QLD', 'VIC', 'NSW'];
+    // Only NSW/QLD/VIC residents are eligible to claim prizes (see Terms & Conditions),
+    // but anyone 18+ may sign up and play — this list is not used to block signup.
+    const PRIZE_ELIGIBLE_STATES = ['QLD', 'VIC', 'NSW'];
 
     const signupForm = document.getElementById('signup-form');
     const errorMessage = document.getElementById('error-message');
@@ -332,12 +334,6 @@
       if (!address || !suburb || !postcode) {
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
         errorMessage.textContent = 'Please enter your full residential address.';
-        return;
-      }
-
-      if (!ELIGIBLE_STATES.includes(state)) {
-        errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
-        errorMessage.textContent = 'Sign up is only available to residents of QLD, VIC, or NSW.';
         return;
       }
 
@@ -462,7 +458,7 @@
         <label class="flex items-start gap-3 cursor-pointer group">
           <input type="checkbox" id="declare-state" class="mt-0.5 h-5 w-5 rounded border-gray-600 bg-gray-800 text-yellow-400 accent-yellow-400 flex-shrink-0 cursor-pointer">
           <span class="text-sm text-gray-300 group-hover:text-gray-100 transition-colors leading-relaxed">
-            I confirm that I reside in <strong class="text-yellow-400">Queensland, Victoria, or New South Wales</strong>. I understand that participants outside these states are not eligible to enter.
+            I understand that only residents of <strong class="text-yellow-400">Queensland, Victoria, or New South Wales</strong> are eligible to claim prizes. Entrants from other states may play but are not eligible to receive any prize or prize money.
           </span>
         </label>
       </div>
