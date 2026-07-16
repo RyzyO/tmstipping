@@ -209,13 +209,30 @@
     async function loadUserCompsStats() {
       if (!currentUser) return;
       try {
-        const { data: joinings } = await supabase
+        const { data: rawJoinings } = await supabase
           .from('user_comp_joinings').select('*').eq('user_id', currentUser.uid);
 
         const grid = document.getElementById('compsStatsGrid');
         grid.innerHTML = '';
 
-        if (!joinings?.length) {
+        // "My Competitions" should only show comps actually joined — a pending
+        // row (e.g. an admin free-entry grant the user hasn't accepted yet, or
+        // an incomplete payment) isn't a real membership. Also dedupe by
+        // comp_id defensively: each user+comp pair should only ever have one
+        // joining row, but if legacy data ever produced more than one, only
+        // the best (completed, highest points) row should render — otherwise
+        // the same competition shows up twice.
+        const completedJoinings = (rawJoinings || []).filter(j => j.payment_status === 'completed');
+        const bestByCompId = new Map();
+        for (const joining of completedJoinings) {
+          const existing = bestByCompId.get(joining.comp_id);
+          if (!existing || Number(joining.points || 0) > Number(existing.points || 0)) {
+            bestByCompId.set(joining.comp_id, joining);
+          }
+        }
+        const joinings = [...bestByCompId.values()];
+
+        if (!joinings.length) {
           grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">You haven\'t joined any competitions yet</div>';
           return;
         }

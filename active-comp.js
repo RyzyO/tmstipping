@@ -41,7 +41,19 @@ export async function resolveActiveCompId(supabase, { useQueryParam = true } = {
   }
 
   const stored = getStoredCompId();
-  if (stored) return stored;
+  if (stored) {
+    // A stored choice can go stale — the comp it points to might since have
+    // been closed, hidden, or deleted (e.g. last season's comp). Trusting it
+    // forever would silently pin a user to the wrong comp with no way back,
+    // since the switcher that could otherwise fix it only appears when 2+
+    // comps are visible. Validate before trusting it; clear and fall through
+    // to the current admin default if it's no longer a live, visible comp.
+    const { data: storedComp } = await supabase
+      .from('comps').select('id, status, is_hidden').eq('id', stored).maybeSingle();
+    const stillValid = storedComp && storedComp.status === 'active' && storedComp.is_hidden !== true;
+    if (stillValid) return stored;
+    setStoredCompId(null);
+  }
 
   return fetchDefaultCompId(supabase);
 }
@@ -53,12 +65,17 @@ export async function mountCompFooterSwitcher(supabase, mountEl, { onChange } = 
 
   const { data: comps } = await supabase
     .from('comps')
-    .select('id, name, status')
+    .select('id, name, status, is_hidden')
     .neq('status', 'deleted')
-    .eq('is_hidden', false)
     .order('start_date', { ascending: false });
 
-  const list = comps || [];
+  // Filtered client-side rather than `.eq('is_hidden', false)`: in Postgres,
+  // `NULL = false` excludes the row instead of matching it, so any comp where
+  // is_hidden was never explicitly set to false (e.g. created before that
+  // column existed, or by a save path that omits it) would silently vanish
+  // from the switcher — which looks identical to "there's no dropdown" even
+  // when there are genuinely 2+ comps to choose from.
+  const list = (comps || []).filter(c => c.is_hidden !== true);
   if (list.length < 2) return;
 
   const current = await resolveActiveCompId(supabase, { useQueryParam: false });

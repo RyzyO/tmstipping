@@ -3475,12 +3475,16 @@ window.showNewCompForm = function() {
   document.getElementById('comp-form').reset();
   document.getElementById('comp-id').value = 'auto-generated';
   document.getElementById('comp-status').value = 'active';
+  // Free entrants require a saved comp id, so this is only shown once editing an existing comp.
+  currentFreeEntrantsCompId = null;
+  document.getElementById('free-entrants-section').classList.add('hidden');
   formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
 window.cancelCompForm = function() {
   document.getElementById('comp-form-container').classList.add('hidden');
   document.getElementById('comp-form').reset();
+  currentFreeEntrantsCompId = null;
 };
 
 window.editCompetition = async function(compId) {
@@ -3501,10 +3505,164 @@ window.editCompetition = async function(compId) {
     document.getElementById('comp-max-participants').value = comp.max_participants || comp.maxParticipants || 1000;
     document.getElementById('comp-joker-allowance').value = comp.joker_allowance ?? 3;
     document.getElementById('comp-id').value = compId;
+
+    currentFreeEntrantsCompId = compId;
+    document.getElementById('free-entrants-section').classList.remove('hidden');
+    document.getElementById('free-entrant-search').value = '';
+    document.getElementById('free-entrant-results').classList.add('hidden');
+    document.getElementById('free-entrant-results').innerHTML = '';
+    await loadFreeEntrantsForComp(compId);
+
     formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
     console.error('Error editing competition:', error);
     showNotification('Error loading competition', 'error', 'comp-notifications');
+  }
+};
+
+// ============ FREE ENTRANTS ============
+let currentFreeEntrantsCompId = null;
+let freeEntrantSearchTimer = null;
+
+async function loadFreeEntrantsForComp(compId) {
+  const listEl = document.getElementById('free-entrant-list');
+  listEl.innerHTML = '<div class="text-sm text-gray-500">Loading...</div>';
+
+  try {
+    const { data: joinings } = await supabase.from('user_comp_joinings')
+      .select('user_id,payment_status').eq('comp_id', compId).eq('is_free', true);
+
+    if (!joinings || joinings.length === 0) {
+      listEl.innerHTML = '<div class="text-sm text-gray-500">No free entrants yet.</div>';
+      return;
+    }
+
+    const userIds = joinings.map(j => j.user_id);
+    const { data: users } = await supabase.from('users').select('id,team_name,email,first_name,last_name').in('id', userIds);
+    const usersById = Object.fromEntries((users || []).map(u => [u.id, u]));
+
+    listEl.innerHTML = joinings.map(j => {
+      const u = usersById[j.user_id] || {};
+      const name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+      const joined = j.payment_status === 'completed';
+      return `
+        <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-gray-800/50 border border-gray-700">
+          <div class="min-w-0">
+            <div class="text-sm font-semibold text-gray-100 truncate">${escapeHtml(u.team_name) || '(No Team)'}${name ? ` <span class="font-normal text-gray-400">(${escapeHtml(name)})</span>` : ''}</div>
+            <div class="text-xs text-gray-500 truncate">${escapeHtml(u.email || j.user_id)}</div>
+          </div>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${joined ? 'bg-green-500/15 text-green-400' : 'bg-yellow-500/15 text-yellow-400'}">${joined ? 'JOINED' : 'PENDING'}</span>
+            <button onclick="window.revokeFreeEntrant('${j.user_id}')" class="text-xs text-red-400 hover:text-red-300 transition">Revoke</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (error) {
+    console.error('Error loading free entrants:', error);
+    listEl.innerHTML = '<div class="text-sm text-red-400">Error loading free entrants.</div>';
+  }
+}
+
+window.filterFreeEntrantSearch = function() {
+  const query = document.getElementById('free-entrant-search').value.trim();
+  const resultsEl = document.getElementById('free-entrant-results');
+  if (freeEntrantSearchTimer) clearTimeout(freeEntrantSearchTimer);
+
+  if (query.length < 2) {
+    resultsEl.classList.add('hidden');
+    resultsEl.innerHTML = '';
+    return;
+  }
+
+  freeEntrantSearchTimer = setTimeout(async () => {
+    try {
+      const escaped = query.replace(/[%,]/g, '');
+      const { data: users } = await supabase.from('users')
+        .select('id,team_name,email,first_name,last_name')
+        .or(`team_name.ilike.%${escaped}%,email.ilike.%${escaped}%,first_name.ilike.%${escaped}%,last_name.ilike.%${escaped}%`)
+        .limit(10);
+
+      if (!users || users.length === 0) {
+        resultsEl.innerHTML = '<div class="text-sm text-gray-500 p-3">No users found.</div>';
+        resultsEl.classList.remove('hidden');
+        return;
+      }
+
+      resultsEl.innerHTML = users.map(u => {
+        const name = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+        return `
+          <button type="button" onclick="window.grantFreeEntrant('${u.id}')" class="w-full text-left px-3 py-2 hover:bg-gray-800/70 border-b border-gray-800/60 last:border-b-0 transition">
+            <div class="text-sm font-semibold text-gray-100">${escapeHtml(u.team_name) || '(No Team)'}${name ? ` <span class="font-normal text-gray-400">(${escapeHtml(name)})</span>` : ''}</div>
+            <div class="text-xs text-gray-500">${escapeHtml(u.email || u.id)}</div>
+          </button>
+        `;
+      }).join('');
+      resultsEl.classList.remove('hidden');
+    } catch (error) {
+      console.error('Error searching users:', error);
+      resultsEl.innerHTML = '<div class="text-sm text-red-400 p-3">Search failed.</div>';
+      resultsEl.classList.remove('hidden');
+    }
+  }, 300);
+};
+
+window.grantFreeEntrant = async function(userId) {
+  if (!currentFreeEntrantsCompId) return;
+  try {
+    const { data: existing } = await supabase.from('user_comp_joinings')
+      .select('*').eq('user_id', userId).eq('comp_id', currentFreeEntrantsCompId).single();
+
+    const { data: comp } = await supabase.from('comps').select('joker_allowance').eq('id', currentFreeEntrantsCompId).single();
+
+    const payload = {
+      id: `${userId}_${currentFreeEntrantsCompId}`,
+      user_id: userId,
+      comp_id: currentFreeEntrantsCompId,
+      payment_status: existing?.payment_status || 'pending',
+      is_free: true,
+      rank: existing?.rank ?? null,
+      points: existing?.points ?? 0,
+      wins: existing?.wins ?? 0,
+      jokers_remaining: existing?.jokers_remaining ?? (comp?.joker_allowance ?? 3)
+    };
+
+    const { error } = await supabase.from('user_comp_joinings').upsert(payload, { onConflict: 'user_id,comp_id' });
+    if (error) throw error;
+
+    document.getElementById('free-entrant-search').value = '';
+    document.getElementById('free-entrant-results').classList.add('hidden');
+    document.getElementById('free-entrant-results').innerHTML = '';
+    showNotification('Free entry granted', 'success', 'comp-notifications');
+    await loadFreeEntrantsForComp(currentFreeEntrantsCompId);
+  } catch (error) {
+    console.error('Error granting free entrant:', error);
+    showNotification('Error granting free entry: ' + error.message, 'error', 'comp-notifications');
+  }
+};
+
+window.revokeFreeEntrant = async function(userId) {
+  if (!currentFreeEntrantsCompId) return;
+  if (!confirm('Revoke free entry for this user?')) return;
+  try {
+    const { data: existing } = await supabase.from('user_comp_joinings')
+      .select('payment_status').eq('user_id', userId).eq('comp_id', currentFreeEntrantsCompId).single();
+
+    if (existing?.payment_status === 'completed') {
+      // Already joined — just remove the free flag, leave their joining intact.
+      const { error } = await supabase.from('user_comp_joinings').update({ is_free: false }).eq('user_id', userId).eq('comp_id', currentFreeEntrantsCompId);
+      if (error) throw error;
+    } else {
+      // Never actually joined — the row was purely a grant placeholder, remove it.
+      const { error } = await supabase.from('user_comp_joinings').delete().eq('user_id', userId).eq('comp_id', currentFreeEntrantsCompId);
+      if (error) throw error;
+    }
+
+    showNotification('Free entry revoked', 'success', 'comp-notifications');
+    await loadFreeEntrantsForComp(currentFreeEntrantsCompId);
+  } catch (error) {
+    console.error('Error revoking free entrant:', error);
+    showNotification('Error revoking free entry: ' + error.message, 'error', 'comp-notifications');
   }
 };
 

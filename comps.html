@@ -340,7 +340,7 @@
           <button onclick="openEligibilityModal()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join & Pay $<span id="feeAmount">0</span></button>
         </div>
         <div id="freeCompSection" class="hidden">
-          <p class="text-sm text-gray-400">This is a free competition. Click below to join!</p>
+          <p id="freeCompMessage" class="text-sm text-gray-400">This is a free competition. Click below to join!</p>
           <button onclick="openEligibilityModal()" class="w-full px-6 py-2 bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-semibold rounded-lg hover:from-yellow-400 hover:to-amber-400 transition">Join Competition</button>
         </div>
       </div>
@@ -498,6 +498,7 @@
     });
     let currentUser = null;
     let selectedComp = null;
+    let selectedCompIsFreeGrant = false;
     let hasInitializedPage = false;
     let pendingAuthRedirectTimer = null;
     const JOIN_INTENT_KEY = 'tmstipping:pendingJoinIntent';
@@ -852,18 +853,26 @@
 
       selectedComp = comp;
 
+      const { data: existingJoining } = await supabase.from('user_comp_joinings')
+        .select('is_free').eq('user_id', currentUser.uid).eq('comp_id', compId).single();
+      selectedCompIsFreeGrant = !!existingJoining?.is_free;
+
       document.getElementById('modalCompName').textContent = selectedComp.name;
       document.getElementById('modalCompDescription').textContent = selectedComp.description;
-      document.getElementById('modalEntryFee').textContent = `$${(selectedComp.entry_fee || 0).toFixed(2)}`;
       document.getElementById('modalPrizePool').textContent = `$${(selectedComp.prize_pool || 0).toFixed(2)}`;
       document.getElementById('modalParticipants').textContent = selectedComp.participant_count || 0;
       document.getElementById('modalEndDate').textContent = DateTime.fromISO(selectedComp.end_date).toFormat('MMM d, yyyy');
-      document.getElementById('feeAmount').textContent = (selectedComp.entry_fee || 0).toFixed(2);
 
-      if (selectedComp.entry_fee > 0) {
+      if (selectedComp.entry_fee > 0 && !selectedCompIsFreeGrant) {
+        document.getElementById('modalEntryFee').textContent = `$${selectedComp.entry_fee.toFixed(2)}`;
+        document.getElementById('feeAmount').textContent = selectedComp.entry_fee.toFixed(2);
         document.getElementById('paidCompSection').classList.remove('hidden');
         document.getElementById('freeCompSection').classList.add('hidden');
       } else {
+        document.getElementById('modalEntryFee').textContent = selectedCompIsFreeGrant ? 'FREE' : `$${(selectedComp.entry_fee || 0).toFixed(2)}`;
+        document.getElementById('freeCompMessage').textContent = selectedCompIsFreeGrant
+          ? 'You\'ve been granted free entry to this competition. Click below to join!'
+          : 'This is a free competition. Click below to join!';
         document.getElementById('paidCompSection').classList.add('hidden');
         document.getElementById('freeCompSection').classList.remove('hidden');
       }
@@ -874,6 +883,7 @@
     window.closeJoinModal = () => {
       document.getElementById('joinCompModal').classList.remove('active');
       selectedComp = null;
+      selectedCompIsFreeGrant = false;
     };
 
     window.proceedToPayment = async () => {
@@ -883,13 +893,13 @@
         document.getElementById('paymentSection').classList.add('hidden');
         document.getElementById('paymentProcessing').classList.remove('hidden');
         
-        // If comp has a fee, redirect to Stripe checkout
-        if (selectedComp.entry_fee > 0) {
+        // If comp has a fee and this user hasn't been granted free entry, redirect to Stripe checkout
+        if (selectedComp.entry_fee > 0 && !selectedCompIsFreeGrant) {
           // In production: Create a Stripe checkout session via Cloud Function
           // For now, placeholder - see implementation guide below
           await createStripeCheckoutSession(selectedComp);
         } else {
-          // Free comp - no payment needed, just join
+          // Free comp, or a free-entry grant on a paid comp — no payment needed, just join
           await completeJoinComp();
         }
       } catch (error) {

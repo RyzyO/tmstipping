@@ -1147,6 +1147,25 @@
                   </button>
                 </div>
               </form>
+
+              <!-- Free Entrants (only available once the competition has been saved) -->
+              <div id="free-entrants-section" class="hidden border-t border-gray-700 mt-8 pt-6">
+                <h3 class="text-lg font-bold mb-2 gradient-text">Free Entrants</h3>
+                <p class="text-sm text-gray-400 mb-4">Grant a user free entry to this competition. When they join via the Competitions page, they'll see "Free" and won't be charged.</p>
+
+                <div class="form-group m-0 relative">
+                  <label for="free-entrant-search">Search Users</label>
+                  <input type="text" id="free-entrant-search" placeholder="Search by name, email, or team name..." autocomplete="off" oninput="window.filterFreeEntrantSearch()">
+                </div>
+                <div id="free-entrant-results" class="mt-2 max-h-56 overflow-y-auto rounded-lg border border-gray-700/60 bg-gray-900/40 hidden"></div>
+
+                <div class="mt-6">
+                  <h4 class="text-sm font-semibold text-gray-300 mb-3">Currently Granted</h4>
+                  <div id="free-entrant-list" class="space-y-2">
+                    <div class="text-sm text-gray-500">No free entrants yet.</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
