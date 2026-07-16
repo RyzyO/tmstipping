@@ -2468,6 +2468,7 @@ let uaResultsCache = {};
 let uaResultsLoaded = false;
 let uaTipsByRace = {};
 let uaFormBound = false;
+let uaPaymentStatusByUserId = {};
 
 async function initUserAdminPanel() {
   const select = document.getElementById('user-admin-comp');
@@ -2481,11 +2482,25 @@ async function initUserAdminPanel() {
     option.textContent = comp.name || comp.id;
     select.appendChild(option);
   });
+
   if (previousValue && allComps.some(c => c.id === previousValue)) {
     select.value = previousValue;
+  } else {
+    // Same default-comp resolution used for the main admin dashboard: prefer
+    // the site-wide default (if still active), else the first active comp.
+    const defaultComp = allComps.find(comp => comp.is_default && comp.status === 'active') || null;
+    const firstActiveComp = allComps.find(comp => comp.status === 'active') || null;
+    const initialComp = defaultComp || firstActiveComp;
+    if (initialComp) {
+      select.value = initialComp.id;
+    }
   }
 
   bindUserAdminForm();
+
+  if (select.value) {
+    await window.handleUserAdminCompChange();
+  }
 }
 
 function bindUserAdminForm() {
@@ -2508,18 +2523,20 @@ function bindUserAdminForm() {
     statusEl.className = 'text-sm text-yellow-400';
 
     try {
-      await supabase.from('users').update({
+      const { error: userUpdateError } = await supabase.from('users').update({
         email, first_name: firstName, last_name: lastName, team_name: teamName
       }).eq('id', uaSelectedUserId);
+      if (userUpdateError) throw userUpdateError;
 
       if (uaSelectedCompId) {
-        await supabase.from('user_comp_joinings').upsert({
+        const { error: joiningError } = await supabase.from('user_comp_joinings').upsert({
           id: `${uaSelectedUserId}_${uaSelectedCompId}`,
           user_id: uaSelectedUserId,
           comp_id: uaSelectedCompId,
           payment_status: paidForComp ? 'completed' : 'pending',
           jokers_remaining: jokersRemaining
         }, { onConflict: 'user_id,comp_id' });
+        if (joiningError) throw joiningError;
       }
 
       const idx = uaUsers.findIndex(u => u.id === uaSelectedUserId);
@@ -2531,7 +2548,7 @@ function bindUserAdminForm() {
       statusEl.className = 'text-sm text-green-400';
     } catch (error) {
       console.error('Error saving user:', error);
-      statusEl.textContent = 'Error saving';
+      statusEl.textContent = `Error saving: ${error?.message || 'Unknown error'}`;
       statusEl.className = 'text-sm text-red-400';
     } finally {
       setTimeout(() => {
@@ -2542,14 +2559,18 @@ function bindUserAdminForm() {
 }
 
 window.handleUserAdminCompChange = async function() {
-  const userSelect = document.getElementById('user-admin-user');
   uaSelectedCompId = document.getElementById('user-admin-comp')?.value || null;
   uaSelectedUserId = null;
+  uaUsers = [];
+  uaPaymentStatusByUserId = {};
   document.getElementById('user-admin-edit-section')?.classList.add('hidden');
 
+  const searchInput = document.getElementById('user-admin-search');
+  searchInput.value = '';
+
   if (!uaSelectedCompId) {
-    userSelect.innerHTML = '<option value="">Select a competition first</option>';
-    userSelect.disabled = true;
+    searchInput.disabled = true;
+    renderUserAdminResults([]);
     document.getElementById('user-admin-summary').textContent = 'Choose a competition and a user to begin editing.';
     return;
   }
@@ -2559,11 +2580,13 @@ window.handleUserAdminCompChange = async function() {
 };
 
 async function loadUsersForUserAdminComp(compId) {
-  const userSelect = document.getElementById('user-admin-user');
-  userSelect.innerHTML = '<option value="">Loading users...</option>';
-  userSelect.disabled = true;
+  const searchInput = document.getElementById('user-admin-search');
+  searchInput.disabled = true;
+  document.getElementById('user-admin-results').innerHTML = '<div class="text-sm text-gray-400 p-4">Loading players...</div>';
 
-  const { data: joinings } = await supabase.from('user_comp_joinings').select('user_id').eq('comp_id', compId);
+  const { data: joinings } = await supabase.from('user_comp_joinings').select('user_id,payment_status').eq('comp_id', compId);
+  uaPaymentStatusByUserId = {};
+  (joinings || []).forEach(j => { if (j.user_id) uaPaymentStatusByUserId[j.user_id] = j.payment_status; });
   const userIds = [...new Set((joinings || []).map(j => j.user_id).filter(Boolean))];
 
   uaUsers = [];
@@ -2573,27 +2596,50 @@ async function loadUsersForUserAdminComp(compId) {
   }
   uaUsers.sort((a, b) => (a.team_name || a.email || a.id || '').toLowerCase().localeCompare((b.team_name || b.email || b.id || '').toLowerCase()));
 
-  renderUserAdminOptions(uaUsers);
-  userSelect.disabled = false;
+  searchInput.disabled = false;
+  window.filterUserAdminList();
+  searchInput.focus();
 }
 
-function renderUserAdminOptions(list) {
-  const userSelect = document.getElementById('user-admin-user');
-  userSelect.innerHTML = '<option value="">Select user...</option>';
-  list.forEach(user => {
-    const option = document.createElement('option');
-    option.value = user.id;
+function renderUserAdminResults(list) {
+  const resultsEl = document.getElementById('user-admin-results');
+  const countEl = document.getElementById('user-admin-result-count');
+
+  if (!uaSelectedCompId) {
+    resultsEl.innerHTML = '<div class="text-sm text-gray-400 p-4">Choose a competition to see its players.</div>';
+    countEl.textContent = '';
+    return;
+  }
+
+  if (!list.length) {
+    resultsEl.innerHTML = '<div class="text-sm text-gray-400 p-4">No players match your search.</div>';
+    countEl.textContent = `0 of ${uaUsers.length} players`;
+    return;
+  }
+
+  countEl.textContent = list.length === uaUsers.length
+    ? `${list.length} player${list.length === 1 ? '' : 's'}`
+    : `${list.length} of ${uaUsers.length} players`;
+
+  resultsEl.innerHTML = list.map(user => {
     const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-    option.textContent = `${user.team_name || '(No Team)'}${name ? ` (${name})` : ''} - ${user.email || user.id}`;
-    userSelect.appendChild(option);
-  });
+    const paid = uaPaymentStatusByUserId[user.id] === 'completed';
+    const isSelected = user.id === uaSelectedUserId;
+    return `
+      <button type="button" onclick="window.selectUserAdminUserFromList('${user.id}')"
+        class="w-full text-left px-3 py-2.5 flex items-center justify-between gap-2 transition border-b border-gray-800/60 last:border-b-0 ${isSelected ? 'bg-yellow-500/15' : 'hover:bg-gray-800/70'}">
+        <span class="min-w-0">
+          <span class="block text-sm font-semibold text-gray-100 truncate">${escapeHtml(user.team_name) || '(No Team)'}${name ? ` <span class="font-normal text-gray-400">(${escapeHtml(name)})</span>` : ''}</span>
+          <span class="block text-xs text-gray-500 truncate">${escapeHtml(user.email || user.id)}</span>
+        </span>
+        <span class="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${paid ? 'bg-green-500/15 text-green-400' : 'bg-gray-600/20 text-gray-400'}">${paid ? 'PAID' : 'PENDING'}</span>
+      </button>
+    `;
+  }).join('');
 }
 
 window.filterUserAdminList = function() {
   const q = (document.getElementById('user-admin-search')?.value || '').trim().toLowerCase();
-  const userSelect = document.getElementById('user-admin-user');
-  if (!userSelect) return;
-  const currentValue = userSelect.value;
 
   const filtered = uaUsers.filter(u => !q ||
     (u.email && u.email.toLowerCase().includes(q)) ||
@@ -2602,21 +2648,13 @@ window.filterUserAdminList = function() {
     (u.team_name && u.team_name.toLowerCase().includes(q))
   );
 
-  renderUserAdminOptions(filtered);
-  if (currentValue && Array.from(userSelect.options).some(o => o.value === currentValue)) {
-    userSelect.value = currentValue;
-  }
+  renderUserAdminResults(filtered);
 };
 
-window.handleUserAdminUserChange = async function() {
-  const userId = document.getElementById('user-admin-user')?.value;
-  if (!userId) {
-    uaSelectedUserId = null;
-    document.getElementById('user-admin-edit-section')?.classList.add('hidden');
-    document.getElementById('user-admin-summary').textContent = 'Choose a user to begin editing.';
-    return;
-  }
+window.selectUserAdminUserFromList = async function(userId) {
   await selectUserAdminUser(userId);
+  window.filterUserAdminList();
+  document.getElementById('user-admin-edit-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 };
 
 async function selectUserAdminUser(userId) {

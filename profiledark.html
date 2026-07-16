@@ -117,12 +117,61 @@
           document.getElementById('profileSuburb').value = userData.suburb || '';
           document.getElementById('profilePostcode').value = userData.postcode || '';
           document.getElementById('profileState').value = userData.state || '';
+          document.getElementById('profileTeamName').value = userData.team_name || '';
+          await applyTeamNameLockState();
         } else {
           document.getElementById('userName').textContent = currentUser.email;
         }
       } catch (error) {
         console.error('Error loading user profile:', error);
         document.getElementById('userName').textContent = currentUser.email;
+      }
+    }
+
+    // Mirrors the "primary comp" selection used for the stats cards: prefer an
+    // active joining, then any completed one, then whatever's left.
+    async function getPrimaryCompId() {
+      const { data: joinings } = await supabase
+        .from('user_comp_joinings').select('*').eq('user_id', currentUser.uid);
+      if (!joinings?.length) return null;
+
+      const compIds = [...new Set(joinings.map(j => j.comp_id).filter(Boolean))];
+      const { data: comps } = compIds.length ? await supabase.from('comps').select('id,status').in('id', compIds) : { data: [] };
+      const compStatusMap = Object.fromEntries((comps || []).map(c => [c.id, c.status]));
+
+      const enriched = joinings.map(j => ({ ...j, compStatus: compStatusMap[j.comp_id] || null }));
+      const activeJoinings = enriched.filter(j => j.compStatus === 'active');
+      const completedJoinings = enriched.filter(j => j.payment_status === 'completed');
+      const primaryJoining = activeJoinings[0] || completedJoinings[0] || enriched[0] || null;
+      return primaryJoining?.comp_id || null;
+    }
+
+    async function hasFirstRaceBeenResulted(compId) {
+      if (!compId) return false;
+      const { data: races } = await supabase.from('races').select('id,date,time').eq('comp_id', compId);
+      if (!races?.length) return false;
+
+      const firstRace = [...races].sort((a, b) => new Date(`${a.date}T${a.time}`) - new Date(`${b.date}T${b.time}`))[0];
+      if (!firstRace) return false;
+
+      const { data: results } = await supabase.from('results').select('id').eq('race_id', firstRace.id).limit(1);
+      return !!results?.length;
+    }
+
+    async function applyTeamNameLockState() {
+      const input = document.getElementById('profileTeamName');
+      const saveBtn = document.getElementById('teamNameSaveBtn');
+      const lockNote = document.getElementById('teamNameLockNote');
+
+      try {
+        const primaryCompId = await getPrimaryCompId();
+        const locked = await hasFirstRaceBeenResulted(primaryCompId);
+
+        input.disabled = locked;
+        saveBtn.disabled = locked;
+        lockNote.classList.toggle('hidden', !locked);
+      } catch (error) {
+        console.error('Error checking display name lock state:', error);
       }
     }
 
@@ -247,6 +296,38 @@
     window.handleSignOut = async function() {
       await supabase.auth.signOut();
       window.location.href = 'logindark';
+    };
+
+    window.handleUpdateTeamName = async function() {
+      if (!currentUser) return;
+      const input = document.getElementById('profileTeamName');
+      if (input.disabled) return;
+
+      const teamName = input.value.trim();
+      if (!teamName) { alert('Please enter a display name'); return; }
+
+      try {
+        // Re-check the lock right before writing — the first race could have
+        // been resulted in the time since the page loaded.
+        const primaryCompId = await getPrimaryCompId();
+        if (await hasFirstRaceBeenResulted(primaryCompId)) {
+          await applyTeamNameLockState();
+          alert('Display name is locked — the first race of your competition has already been resulted.');
+          return;
+        }
+
+        const { error } = await supabase.from('users').update({ team_name: teamName }).eq('id', currentUser.uid);
+        if (error) throw error;
+
+        document.getElementById('userName').textContent = teamName;
+        const successMsg = document.getElementById('successMessage');
+        successMsg.textContent = 'Display name updated successfully!';
+        successMsg.classList.remove('hidden');
+        setTimeout(() => { successMsg.classList.add('hidden'); successMsg.textContent = 'Silk saved successfully!'; }, 2000);
+      } catch (error) {
+        console.error('Error updating display name:', error);
+        alert('Failed to update display name: ' + error.message);
+      }
     };
 
     window.handleUpdateAddress = async function() {
@@ -495,6 +576,29 @@
         <div class="flex items-center gap-3 mb-6">
           <i data-feather="settings" class="h-8 w-8 text-yellow-400"></i>
           <h3 class="text-2xl font-bold gradient-text">Account Settings</h3>
+        </div>
+
+        <!-- Tipper Display Name -->
+        <div class="mb-6 p-6 bg-gray-800/50 rounded-xl border border-gray-700">
+          <h4 class="text-lg font-semibold text-gray-200 mb-4 flex items-center gap-2">
+            <i data-feather="award" class="h-5 w-5 text-yellow-400"></i>
+            Tipper Display Name
+          </h4>
+          <p class="text-sm text-gray-400 mb-4">This is the name shown on the leaderboard.</p>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm text-gray-400 mb-2">Display Name</label>
+              <input type="text" id="profileTeamName" placeholder="Your tipper name" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white focus:border-yellow-400 focus:outline-none transition disabled:opacity-50 disabled:cursor-not-allowed">
+            </div>
+            <p id="teamNameLockNote" class="hidden text-sm text-yellow-400/80 flex items-center gap-2">
+              <i data-feather="lock" class="h-4 w-4"></i>
+              Display name is locked once the first race of your competition has been resulted.
+            </p>
+            <button id="teamNameSaveBtn" onclick="handleUpdateTeamName()" class="px-6 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/50 text-yellow-400 rounded-lg transition-all duration-200 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-yellow-500/20">
+              <i data-feather="check" class="h-4 w-4"></i>
+              Update Display Name
+            </button>
+          </div>
         </div>
 
         <!-- Residential Address -->

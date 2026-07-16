@@ -1221,28 +1221,27 @@
             </div>
 
             <div class="form-group m-0 mb-6">
-              <label for="user-admin-search">Search Users</label>
-              <input type="text" id="user-admin-search" placeholder="Search by name, email, or team name..." oninput="window.filterUserAdminList()">
+              <label for="user-admin-comp">Competition</label>
+              <select id="user-admin-comp" onchange="window.handleUserAdminCompChange()">
+                <option value="">Loading competitions...</option>
+              </select>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div class="lg:col-span-1">
-                <div class="form-group m-0">
-                  <label for="user-admin-comp">Competition</label>
-                  <select id="user-admin-comp" onchange="window.handleUserAdminCompChange()">
-                    <option value="">Loading competitions...</option>
-                  </select>
+                <div class="form-group m-0 relative">
+                  <label for="user-admin-search">Search Users</label>
+                  <i data-feather="search" class="h-4 w-4 absolute left-3 top-[42px] text-gray-500 pointer-events-none"></i>
+                  <input type="text" id="user-admin-search" class="!pl-9" placeholder="Search by name, email, or team name..." oninput="window.filterUserAdminList()" disabled autocomplete="off">
                 </div>
-                <div class="form-group m-0 mt-4">
-                  <label for="user-admin-user">User</label>
-                  <select id="user-admin-user" onchange="window.handleUserAdminUserChange()" disabled>
-                    <option value="">Select a competition first</option>
-                  </select>
+                <div id="user-admin-result-count" class="text-xs text-gray-500 mt-2 mb-1"></div>
+                <div id="user-admin-results" class="space-y-1 max-h-[420px] overflow-y-auto pr-1 rounded-lg border border-gray-700/60 bg-gray-900/40">
+                  <div class="text-sm text-gray-400 p-4">Choose a competition to see its players.</div>
                 </div>
-                <div id="user-admin-summary" class="text-sm text-gray-400 mt-3">Choose a competition and a user to begin editing.</div>
               </div>
 
               <div class="lg:col-span-2">
+                <div id="user-admin-summary" class="text-sm text-gray-400">Choose a competition and a user to begin editing.</div>
                 <div id="user-admin-edit-section" class="hidden">
                   <h3 class="text-lg font-semibold mb-4">Edit User</h3>
                   <form id="user-admin-edit-form" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
