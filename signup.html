@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign Up - The Great Spring Tip Off</title>
-  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="icon.png">
   <link rel="manifest" href="/site.webmanifest">
   <meta name="theme-color" content="#fbbf24">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -209,6 +209,8 @@
           <div id="error-message" class="text-center text-sm min-h-[24px]"></div>
         </form>
 
+        <div id="signup-success" class="hidden text-center text-sm text-green-400 font-medium bg-green-500/10 border border-green-500/30 rounded-lg p-4"></div>
+
         <div class="relative my-6">
           <div class="absolute inset-0 flex items-center">
             <div class="w-full border-t border-gray-700"></div>
@@ -238,7 +240,7 @@
 
     <div class="mt-8 text-center space-y-3">
       <div class="flex justify-center gap-6 text-sm">
-        <a href="faq.html" class="text-gray-400 hover:text-yellow-400 transition flex items-center gap-1">
+        <a href="faqdark.html" class="text-gray-400 hover:text-yellow-400 transition flex items-center gap-1">
           <i data-feather="help-circle" class="h-4 w-4"></i>
           Help
         </a>
@@ -248,6 +250,11 @@
         </a>
       </div>
       <p class="text-gray-500 text-xs">&copy; 2026 The Mock Sports. All rights reserved.</p>
+      <p class="text-gray-500 text-xs">
+        <a href="terms.html" class="hover:text-yellow-400 transition underline">Terms &amp; Conditions</a>
+        &middot;
+        <a href="privacy.html" class="hover:text-yellow-400 transition underline">Privacy Policy</a>
+      </p>
       <p class="text-gray-600 text-xs pt-2 border-t border-gray-800">
         <a href="adminlogin.html" class="text-gray-500 hover:text-yellow-400 transition font-medium">Admin Portal</a>
       </p>
@@ -258,6 +265,7 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     import { attachAddressAutocomplete } from './address-autocomplete.js';
+    import { checkDisplayName } from './username-filter.js';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     attachAddressAutocomplete(document.getElementById('address'), {
@@ -337,12 +345,27 @@
         return;
       }
 
+      const nameCheck = checkDisplayName(teamName);
+      if (nameCheck.blocked) {
+        errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';
+        errorMessage.textContent = 'That tipper name isn\'t allowed — please choose a different one.';
+        return;
+      }
+
       try {
+        // All profile fields travel via user metadata so the `handle_new_user`
+        // database trigger can create the public.users row itself. This matters
+        // because when email confirmation is required, signUp() returns no
+        // active session — a client-side insert into public.users at this point
+        // would run as the anonymous role and get rejected by RLS.
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { first_name: firstName, last_name: lastName, team_name: teamName }
+            data: {
+              first_name: firstName, last_name: lastName, team_name: teamName,
+              dob, address, suburb, postcode, state
+            }
           }
         });
 
@@ -350,24 +373,28 @@
 
         const user = signUpData.user;
 
-        const { error: insertError } = await supabase.from('users').upsert({
-          id: user.id,
-          first_name: firstName,
-          last_name: lastName,
-          team_name: teamName,
-          email,
-          dob,
-          address,
-          suburb,
-          postcode,
-          state,
-          joker: 3,
-          paid: false
-        }, { onConflict: 'id' });
+        if (signUpData.session) {
+          // Session is active immediately (email confirmation disabled) — the
+          // trigger already created the row, but upsert any client-only fields
+          // as a best-effort touch-up. Not fatal if it fails.
+          try {
+            await supabase.from('users').upsert({
+              id: user.id, first_name: firstName, last_name: lastName, team_name: teamName,
+              email, dob, address, suburb, postcode, state, joker: 3, paid: false
+            }, { onConflict: 'id' });
+          } catch (upsertError) {
+            console.warn('Post-signup profile touch-up failed (non-fatal):', upsertError);
+          }
+          window.location.href = getSafeRedirectTarget();
+          return;
+        }
 
-        if (insertError) throw insertError;
-
-        window.location.href = getSafeRedirectTarget();
+        // No session yet — email confirmation is required. The trigger has
+        // already created the profile row; the user just needs to verify.
+        signupForm.classList.add('hidden');
+        const successEl = document.getElementById('signup-success');
+        successEl.textContent = `Almost there! We've sent a confirmation link to ${email} — verify your email, then sign in to join a competition.`;
+        successEl.classList.remove('hidden');
       } catch (error) {
         console.error('Signup error:', error.message);
         errorMessage.className = 'text-center text-sm min-h-[24px] text-red-400 font-medium';

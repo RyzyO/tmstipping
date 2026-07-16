@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Profile - The Great Spring Tip Off</title>
-  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="icon" type="image/x-icon" href="icon.png">
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script src="onesignal-init.js" defer></script>
   <script src="https://cdn.tailwindcss.com"></script>
@@ -22,6 +22,7 @@
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     import { attachAddressAutocomplete } from './address-autocomplete.js';
+    import { checkDisplayName } from './username-filter.js';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentUser = null;
@@ -305,6 +306,11 @@
 
       const teamName = input.value.trim();
       if (!teamName) { alert('Please enter a display name'); return; }
+
+      if (checkDisplayName(teamName).blocked) {
+        alert('That display name isn\'t allowed — please choose a different one.');
+        return;
+      }
 
       try {
         // Re-check the lock right before writing — the first race could have

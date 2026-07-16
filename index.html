@@ -137,6 +137,10 @@
       100% { background-position: -200% 0; }
     }
     .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 2rem;
+      border-radius: 0.6rem !important;
       background: rgba(217, 119, 6, 0.2);
       border: 1px solid rgba(251, 191, 36, 0.3);
     }
@@ -167,18 +171,32 @@
       box-shadow: 0 4px 12px rgba(251, 191, 36, 0.25);
     }
     .tipped-chip {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       max-width: 11rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      padding: 0.25rem 0.65rem;
-      border-radius: 9999px;
+      height: 2rem;
+      padding: 0 0.65rem 0 0.3rem;
+      border-radius: 0.6rem;
       font-size: 0.7rem;
       font-weight: 600;
       color: #86efac;
       background: rgba(22, 101, 52, 0.4);
       border: 1px solid rgba(74, 222, 128, 0.35);
+    }
+    .tipped-chip .tipped-chip-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tipped-chip-silk {
+      width: 1.15rem;
+      height: 1.15rem;
+      border-radius: 0.3rem;
+      object-fit: cover;
+      object-position: top center;
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.08);
     }
     .race-watermark {
       position: absolute;
@@ -411,6 +429,16 @@
 
     const HOME_STATS_CACHE_PREFIX = "tmstipping:homeStats";
 
+    function getSilkUrl(horse, raceName) {
+      if (!horse) return '';
+      if (horse.silksId) {
+        return `https://www.racingaustralia.horse/JockeySilks/${horse.silksId}.png`;
+      }
+      if (horse.silkUrl) return horse.silkUrl;
+      const venueName = (raceName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+      return horse.number ? `https://content.tab.com.au/content/dam/tab-corp/silks/${venueName}/${horse.number}.png` : '';
+    }
+
     function getOrdinalSuffix(num) {
       if (typeof num !== 'number' || num < 1) return num;
       const j = num % 10, k = num % 100;
@@ -452,28 +480,23 @@
       );
     }
 
-    supabase.auth.onAuthStateChange((event, session) => {
-      // Deferred with setTimeout: supabase-js holds an internal auth lock while
-      // dispatching this callback, so calls like getUser() must run outside it.
-      setTimeout(async () => {
-        if (session?.user) { startHomeApp(session.user); return; }
-        if (event === 'SIGNED_OUT') { guardedRedirect('landing.html', supabase); return; }
-        if (event !== 'INITIAL_SESSION') return;
-        // INITIAL_SESSION arrives with a null session while an expired cached
-        // token is still being refreshed — treating that null as "logged out"
-        // bounced freshly logged-in users straight back to landing. Verify with
-        // the server before concluding they're actually signed out.
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) { startHomeApp(user); return; }
-        } catch (err) {
-          console.warn('Auth verification failed:', err.message);
-        }
-        guardedRedirect('landing.html', supabase);
-      }, 0);
-    });
+    // A handful of accounts from an earlier signup step never had their
+    // tipper details captured. Ask for them once, framed as finishing setup.
+    // Must be declared before startHomeApp runs: checkProfileCompletion reads
+    // it early in that function, and a later const in the same scope is in its
+    // temporal dead zone at that point (ReferenceError that killed page init).
+    const NEEDS_PROFILE_COMPLETION = new Set([
+      '36286641-fb17-41c0-a83b-271dd1f254dc', // jackkennedy25@outlook.com
+      '9ec5115f-816d-4da1-a6ed-f76811876879', // lachlan.howard161@gmail.com
+      '820d47f4-b527-466e-b841-1f8f66571f9e', // billyg_21@outlook.com
+      '8c6b402f-a5c1-438e-9ba5-88986ecdc683', // elegantnoble1@gmail.com
+      '14c7d92a-c7ba-4080-b728-00739587dbc1'  // paulkabalan07@icloud.com
+    ]);
 
+    let appStarted = false;
     async function startHomeApp(user) {
+      if (appStarted) return;
+      appStarted = true;
       clearRedirectGuard();
       window.TMS_OneSignal?.login(user.id);
       // Map Supabase user to Firebase-style shape
@@ -557,16 +580,6 @@
       window.scrollTo(0, 0);
     });
 
-    // A handful of accounts from an earlier signup step never had their
-    // tipper details captured. Ask for them once, framed as finishing setup.
-    const NEEDS_PROFILE_COMPLETION = new Set([
-      '36286641-fb17-41c0-a83b-271dd1f254dc', // jackkennedy25@outlook.com
-      '9ec5115f-816d-4da1-a6ed-f76811876879', // lachlan.howard161@gmail.com
-      '820d47f4-b527-466e-b841-1f8f66571f9e', // billyg_21@outlook.com
-      '8c6b402f-a5c1-438e-9ba5-88986ecdc683', // elegantnoble1@gmail.com
-      '14c7d92a-c7ba-4080-b728-00739587dbc1'  // paulkabalan07@icloud.com
-    ]);
-
     function checkProfileCompletion(user) {
       if (!user || !NEEDS_PROFILE_COMPLETION.has(user.id)) return;
 
@@ -607,6 +620,13 @@
     // Loads stats/races for whichever comp the user should currently see:
     // the active comp they've joined that matches the admin-set default (or
     // footer selection), falling back to their most recent joined active comp.
+    function showNoCompModal() {
+      const modal = document.getElementById('no-comp-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      feather.replace();
+    }
+
     async function loadUserCompsToDropdown(userId) {
       try {
         const { data: joinings } = await supabase
@@ -617,16 +637,18 @@
 
         const uniqueCompIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
         userCompIds = uniqueCompIds;
-        if (uniqueCompIds.length === 0) return;
+        if (uniqueCompIds.length === 0) { showNoCompModal(); return; }
 
         const { data: comps } = await supabase
           .from('comps')
           .select('*')
           .in('id', uniqueCompIds);
 
+        // Only joinings to a currently active comp count — a joining to a
+        // closed/previous-year comp doesn't excuse the "join a comp" prompt.
         const activeComps = (comps || []).filter(c => c.status === 'active')
           .sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-        if (activeComps.length === 0) return;
+        if (activeComps.length === 0) { showNoCompModal(); return; }
 
         const preferredCompId = await resolveActiveCompId(supabase);
         const preferred = activeComps.find(c => c.id === preferredCompId);
@@ -647,6 +669,14 @@
         if (!userData) return;
 
         currentUserProfile = userData;
+
+        // Set the welcome name here (not just in loadCompStats) so it shows up
+        // for brand-new users who haven't joined a paid comp yet — otherwise
+        // loadUserCompsToDropdown() returns early with no joinings and the
+        // "Guest" placeholder in the static HTML never gets replaced.
+        const nameEl = document.getElementById("userName");
+        if (nameEl) nameEl.textContent = userData.team_name || currentUser.email || "Guest";
+
         const silkNumber = userData.silk || 1;
         const silkImg = document.getElementById("welcomeSilk");
         silkImg.src = `static/silks/${silkNumber}.png`;
@@ -781,14 +811,16 @@
         const hasPreview = previewUrl.length > 0;
         const tipped = tipsMap.has(race.id);
         const tipData = tipByRace[race.id] || null;
+        const tippedHorse = tipped ? (race.horses?.[tipData?.horseId] || null) : null;
         const tippedHorseName = tipped
           ? (
-              (tipData?.horseId && race.horses?.[tipData.horseId]?.name) ||
+              tippedHorse?.name ||
               tipData?.horse ||
               tipData?.horseName ||
               ""
             )
           : "";
+        const tippedSilkUrl = tipped ? getSilkUrl(tippedHorse, race.name) : "";
         const actionText = tipped ? "Tip Submitted" : "Tip Now";
         const actionClass = tipped
           ? "bg-green-600/90 text-white hover:bg-green-500"
@@ -811,7 +843,7 @@
             <div class="flex items-center gap-2 mb-3 flex-wrap">
               ${raceNum ? `<span class="race-chip">R${raceNum}</span>` : ''}
               <span class="badge text-yellow-300 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap">${race.type || "Open"}</span>
-              ${tipped && tippedHorseName ? `<span class="tipped-chip">✓ ${tippedHorseName}</span>` : ''}
+              ${tipped && tippedHorseName ? `<span class="tipped-chip">${tippedSilkUrl ? `<img src="${tippedSilkUrl}" alt="" class="tipped-chip-silk" onerror="this.style.display='none'">` : ''}<span class="tipped-chip-name">${tippedHorse?.number ? `#${tippedHorse.number} ` : ''}${tippedHorseName}</span></span>` : ''}
             </div>
             <h3 class="text-lg font-bold text-white mb-1.5 leading-snug">${race.name}</h3>
             <div class="flex items-center text-sm text-gray-300 mb-4">
@@ -922,6 +954,28 @@
       const timer = setInterval(update, 1000);
     }
     }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      // Deferred with setTimeout: supabase-js holds an internal auth lock while
+      // dispatching this callback, so calls like getUser() must run outside it.
+      setTimeout(async () => {
+        if (session?.user) { startHomeApp(session.user); return; }
+        if (event === 'SIGNED_OUT') { guardedRedirect('landing.html', supabase); return; }
+        if (event !== 'INITIAL_SESSION' || appStarted) return;
+        // INITIAL_SESSION arrives with a null session while an expired cached
+        // token is still being refreshed — treating that null as "logged out"
+        // bounced freshly logged-in users to landing, which verified the session
+        // fine and sent them straight back: an infinite loop. Verify with the
+        // server before concluding they're actually signed out.
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) { startHomeApp(user); return; }
+        } catch (err) {
+          console.warn('Auth verification failed:', err.message);
+        }
+        if (!appStarted) guardedRedirect('landing.html', supabase);
+      }, 0);
+    });
   </script>
 
   <!-- Profile completion modal -->
@@ -953,6 +1007,31 @@
         </button>
         <div id="profile-complete-error" class="text-center text-sm min-h-[20px] text-red-400 font-medium"></div>
       </form>
+    </div>
+  </div>
+
+  <!-- No Active Comp Welcome Modal -->
+  <div id="no-comp-modal" style="display:none; position:fixed; inset:8px; z-index:10001; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; padding:16px; border-radius:16px;">
+    <div class="card rounded-2xl shadow-2xl p-8 md:p-12 w-full h-full flex flex-col items-center justify-center text-center relative overflow-hidden" style="background:linear-gradient(145deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98)); border:1px solid rgba(251, 191, 36, 0.3);">
+      <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+
+      <button onclick="document.getElementById('no-comp-modal').style.display='none'" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl z-10" aria-label="Close">&times;</button>
+
+      <div class="relative z-10 max-w-lg mx-auto">
+        <img src="images/logo.png" alt="Logo" class="h-16 w-auto mx-auto mb-6" style="object-fit: contain;" />
+        <h2 class="text-3xl md:text-4xl font-bold gradient-text mb-4">Welcome to The Great Spring Tip Off!</h2>
+        <p class="text-gray-300 text-base md:text-lg mb-8">
+          You're all signed up — the last step is joining this year's competition so you can start tipping, climb the leaderboard, and get in the running for prizes.
+        </p>
+        <a href="comps.html" class="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-bold text-lg hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 shadow-lg shadow-yellow-900/30">
+          <i data-feather="award" class="h-5 w-5"></i>
+          Browse Competitions
+        </a>
+        <p class="text-gray-500 text-sm mt-6">
+          <button onclick="document.getElementById('no-comp-modal').style.display='none'" class="hover:text-yellow-400 transition underline">Maybe later</button>
+        </p>
+      </div>
     </div>
   </div>
 

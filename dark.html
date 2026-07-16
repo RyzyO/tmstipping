@@ -620,6 +620,13 @@
     // Loads stats/races for whichever comp the user should currently see:
     // the active comp they've joined that matches the admin-set default (or
     // footer selection), falling back to their most recent joined active comp.
+    function showNoCompModal() {
+      const modal = document.getElementById('no-comp-modal');
+      if (!modal) return;
+      modal.style.display = 'flex';
+      feather.replace();
+    }
+
     async function loadUserCompsToDropdown(userId) {
       try {
         const { data: joinings } = await supabase
@@ -630,16 +637,18 @@
 
         const uniqueCompIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
         userCompIds = uniqueCompIds;
-        if (uniqueCompIds.length === 0) return;
+        if (uniqueCompIds.length === 0) { showNoCompModal(); return; }
 
         const { data: comps } = await supabase
           .from('comps')
           .select('*')
           .in('id', uniqueCompIds);
 
+        // Only joinings to a currently active comp count — a joining to a
+        // closed/previous-year comp doesn't excuse the "join a comp" prompt.
         const activeComps = (comps || []).filter(c => c.status === 'active')
           .sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
-        if (activeComps.length === 0) return;
+        if (activeComps.length === 0) { showNoCompModal(); return; }
 
         const preferredCompId = await resolveActiveCompId(supabase);
         const preferred = activeComps.find(c => c.id === preferredCompId);
@@ -660,6 +669,14 @@
         if (!userData) return;
 
         currentUserProfile = userData;
+
+        // Set the welcome name here (not just in loadCompStats) so it shows up
+        // for brand-new users who haven't joined a paid comp yet — otherwise
+        // loadUserCompsToDropdown() returns early with no joinings and the
+        // "Guest" placeholder in the static HTML never gets replaced.
+        const nameEl = document.getElementById("userName");
+        if (nameEl) nameEl.textContent = userData.team_name || currentUser.email || "Guest";
+
         const silkNumber = userData.silk || 1;
         const silkImg = document.getElementById("welcomeSilk");
         silkImg.src = `static/silks/${silkNumber}.png`;
@@ -990,6 +1007,31 @@
         </button>
         <div id="profile-complete-error" class="text-center text-sm min-h-[20px] text-red-400 font-medium"></div>
       </form>
+    </div>
+  </div>
+
+  <!-- No Active Comp Welcome Modal -->
+  <div id="no-comp-modal" style="display:none; position:fixed; inset:8px; z-index:10001; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; padding:16px; border-radius:16px;">
+    <div class="card rounded-2xl shadow-2xl p-8 md:p-12 w-full h-full flex flex-col items-center justify-center text-center relative overflow-hidden" style="background:linear-gradient(145deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98)); border:1px solid rgba(251, 191, 36, 0.3);">
+      <div class="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 w-72 h-72 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+
+      <button onclick="document.getElementById('no-comp-modal').style.display='none'" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl z-10" aria-label="Close">&times;</button>
+
+      <div class="relative z-10 max-w-lg mx-auto">
+        <img src="images/logo.png" alt="Logo" class="h-16 w-auto mx-auto mb-6" style="object-fit: contain;" />
+        <h2 class="text-3xl md:text-4xl font-bold gradient-text mb-4">Welcome to The Great Spring Tip Off!</h2>
+        <p class="text-gray-300 text-base md:text-lg mb-8">
+          You're all signed up — the last step is joining this year's competition so you can start tipping, climb the leaderboard, and get in the running for prizes.
+        </p>
+        <a href="comps.html" class="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-bold text-lg hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 shadow-lg shadow-yellow-900/30">
+          <i data-feather="award" class="h-5 w-5"></i>
+          Browse Competitions
+        </a>
+        <p class="text-gray-500 text-sm mt-6">
+          <button onclick="document.getElementById('no-comp-modal').style.display='none'" class="hover:text-yellow-400 transition underline">Maybe later</button>
+        </p>
+      </div>
     </div>
   </div>
 
