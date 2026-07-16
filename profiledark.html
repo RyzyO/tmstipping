@@ -23,7 +23,11 @@
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
     import { attachAddressAutocomplete } from './address-autocomplete.js';
     import { checkDisplayName } from './username-filter.js';
+    import { mergeCompJoiningsForProfile, selectProfileCompJoining } from './profile-comp-utils.js';
+    import { resolveActiveCompId } from './active-comp.js';
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    window.mergeCompJoiningsForProfile = mergeCompJoiningsForProfile;
 
     let currentUser = null;
     let selectedSilk = 1;
@@ -129,22 +133,21 @@
       }
     }
 
-    // Mirrors the "primary comp" selection used for the stats cards: prefer an
-    // active joining, then any completed one, then whatever's left.
+    // Prefer the current/default competition when the user is joined to it,
+    // then fall back to the best available joining.
     async function getPrimaryCompId() {
+      if (!currentUser) return null;
+
       const { data: joinings } = await supabase
         .from('user_comp_joinings').select('*').eq('user_id', currentUser.uid);
       if (!joinings?.length) return null;
 
-      const compIds = [...new Set(joinings.map(j => j.comp_id).filter(Boolean))];
-      const { data: comps } = compIds.length ? await supabase.from('comps').select('id,status').in('id', compIds) : { data: [] };
-      const compStatusMap = Object.fromEntries((comps || []).map(c => [c.id, c.status]));
+      const preferredCompId = await resolveActiveCompId(supabase, { useQueryParam: false });
+      const preferredJoining = (joinings || []).find(j => j.comp_id === preferredCompId);
+      if (preferredJoining?.comp_id) return preferredJoining.comp_id;
 
-      const enriched = joinings.map(j => ({ ...j, compStatus: compStatusMap[j.comp_id] || null }));
-      const activeJoinings = enriched.filter(j => j.compStatus === 'active');
-      const completedJoinings = enriched.filter(j => j.payment_status === 'completed');
-      const primaryJoining = activeJoinings[0] || completedJoinings[0] || enriched[0] || null;
-      return primaryJoining?.comp_id || null;
+      const fallbackJoining = selectProfileCompJoining(joinings || []);
+      return fallbackJoining?.comp_id || preferredCompId || null;
     }
 
     async function hasFirstRaceBeenResulted(compId) {
@@ -182,14 +185,8 @@
         const { data: joinings } = await supabase
           .from('user_comp_joinings').select('*').eq('user_id', currentUser.uid);
 
-        const compIds = [...new Set((joinings||[]).map(j=>j.comp_id).filter(Boolean))];
-        const { data: comps } = compIds.length ? await supabase.from('comps').select('id,status').in('id', compIds) : { data: [] };
-        const compStatusMap = Object.fromEntries((comps||[]).map(c=>[c.id, c.status]));
-
-        const enriched = (joinings||[]).map(j => ({ ...j, compStatus: compStatusMap[j.comp_id] || null }));
-        const activeJoinings = enriched.filter(j => j.compStatus === 'active');
-        const completedJoinings = enriched.filter(j => j.payment_status === 'completed');
-        const primaryJoining = activeJoinings[0] || completedJoinings[0] || enriched[0] || null;
+        const preferredCompId = await resolveActiveCompId(supabase, { useQueryParam: false });
+        const primaryJoining = selectProfileCompJoining(joinings || [], preferredCompId);
 
         let tipsCount = 0;
         if (primaryJoining?.comp_id) {
@@ -222,15 +219,7 @@
         // joining row, but if legacy data ever produced more than one, only
         // the best (completed, highest points) row should render — otherwise
         // the same competition shows up twice.
-        const completedJoinings = (rawJoinings || []).filter(j => j.payment_status === 'completed');
-        const bestByCompId = new Map();
-        for (const joining of completedJoinings) {
-          const existing = bestByCompId.get(joining.comp_id);
-          if (!existing || Number(joining.points || 0) > Number(existing.points || 0)) {
-            bestByCompId.set(joining.comp_id, joining);
-          }
-        }
-        const joinings = [...bestByCompId.values()];
+        const joinings = mergeCompJoiningsForProfile(rawJoinings || []);
 
         if (!joinings.length) {
           grid.innerHTML = '<div class="col-span-full text-center py-8 text-gray-400">You haven\'t joined any competitions yet</div>';
