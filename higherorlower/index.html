@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Mock Sports Australian racehorse prizemoney Higher or Lower game" />
+  <title>Mock Sports — Higher or Lower</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ["Georgia", "serif"],
+            sans: ["Inter", "system-ui", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="min-h-[100dvh] overflow-hidden bg-[#030712] text-white">
+  <main class="relative h-[100dvh] overflow-hidden">
+    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.18),_transparent_42%)]"></div>
+
+    <header class="relative z-10 flex h-16 items-center justify-between px-4 md:h-[92px] md:px-10">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.28em] text-[#d4af37]">Mock Sports</p>
+        <h1 class="font-display text-lg font-bold leading-tight sm:text-2xl md:text-3xl">Racehorse Higher or Lower</h1>
+      </div>
+
+      <div class="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs backdrop-blur sm:px-4 sm:py-2 sm:text-sm">
+        Streak: <span id="streak" class="font-bold text-[#d4af37]">0</span>
+      </div>
+    </header>
+
+    <section id="gameScreen" class="relative z-10 mx-auto flex h-[calc(100dvh-4rem)] max-w-7xl flex-col px-3 pb-2 md:h-[calc(100dvh-92px)] md:px-8 md:pb-6">
+      <div class="mb-2 shrink-0 text-center md:mb-5">
+        <p class="text-xs text-slate-300 sm:text-sm">Which horse earned more career prizemoney?</p>
+      </div>
+
+      <div class="game-grid grid min-h-0 flex-1 grid-rows-[1fr_auto_1fr] gap-1.5 lg:grid-cols-[1fr_auto_1fr] lg:grid-rows-1 lg:gap-4 lg:items-stretch">
+        <article id="leftCard" class="horse-card">
+          <div class="horse-overlay"></div>
+          <div class="card-content relative z-10 flex h-full flex-col items-center justify-center p-3 text-center md:p-8">
+            <p class="eyebrow mb-1 text-[9px] font-bold uppercase tracking-[0.2em] text-[#f2d675] md:mb-2 md:text-xs md:tracking-[0.25em]">Career prizemoney</p>
+            <h2 id="leftName" class="horse-name font-display text-2xl font-bold leading-none drop-shadow sm:text-3xl md:text-6xl"></h2>
+            <p id="leftMoney" class="horse-money mt-2 text-xl font-black text-white sm:text-2xl md:mt-5 md:text-5xl"></p>
+            <p id="leftRecord" class="horse-record mt-1 text-[10px] text-white/70 sm:text-xs md:mt-3 md:text-sm"></p>
+          </div>
+        </article>
+
+        <div class="relative z-20 flex h-8 items-center justify-center lg:h-auto lg:-mx-8">
+          <div class="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#050914] bg-[#d4af37] text-[10px] font-black text-[#050914] shadow-2xl md:h-16 md:w-16 md:border-4 md:text-base">
+            VS
+          </div>
+        </div>
+
+        <article id="rightCard" class="horse-card">
+          <div class="horse-overlay"></div>
+          <div class="card-content relative z-10 flex h-full flex-col items-center justify-center p-3 text-center md:p-8">
+            <p class="eyebrow mb-1 text-[9px] font-bold uppercase tracking-[0.2em] text-[#f2d675] md:mb-2 md:text-xs md:tracking-[0.25em]">Career prizemoney</p>
+            <h2 id="rightName" class="horse-name font-display text-2xl font-bold leading-none drop-shadow sm:text-3xl md:text-6xl"></h2>
+
+            <div id="questionArea" class="mt-2 flex w-full max-w-xs flex-row gap-2 md:mt-7 md:flex-col md:gap-3">
+              <button id="higherBtn" class="choice-button">
+                Higher
+                <span aria-hidden="true">↑</span>
+              </button>
+              <button id="lowerBtn" class="choice-button">
+                Lower
+                <span aria-hidden="true">↓</span>
+              </button>
+            </div>
+
+            <div id="answerArea" class="mt-2 hidden md:mt-5">
+              <p id="rightMoney" class="horse-money text-xl font-black sm:text-2xl md:text-5xl"></p>
+              <p id="rightRecord" class="horse-record mt-1 text-[10px] text-white/70 sm:text-xs md:mt-3 md:text-sm"></p>
+              <p id="resultText" class="mt-5 text-lg font-bold"></p>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <p class="mt-1 shrink-0 text-center text-[9px] text-slate-500 md:mt-4 md:text-xs md:text-slate-400">
+        A Mock Sports racing game · Prototype horse data
+      </p>
+    </section>
+
+    <section id="gameOverScreen" class="relative z-10 hidden h-[calc(100dvh-4rem)] items-center justify-center px-4 pb-6 md:h-[calc(100dvh-92px)] md:pb-20">
+      <div class="w-full max-w-lg rounded-3xl border border-white/10 bg-white/5 p-6 text-center shadow-2xl backdrop-blur-xl md:p-8">
+        <p class="text-xs font-bold uppercase tracking-[0.3em] text-[#d4af37]">Game over</p>
+        <h2 class="mt-2 font-display text-4xl font-bold md:mt-3 md:text-5xl">Final streak</h2>
+        <p id="finalScore" class="my-4 text-6xl font-black text-[#d4af37] md:my-6 md:text-7xl">0</p>
+        <p id="bestScore" class="mb-5 text-sm text-slate-300 md:mb-7"></p>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <button id="shareBtn" class="w-full rounded-2xl border-2 border-[#d4af37] bg-transparent px-6 py-3.5 font-black text-[#f2d675] transition hover:bg-[#d4af37] hover:text-[#050914]">
+            Share Result
+          </button>
+          <button id="restartBtn" class="w-full rounded-2xl bg-[#d4af37] px-6 py-3.5 font-black text-[#050914] transition hover:bg-[#f2d675]">
+            Race Again
+          </button>
+        </div>
+        <p id="shareStatus" class="mt-3 min-h-5 text-xs text-slate-400" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
