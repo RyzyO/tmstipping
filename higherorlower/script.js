@@ -242,11 +242,45 @@ function formatMoney(value) {
   }).format(value);
 }
 
-function setCard(card, horse) {
-  card.style.backgroundImage = `url("${horse.image}")`;
+// Smoothly counts a money value up from 0 to `target`, easing out so it
+// settles rather than stopping abruptly — used for the reveal on the right
+// card so the answer feels like it's "ticking up" instead of just appearing.
+function countUpMoney(el, target, onDone) {
+  const duration = 700;
+  const start = performance.now();
+
+  function tick(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    el.textContent = formatMoney(Math.round(target * eased));
+
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      el.textContent = formatMoney(target);
+      if (onDone) onDone();
+    }
+  }
+
+  requestAnimationFrame(tick);
 }
 
-function renderRound() {
+// Restarts the streak-pop keyframe animation even if it's still mid-run from
+// the previous increment (offsetWidth read forces a reflow so the browser
+// treats the re-added class as a fresh animation, not a no-op).
+function bumpStreak() {
+  elements.streak.textContent = streak;
+  elements.streak.classList.remove("streak-pop");
+  void elements.streak.offsetWidth;
+  elements.streak.classList.add("streak-pop");
+}
+
+function fadeCardContent(card, visible) {
+  const content = card.querySelector(".card-content");
+  if (content) content.classList.toggle("is-swapping", !visible);
+}
+
+function renderRound({ animateIn = true } = {}) {
   answering = false;
   elements.questionArea.classList.remove("hidden");
   elements.answerArea.classList.add("hidden");
@@ -256,16 +290,27 @@ function renderRound() {
 
   elements.leftName.textContent = leftHorse.name;
   elements.leftMoney.textContent = formatMoney(leftHorse.prizemoney);
-  elements.leftRecord.textContent = leftHorse.record;
+  elements.leftRecord.textContent = leftHorse.record || "";
 
   elements.rightName.textContent = rightHorse.name;
   elements.rightMoney.textContent = "";
-  elements.rightRecord.textContent = rightHorse.record;
+  elements.rightMoney.classList.remove("money-reveal");
+  elements.rightRecord.textContent = rightHorse.record || "";
   elements.resultText.textContent = "";
 
-  setCard(elements.leftCard, leftHorse);
-  setCard(elements.rightCard, rightHorse);
   elements.streak.textContent = streak;
+
+  if (animateIn) {
+    // Content starts faded/offset (see .is-swapping in styles.css), then two
+    // rAFs later gets the class removed so the browser actually applies the
+    // transition instead of skipping straight to the end state.
+    fadeCardContent(elements.leftCard, false);
+    fadeCardContent(elements.rightCard, false);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fadeCardContent(elements.leftCard, true);
+      fadeCardContent(elements.rightCard, true);
+    }));
+  }
 }
 
 function startGame() {
@@ -288,22 +333,34 @@ function makeGuess(direction) {
   elements.lowerBtn.disabled = true;
   elements.questionArea.classList.add("hidden");
   elements.answerArea.classList.remove("hidden");
-  elements.rightMoney.textContent = formatMoney(rightHorse.prizemoney);
+  countUpMoney(elements.rightMoney, rightHorse.prizemoney, () => {
+    elements.rightMoney.classList.add("money-reveal");
+  });
 
   const isHigher = rightHorse.prizemoney >= leftHorse.prizemoney;
   const isCorrect = direction === "higher" ? isHigher : !isHigher;
 
   if (isCorrect) {
     streak += 1;
-    elements.streak.textContent = streak;
+    bumpStreak();
     elements.resultText.textContent = "Correct — keep racing!";
     elements.resultText.className = "mt-5 text-lg font-bold text-[#f2d675]";
     elements.rightCard.classList.add("correct-flash");
 
     window.setTimeout(() => {
-      leftHorse = rightHorse;
-      rightHorse = randomHorse(leftHorse.name);
-      renderRound();
+      const nextLeft = rightHorse;
+      const nextRight = randomHorse(nextLeft.name);
+
+      // Fade the current content out first so the next round's reveal reads
+      // as one continuous motion rather than an instant content swap.
+      fadeCardContent(elements.leftCard, false);
+      fadeCardContent(elements.rightCard, false);
+
+      window.setTimeout(() => {
+        leftHorse = nextLeft;
+        rightHorse = nextRight;
+        renderRound();
+      }, 260);
     }, 1500);
   } else {
     elements.resultText.textContent = "Incorrect";

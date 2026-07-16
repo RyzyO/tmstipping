@@ -1,25 +1,85 @@
 html { color-scheme: dark; }
 body { margin: 0; overscroll-behavior: none; }
 
+/* ---------- Horse cards ---------- */
+
 .horse-card {
   position: relative;
   min-height: 0;
   overflow: hidden;
   border: 1px solid rgb(212 175 55 / 0.28);
   border-radius: 1rem;
-  background-position: center 32%;
-  background-size: cover;
+  background:
+    radial-gradient(circle at 30% 20%, rgb(212 175 55 / 0.16), transparent 55%),
+    radial-gradient(circle at 80% 85%, rgb(59 130 246 / 0.12), transparent 50%),
+    linear-gradient(160deg, #0b1120 0%, #030712 65%);
   box-shadow: 0 18px 42px rgb(0 0 0 / 0.58);
+  transition: border-color 300ms ease, box-shadow 300ms ease, transform 300ms ease;
+}
+
+/* Faint animated "track lines" so the card doesn't look flat without a photo. */
+.horse-card::before {
+  content: "";
+  position: absolute;
+  inset: -20% -10%;
+  background-image: repeating-linear-gradient(
+    115deg,
+    transparent 0,
+    transparent 46px,
+    rgb(212 175 55 / 0.05) 46px,
+    rgb(212 175 55 / 0.05) 48px
+  );
+  animation: trackDrift 22s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes trackDrift {
+  from { transform: translateX(0); }
+  to { transform: translateX(-140px); }
 }
 
 .horse-overlay {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(to bottom, rgb(1 4 12 / 0.25), rgb(1 4 12 / 0.9)),
-    linear-gradient(135deg, rgb(9 24 55 / 0.72), transparent 58%),
-    linear-gradient(225deg, rgb(212 175 55 / 0.24), transparent 50%);
+    linear-gradient(to bottom, rgb(1 4 12 / 0.15), rgb(1 4 12 / 0.85)),
+    linear-gradient(135deg, rgb(9 24 55 / 0.55), transparent 58%),
+    linear-gradient(225deg, rgb(212 175 55 / 0.2), transparent 50%);
 }
+
+.horse-card:hover { transform: translateY(-2px); border-color: rgb(212 175 55 / 0.45); }
+
+/* ---------- Round-swap animation ---------- */
+/* Card content fades + settles when a new horse is revealed, instead of
+   snapping instantly — this is what makes the round-to-round flow feel
+   smooth rather than jumpy. */
+
+.card-content {
+  transition: opacity 260ms ease, transform 260ms ease;
+}
+
+.card-content.is-swapping {
+  opacity: 0;
+  transform: translateY(10px) scale(0.97);
+}
+
+.horse-name, .horse-money, .horse-record, .eyebrow {
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+/* ---------- Money reveal ---------- */
+
+.horse-money.money-reveal {
+  animation: moneyPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes moneyPop {
+  0% { opacity: 0; transform: scale(0.7) translateY(6px); }
+  60% { opacity: 1; transform: scale(1.08) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ---------- Choice buttons ---------- */
 
 .choice-button {
   display: flex;
@@ -37,13 +97,23 @@ body { margin: 0; overscroll-behavior: none; }
   text-transform: uppercase;
   letter-spacing: 0.09em;
   backdrop-filter: blur(10px);
-  transition: transform 160ms ease, background 160ms ease, color 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease, opacity 200ms ease;
 }
 
-.choice-button:hover:not(:disabled) { transform: translateY(-2px); background: rgb(212 175 55); color: rgb(3 7 18); }
+.choice-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: rgb(212 175 55);
+  color: rgb(3 7 18);
+  box-shadow: 0 10px 24px rgb(212 175 55 / 0.35);
+}
+
+.choice-button:active:not(:disabled) { transform: translateY(0) scale(0.97); }
 .choice-button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+/* ---------- Result feedback ---------- */
+
 .correct-flash { animation: correctFlash 650ms ease; }
-.wrong-flash { animation: wrongFlash 650ms ease; }
+.wrong-flash { animation: wrongFlash 650ms ease, cardShake 420ms ease; }
 
 @keyframes correctFlash {
   0%, 100% { box-shadow: 0 18px 42px rgb(0 0 0 / 0.58); }
@@ -52,6 +122,61 @@ body { margin: 0; overscroll-behavior: none; }
 @keyframes wrongFlash {
   0%, 100% { box-shadow: 0 18px 42px rgb(0 0 0 / 0.58); }
   50% { box-shadow: 0 0 0 4px rgb(248 113 113), 0 20px 54px rgb(239 68 68 / 0.42); }
+}
+@keyframes cardShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+#resultText {
+  animation: resultIn 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes resultIn {
+  0% { opacity: 0; transform: translateY(8px) scale(0.9); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---------- Streak badge ---------- */
+
+#streak {
+  display: inline-block;
+  transition: transform 150ms ease;
+}
+
+#streak.streak-pop {
+  animation: streakPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes streakPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.5); color: #fff; }
+  100% { transform: scale(1); }
+}
+
+/* ---------- VS badge ---------- */
+
+.vs-badge {
+  animation: vsPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes vsPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(212 175 55 / 0.4); }
+  50% { box-shadow: 0 0 0 8px rgb(212 175 55 / 0); }
+}
+
+/* ---------- Game-over panel ---------- */
+
+#gameOverScreen .rounded-3xl {
+  animation: gameOverIn 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes gameOverIn {
+  0% { opacity: 0; transform: translateY(16px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 @media (min-width: 1024px) {
@@ -66,4 +191,16 @@ body { margin: 0; overscroll-behavior: none; }
   .horse-money { font-size: 1.05rem; margin-top: 0.25rem; }
   .choice-button { min-height: 36px; padding: 0.45rem 0.75rem; }
   .card-content { padding: 0.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .horse-card::before,
+  .card-content,
+  .horse-name, .horse-money, .horse-record, .eyebrow,
+  .horse-money.money-reveal,
+  .correct-flash, .wrong-flash, #resultText, #streak.streak-pop,
+  .vs-badge, #gameOverScreen .rounded-3xl {
+    animation: none !important;
+    transition: none !important;
+  }
 }
