@@ -22,15 +22,19 @@
   <link rel="stylesheet" href="/higherorlower/styles.css" />
 </head>
 
-<body class="min-h-[100dvh] bg-[#030712] text-white flex flex-col">
+<body class="bg-[#030712] text-white">
   <div class="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,_rgba(212,175,55,0.18),_transparent_42%)]"></div>
 
+  <!-- Always exactly one viewport tall, so the footer below it only becomes
+       visible on scroll — it should never just appear alongside a short game
+       state without the user having to scroll for it. -->
+  <div class="relative flex min-h-[100dvh] flex-col">
   <header class="relative z-10 flex shrink-0 items-center justify-between gap-3 px-4 py-3 md:px-10 md:py-5">
     <div class="flex min-w-0 items-center gap-2.5 sm:gap-3">
       <img src="/higherorlower/logo.png" alt="The Mock Sports" class="h-9 w-9 shrink-0 object-contain sm:h-11 sm:w-11 md:h-14 md:w-14" />
       <div class="min-w-0">
         <p class="text-[9px] font-bold uppercase tracking-[0.24em] text-[#d4af37] sm:text-xs sm:tracking-[0.28em]">The Mock Sports</p>
-        <h1 class="font-display truncate text-base font-bold leading-tight sm:text-2xl md:text-3xl">Racehorse Higher or Lower</h1>
+        <h1 class="font-display truncate text-base font-bold leading-tight sm:text-2xl md:text-3xl">Higher or Lower</h1>
       </div>
     </div>
 
@@ -111,6 +115,7 @@
       </div>
     </section>
   </main>
+  </div>
 
   <!-- Footer -->
   <footer class="relative z-10 bg-gray-950 border-t border-gray-800 text-gray-400 py-10 shrink-0">
