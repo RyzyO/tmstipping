@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Racing Silk Downloader</title>
+
+  <style>
+    body {
+      max-width: 850px;
+      margin: 40px auto;
+      padding: 0 20px;
+      font-family: Arial, sans-serif;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+
+    input,
+    button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    #log {
+      height: 450px;
+      overflow-y: auto;
+      padding: 15px;
+      background: #111;
+      color: #eee;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Racing Silk Downloader</h1>
+
+  <div class="controls">
+    <div>
+      <label for="startId">Starting ID</label>
+      <input id="startId" type="number" min="1" value="1">
+    </div>
+
+    <div>
+      <label for="endId">Final ID</label>
+      <input id="endId" type="number" min="1" value="5000">
+    </div>
+
+    <div>
+      <label for="delay">Delay between IDs (ms)</label>
+      <input id="delay" type="number" min="250" value="750">
+    </div>
+
+    <div>
+      <label for="retries">Retries per ID</label>
+      <input id="retries" type="number" min="1" max="10" value="3">
+    </div>
+  </div>
+
+  <div class="buttons">
+    <button id="startButton">Start</button>
+    <button id="stopButton" disabled>Stop</button>
+  </div>
+
+  <pre id="log"></pre>
+
+  <script>
+    const BASE_URL =
+      "https://www.racingaustralia.horse/JockeySilks/";
+
+    const CORS_PROXY =
+      "https://corsproxy.io/?url=";
+
+    let stopped = false;
+
+    const logElement = document.getElementById("log");
+    const startButton = document.getElementById("startButton");
+    const stopButton = document.getElementById("stopButton");
+
+    function log(message) {
+      logElement.textContent += `${message}\n`;
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    function wait(milliseconds) {
+      return new Promise(resolve => {
+        setTimeout(resolve, milliseconds);
+      });
+    }
+
+    function makeProxyUrl(targetUrl) {
+  return `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+}
+    /*
+     * Check the actual first eight bytes of the response.
+     *
+     * A PNG always starts with:
+     * 89 50 4E 47 0D 0A 1A 0A
+     */
+    function hasPngSignature(bytes) {
+      const pngSignature = [
+        0x89,
+        0x50,
+        0x4E,
+        0x47,
+        0x0D,
+        0x0A,
+        0x1A,
+        0x0A
+      ];
+
+      if (bytes.length < pngSignature.length) {
+        return false;
+      }
+
+      return pngSignature.every((value, index) => {
+        return bytes[index] === value;
+      });
+    }
+
+    async function inspectResponse(response) {
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+
+      if (hasPngSignature(bytes)) {
+        return {
+          status: "valid",
+          blob: new Blob([buffer], {
+            type: "image/png"
+          })
+        };
+      }
+
+      /*
+       * Read non-PNG responses as text where possible.
+       * This helps identify proxy errors and HTML error pages.
+       */
+      let responseText = "";
+
+      try {
+        responseText = new TextDecoder()
+          .decode(bytes)
+          .slice(0, 300);
+      } catch {
+        responseText = "";
+      }
+
+      return {
+        status: "not-png",
+        responseText
+      };
+    }
+
+    async function fetchSilk(id, maximumAttempts) {
+      const targetUrl = `${BASE_URL}${id}.png`;
+      const proxyUrl = makeProxyUrl(targetUrl);
+
+      let lastError = null;
+
+      for (
+        let attempt = 1;
+        attempt <= maximumAttempts;
+        attempt++
+      ) {
+        if (stopped) {
+          return {
+            status: "stopped"
+          };
+        }
+
+        try {
+          const response = await fetch(proxyUrl, {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+              "Accept": "image/png,image/*;q=0.9,*/*;q=0.8"
+            }
+          });
+
+          /*
+           * Retry proxy throttling and server failures rather than
+           * incorrectly classifying the silk as invalid.
+           */
+          if (
+            response.status === 429 ||
+            response.status >= 500
+          ) {
+            throw new Error(
+              `Temporary HTTP ${response.status}`
+            );
+          }
+
+          const result = await inspectResponse(response);
+
+          if (result.status === "valid") {
+            return result;
+          }
+
+          /*
+           * A genuine 404 with no PNG response is considered invalid.
+           */
+          if (response.status === 404) {
+            return {
+              status: "invalid",
+              reason: "HTTP 404"
+            };
+          }
+
+          /*
+           * CorsProxy can return an error message as JSON or HTML.
+           * Do not treat that as proof that the silk ID is invalid.
+           */
+          const message = result.responseText.toLowerCase();
+
+          const looksLikeProxyError =
+            message.includes("corsproxy") ||
+            message.includes("rate limit") ||
+            message.includes("too many requests") ||
+            message.includes("create an account") ||
+            message.includes("temporarily unavailable") ||
+            message.includes("cloudflare") ||
+            message.includes("access denied");
+
+          if (looksLikeProxyError) {
+            throw new Error(
+              `Proxy returned non-image content`
+            );
+          }
+
+          /*
+           * Racing Australia may return an HTML error page with status 200
+           * for an ID that does not exist.
+           */
+          return {
+            status: "invalid",
+            reason: `Response was not a PNG`
+          };
+
+        } catch (error) {
+          lastError = error;
+
+          if (attempt < maximumAttempts) {
+            const retryDelay = attempt * 1500;
+
+            log(
+              `Retrying ${id}.png ` +
+              `(${attempt}/${maximumAttempts}) — ` +
+              `${error.message}`
+            );
+
+            await wait(retryDelay);
+          }
+        }
+      }
+
+      return {
+        status: "error",
+        reason: lastError?.message || "Unknown request error"
+      };
+    }
+
+    function downloadBlob(blob, filename) {
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = objectUrl;
+      link.download = filename;
+      link.style.display = "none";
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(objectUrl);
+      }, 5000);
+    }
+
+    async function startDownloading() {
+      const startId = Number(
+        document.getElementById("startId").value
+      );
+
+      const endId = Number(
+        document.getElementById("endId").value
+      );
+
+      const delay = Number(
+        document.getElementById("delay").value
+      );
+
+      const retries = Number(
+        document.getElementById("retries").value
+      );
+
+      if (
+        !Number.isInteger(startId) ||
+        !Number.isInteger(endId) ||
+        startId < 1 ||
+        endId < startId
+      ) {
+        alert("Enter a valid starting and final ID.");
+        return;
+      }
+
+      stopped = false;
+      startButton.disabled = true;
+      stopButton.disabled = false;
+
+      let downloaded = 0;
+      let invalid = 0;
+      let errors = 0;
+
+      log("");
+      log(`Checking IDs ${startId} to ${endId}.`);
+      log("");
+
+      for (let id = startId; id <= endId; id++) {
+        if (stopped) {
+          log("Stopped by user.");
+          break;
+        }
+
+        const result = await fetchSilk(id, retries);
+
+        if (result.status === "valid") {
+          downloadBlob(result.blob, `${id}.png`);
+          downloaded++;
+
+          log(`Downloaded ${id}.png`);
+
+        } else if (result.status === "invalid") {
+          invalid++;
+
+          log(
+            `Invalid ${id}.png — ${result.reason}`
+          );
+
+        } else if (result.status === "error") {
+          errors++;
+
+          /*
+           * This is deliberately logged as an error rather than skipped.
+           * You can run these IDs again later.
+           */
+          log(
+            `REQUEST ERROR ${id}.png — ${result.reason}`
+          );
+        }
+
+        await wait(delay);
+      }
+
+      log("");
+      log("Finished.");
+      log(`Downloaded: ${downloaded}`);
+      log(`Invalid: ${invalid}`);
+      log(`Request errors: ${errors}`);
+
+      startButton.disabled = false;
+      stopButton.disabled = true;
+    }
+
+    startButton.addEventListener(
+      "click",
+      startDownloading
+    );
+
+    stopButton.addEventListener("click", () => {
+      stopped = true;
+      stopButton.disabled = true;
+    });
+  </script>
+</body>
+</html>
