@@ -243,9 +243,15 @@
       <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
         <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
         <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
-        <div class="relative z-10">
-          <h1 class="text-3xl md:text-4xl font-bold mb-2 gradient-text">Streak Leaderboard</h1>
-          <p class="text-gray-300">Score at least 1 point every week you play, or you're out. Last one standing wins.</p>
+        <div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-3xl md:text-4xl font-bold mb-2 gradient-text">Streak Leaderboard</h1>
+            <p class="text-gray-300">Score at least 1 point every week you play, or you're out. Last one standing wins.</p>
+          </div>
+          <a href="prizesdark.html" class="flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 hover:border-yellow-500/40 transition">
+            <span class="text-[0.65rem] uppercase tracking-wider text-gray-400">Sponsored by</span>
+            <img src="images/young.png" alt="Young Henrys" class="h-6 w-auto object-contain">
+          </a>
         </div>
       </div>
     </section>
@@ -259,22 +265,34 @@
         <i data-feather="award" class="h-14 w-14 text-yellow-300 mx-auto"></i>
       </div>
       <p class="text-xs uppercase tracking-[0.2em] text-yellow-200/80 font-bold mb-2">Streak Champion</p>
-      <p id="streak-winner-name" class="text-3xl md:text-4xl font-extrabold gradient-text"></p>
+      <p id="streak-winner-name" class="text-3xl md:text-4xl font-extrabold gradient-text mb-4"></p>
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/25 border border-white/10">
+        <span class="text-[0.65rem] uppercase tracking-wider text-gray-400">Winner of the</span>
+        <img src="images/young.png" alt="Young Henrys" class="h-5 w-auto object-contain">
+        <span class="text-[0.65rem] uppercase tracking-wider text-gray-400">Last Man Standing prize</span>
+      </div>
     </div>
 
     <div id="streak-content" class="hidden">
-      <div class="flex flex-wrap items-center gap-3 mb-6">
-        <span class="streak-stat-chip text-sm text-gray-200">
+      <div class="grid grid-cols-2 sm:inline-flex sm:flex-wrap items-center gap-3 mb-6">
+        <span class="streak-stat-chip justify-center text-sm text-gray-200">
           <i data-feather="trending-up" class="h-4 w-4 text-green-400"></i>
           <span><span id="streak-alive-count" class="font-bold text-green-400">0</span> alive</span>
         </span>
-        <span class="streak-stat-chip text-sm text-gray-200">
+        <span class="streak-stat-chip justify-center text-sm text-gray-200">
           <i data-feather="x-circle" class="h-4 w-4 text-gray-500"></i>
           <span><span id="streak-eliminated-count" class="font-bold text-gray-400">0</span> eliminated</span>
         </span>
       </div>
 
       <div id="streak-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+      <div class="mt-10 flex justify-center">
+        <a href="prizesdark.html" class="inline-flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition">
+          <span>Last Man Standing proudly presented by</span>
+          <img src="images/young.png" alt="Young Henrys" class="h-4 w-auto object-contain opacity-80">
+        </a>
+      </div>
     </div>
   </main>
 
