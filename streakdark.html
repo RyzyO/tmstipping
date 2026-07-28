@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>Streak Leaderboard - The Great Spring Tip Off</title>
+  <link rel="icon" type="image/x-icon" href="icon.png">
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script src="onesignal-init.js" defer></script>
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#fbbf24">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+  <style>
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(17, 24, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes tileIn {
+      from { opacity: 0; transform: translateY(18px) scale(0.98); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes flamePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.28), 0 20px 40px -12px rgba(0,0,0,0.6); }
+      50% { box-shadow: 0 0 0 8px rgba(74, 222, 128, 0), 0 20px 40px -12px rgba(0,0,0,0.6); }
+    }
+    @keyframes shimmerGold {
+      0% { background-position: 0% 50%; }
+      100% { background-position: 200% 50%; }
+    }
+    @keyframes trophyFloat {
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+      50% { transform: translateY(-6px) rotate(2deg); }
+    }
+
+    .streak-tile {
+      position: relative;
+      border-radius: 1.25rem;
+      overflow: hidden;
+      background: linear-gradient(155deg, rgba(31, 41, 55, 0.95), rgba(13, 17, 28, 0.97));
+      border: 1px solid rgba(75, 85, 99, 0.35);
+      animation: tileIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .streak-tile:hover {
+      transform: translateY(-6px);
+    }
+    .streak-tile-glow {
+      position: absolute;
+      inset: -30%;
+      background: radial-gradient(circle at 30% 20%, var(--tile-glow, rgba(251,191,36,0.18)), transparent 65%);
+      pointer-events: none;
+      opacity: 0.9;
+    }
+    .streak-tile-watermark {
+      position: absolute;
+      top: -1rem;
+      right: -1rem;
+      opacity: 0.07;
+      pointer-events: none;
+      user-select: none;
+    }
+    .streak-tile-watermark svg {
+      width: 6.5rem;
+      height: 6.5rem;
+      stroke-width: 1.25;
+    }
+    .streak-tile.is-alive {
+      border-color: rgba(74, 222, 128, 0.3);
+      --tile-glow: rgba(34, 197, 94, 0.16);
+    }
+    .streak-tile.is-alive:hover {
+      border-color: rgba(74, 222, 128, 0.55);
+      box-shadow: 0 20px 40px -12px rgba(0,0,0,0.65), 0 0 24px rgba(74, 222, 128, 0.12);
+    }
+    .streak-tile.is-eliminated {
+      border-color: rgba(75, 85, 99, 0.3);
+      --tile-glow: rgba(75, 85, 99, 0.12);
+      filter: saturate(0.55);
+    }
+    .streak-tile.is-eliminated .streak-tile-silk {
+      filter: grayscale(0.7);
+    }
+    .streak-tile.is-eliminated:hover {
+      transform: translateY(-2px);
+      filter: saturate(0.8);
+    }
+    .streak-tile.is-winner {
+      border-color: rgba(251, 191, 36, 0.7);
+      --tile-glow: rgba(251, 191, 36, 0.3);
+      background: linear-gradient(155deg, rgba(83, 61, 4, 0.55), rgba(13, 17, 28, 0.97));
+      animation: tileIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both, flamePulse 2.4s ease-in-out infinite;
+    }
+
+    .streak-tile-silk {
+      width: 3.25rem;
+      height: 3.25rem;
+      border-radius: 0.85rem;
+      object-fit: cover;
+      object-position: top;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.05);
+      flex-shrink: 0;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+    .status-badge span.status-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status-badge.status-alive {
+      background: rgba(34, 197, 94, 0.14);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #4ade80;
+    }
+    .status-badge.status-winner {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(217, 119, 6, 0.25));
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      color: #fde68a;
+    }
+    .status-badge.status-eliminated {
+      background: rgba(75, 85, 99, 0.25);
+      border: 1px solid rgba(75, 85, 99, 0.45);
+      color: #9ca3af;
+    }
+
+    .streak-hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      background:
+        linear-gradient(120deg, rgba(120, 90, 10, 0.5), rgba(13, 17, 28, 0.97) 55%),
+        linear-gradient(90deg, rgba(251,191,36,0.15), rgba(251,191,36,0.35), rgba(251,191,36,0.15));
+      background-size: 100% 100%, 200% 100%;
+      animation: shimmerGold 5s linear infinite;
+      box-shadow: 0 25px 60px -15px rgba(217, 119, 6, 0.35);
+    }
+    .streak-hero-trophy {
+      display: inline-block;
+      animation: trophyFloat 3.2s ease-in-out infinite;
+      filter: drop-shadow(0 8px 16px rgba(251, 191, 36, 0.4));
+    }
+
+    .streak-stat-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 0.85rem;
+      background: rgba(31, 41, 55, 0.6);
+      border: 1px solid rgba(75, 85, 99, 0.35);
+      backdrop-filter: blur(6px);
+    }
+
+    select {
+      background-color: #111827;
+      color: #f3f4f6;
+    }
+    select option {
+      background-color: #111827;
+      color: #f3f4f6;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+
+  <!-- Navigation -->
+  <nav class="sticky top-0 z-50 glass-effect">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center py-4">
+        <div class="flex items-center">
+          <img src="images/logo.png" alt="Logo" class="h-14 w-auto" style="object-fit: contain;" />
+        </div>
+        <div class="flex items-center space-x-4">
+          <button class="md:hidden" onclick="toggleMenu()">
+            <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
+          </button>
+          <div class="hidden md:flex space-x-6">
+            <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+            <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+            <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+            <a href="streakdark.html" class="text-yellow-400 transition font-semibold">Streak</a>
+            <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
+            <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
+            <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+            <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+            <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
+            <button onclick="signOut()" class="text-gray-300 hover:text-red-400 transition font-semibold">Sign Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
+      <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
+      <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+      <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+      <a href="streakdark.html" class="block py-2 text-yellow-400 transition font-semibold">Streak</a>
+      <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
+      <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
+      <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+      <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+      <a href="profiledark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Profile</a>
+      <button onclick="signOut()" class="block w-full text-left py-2 text-red-400 hover:text-red-300 transition font-semibold">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-10 flex-grow">
+    <!-- Header Section -->
+    <section class="mb-10" data-aos="fade-up">
+      <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+        <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-amber-600/10 to-transparent rounded-full blur-3xl"></div>
+        <div class="relative z-10">
+          <h1 class="text-3xl md:text-4xl font-bold mb-2 gradient-text">Streak Leaderboard</h1>
+          <p class="text-gray-300">Score at least 1 point every week you play, or you're out. Last one standing wins.</p>
+        </div>
+      </div>
+    </section>
+
+    <div id="streak-empty-state" class="hidden card rounded-2xl shadow-2xl p-10 text-center text-gray-400" data-aos="fade-up">
+      The streak leaderboard hasn't started for this competition yet — check back once it's live.
+    </div>
+
+    <div id="streak-winner-banner" class="hidden streak-hero p-8 md:p-10 mb-8 text-center" data-aos="zoom-in">
+      <div class="streak-hero-trophy mb-3">
+        <i data-feather="award" class="h-14 w-14 text-yellow-300 mx-auto"></i>
+      </div>
+      <p class="text-xs uppercase tracking-[0.2em] text-yellow-200/80 font-bold mb-2">Streak Champion</p>
+      <p id="streak-winner-name" class="text-3xl md:text-4xl font-extrabold gradient-text"></p>
+    </div>
+
+    <div id="streak-content" class="hidden">
+      <div class="flex flex-wrap items-center gap-3 mb-6">
+        <span class="streak-stat-chip text-sm text-gray-200">
+          <i data-feather="trending-up" class="h-4 w-4 text-green-400"></i>
+          <span><span id="streak-alive-count" class="font-bold text-green-400">0</span> alive</span>
+        </span>
+        <span class="streak-stat-chip text-sm text-gray-200">
+          <i data-feather="x-circle" class="h-4 w-4 text-gray-500"></i>
+          <span><span id="streak-eliminated-count" class="font-bold text-gray-400">0</span> eliminated</span>
+        </span>
+      </div>
+
+      <div id="streak-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-gray-950 text-gray-400 py-8 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col gap-4">
+      <div class="flex justify-between items-center">
+        <p class="text-sm">&copy; 2026 The Mock Sports. All rights reserved. <a href="terms.html" class="hover:text-yellow-400 transition-colors duration-200 underline">Terms &amp; Conditions</a> &middot; <a href="privacy.html" class="hover:text-yellow-400 transition-colors duration-200 underline">Privacy Policy</a></p>
+        <div class="flex space-x-6">
+          <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Twitter"><i data-feather="twitter"></i></a>
+          <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Facebook"><i data-feather="facebook"></i></a>
+          <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition" aria-label="Instagram"><i data-feather="instagram"></i></a>
+        </div>
+      </div>
+      <div id="footer-comp-switcher" class="flex justify-center md:justify-end"></div>
+    </div>
+  </footer>
+
+  <!-- Loading -->
+  <div id="loading-overlay" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent mx-auto"></div>
+      <p class="mt-4 text-yellow-400 font-semibold">Loading Streak Leaderboard…</p>
+    </div>
+  </div>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById("mobileMenu");
+      menu.classList.toggle("hidden");
+    }
+    window.toggleMenu = toggleMenu;
+  </script>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+    import { resolveActiveCompId, mountCompFooterSwitcher } from './active-comp.js';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentUserId = null;
+    let selectedCompId = new URLSearchParams(window.location.search).get("compId") || null;
+
+    function sortByRecentStartDateDesc(a, b) {
+      const aStart = a.startDate ? Date.parse(a.startDate) : 0;
+      const bStart = b.startDate ? Date.parse(b.startDate) : 0;
+      return bStart - aStart;
+    }
+
+    async function signOut() {
+      await supabase.auth.signOut();
+      window.location.href = "landing.html";
+    }
+    window.signOut = signOut;
+
+    function showLoading() { document.getElementById("loading-overlay").classList.remove("hidden"); }
+    function hideLoading() { document.getElementById("loading-overlay").classList.add("hidden"); }
+
+    function truncateForMobile(name, maxLen = 16) {
+      if (!name) return name;
+      return name.length > maxLen ? `${name.slice(0, maxLen)}..` : name;
+    }
+
+    function badgeHtml(entry) {
+      if (entry.teamName === 'The Mock Cashy' || entry.teamName === 'The Mock Nick') {
+        return '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#1DA1F2"/><path d="M9.5 14.5L6 11L7.5 9.5L9.5 11.5L14.5 6.5L16 8L9.5 14.5Z" fill="white"/></svg>';
+      }
+      if (entry.teamName === 'RyzyO') {
+        return '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#10B981"/><path d="M8 7L6 11L8 15M14 7L16 11L14 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      }
+      return '';
+    }
+
+    function statusBadgeHtml(entry) {
+      if (entry.status === 'winner') return '<span class="status-badge status-winner"><i data-feather="award" class="h-3.5 w-3.5 flex-shrink-0"></i><span class="status-label">Winner</span></span>';
+      if (entry.status === 'eliminated') return `<span class="status-badge status-eliminated"><i data-feather="x-circle" class="h-3.5 w-3.5 flex-shrink-0"></i><span class="status-label">Out — wk of ${entry.eliminatedWeek || '—'}</span></span>`;
+      return '<span class="status-badge status-alive"><i data-feather="check-circle" class="h-3.5 w-3.5 flex-shrink-0"></i><span class="status-label">Alive</span></span>';
+    }
+
+    function tileWatermark(status) {
+      const icon = status === 'winner' ? 'award' : status === 'eliminated' ? 'x-circle' : 'trending-up';
+      return `<i data-feather="${icon}"></i>`;
+    }
+
+    function renderStreak(entries) {
+      const emptyState = document.getElementById('streak-empty-state');
+      const content = document.getElementById('streak-content');
+      const winnerBanner = document.getElementById('streak-winner-banner');
+
+      if (!entries) {
+        emptyState.classList.remove('hidden');
+        content.classList.add('hidden');
+        winnerBanner.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      content.classList.remove('hidden');
+
+      const winner = entries.find(e => e.status === 'winner');
+      if (winner) {
+        winnerBanner.classList.remove('hidden');
+        document.getElementById('streak-winner-name').textContent = winner.teamName;
+      } else {
+        winnerBanner.classList.add('hidden');
+      }
+
+      const alive = entries.filter(e => e.status === 'alive' || e.status === 'winner').sort((a, b) => {
+        if (a.status !== b.status) return a.status === 'winner' ? -1 : 1;
+        return a.teamName.localeCompare(b.teamName);
+      });
+      const eliminated = entries.filter(e => e.status === 'eliminated').sort((a, b) => (b.eliminatedWeek || '').localeCompare(a.eliminatedWeek || ''));
+
+      document.getElementById('streak-alive-count').textContent = alive.length;
+      document.getElementById('streak-eliminated-count').textContent = eliminated.length;
+
+      const ordered = [...alive, ...eliminated];
+
+      const grid = document.getElementById('streak-grid');
+      grid.innerHTML = '';
+
+      if (ordered.length === 0) {
+        grid.innerHTML = '<div class="col-span-full card rounded-2xl p-12 text-center text-gray-400 text-base">No entrants in the streak yet.</div>';
+        return;
+      }
+
+      ordered.forEach((entry, i) => {
+        const silkNumber = entry.silk || 1;
+        const badge = badgeHtml(entry);
+        const statusClass = entry.status === 'winner' ? 'is-winner' : entry.status === 'eliminated' ? 'is-eliminated' : 'is-alive';
+
+        const tile = document.createElement('div');
+        tile.className = `streak-tile ${statusClass} p-4`;
+        tile.style.animationDelay = Math.min(i * 60, 480) + 'ms';
+        tile.innerHTML = `
+          <div class="streak-tile-glow"></div>
+          <div class="streak-tile-watermark">${tileWatermark(entry.status)}</div>
+          <div class="relative flex items-center gap-3">
+            <img src="static/silks/${silkNumber}.png" alt="Silk" class="streak-tile-silk">
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-gray-100 flex items-center gap-1 min-w-0" title="${entry.teamName}">
+                <span class="truncate">${truncateForMobile(entry.teamName)}</span>${badge}
+              </p>
+              <div class="mt-1.5">${statusBadgeHtml(entry)}</div>
+            </div>
+          </div>
+        `;
+        grid.appendChild(tile);
+      });
+
+      feather.replace();
+    }
+
+    async function loadStreak() {
+      showLoading();
+      try {
+        if (!selectedCompId) { renderStreak(null); hideLoading(); return; }
+
+        const { data: comp } = await supabase.from('comps').select('id,streak_start_date').eq('id', selectedCompId).maybeSingle();
+        if (!comp?.streak_start_date) { renderStreak(null); hideLoading(); return; }
+
+        const [statusRes, usersRes] = await Promise.all([
+          supabase.from('streak_status').select('user_id,status,eliminated_week').eq('comp_id', selectedCompId),
+          supabase.from('users').select('id,team_name,email,silk')
+        ]);
+
+        const usersMap = {};
+        (usersRes.data || []).forEach(u => { usersMap[u.id] = u; });
+
+        const entries = (statusRes.data || []).map(s => {
+          const userData = usersMap[s.user_id] || {};
+          return {
+            userId: s.user_id,
+            teamName: userData.team_name || userData.email || s.user_id,
+            silk: userData.silk || 1,
+            status: s.status,
+            eliminatedWeek: s.eliminated_week
+          };
+        });
+
+        renderStreak(entries);
+        hideLoading();
+      } catch (error) {
+        console.error('Error loading streak leaderboard:', error);
+        hideLoading();
+        alert('Failed to load streak leaderboard. Please refresh the page.');
+      }
+    }
+
+    async function loadUserComps() {
+      try {
+        const { data: joinings } = await supabase
+          .from('user_comp_joinings').select('comp_id')
+          .eq('user_id', currentUserId).eq('payment_status', 'completed');
+
+        const compIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
+        const { data: compsData } = compIds.length
+          ? await supabase.from('comps').select('*').in('id', compIds)
+          : { data: [] };
+        const comps = (compsData || []).map(c => ({ ...c, startDate: c.start_date }));
+
+        const activeComps = comps.filter(c => c.status === 'active').sort(sortByRecentStartDateDesc);
+
+        if (activeComps.length === 0) {
+          selectedCompId = null;
+          renderStreak(null);
+          return;
+        }
+
+        const preferredCompId = await resolveActiveCompId(supabase);
+        const preferred = activeComps.find(c => c.id === preferredCompId);
+        selectedCompId = (preferred || activeComps[0]).id;
+
+        await mountCompFooterSwitcher(supabase, document.getElementById('footer-comp-switcher'), {
+          onChange: async (compId) => {
+            selectedCompId = compId;
+            await loadStreak();
+          }
+        });
+      } catch (error) {
+        console.error("Error loading user comps:", error);
+      }
+    }
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      const user = session?.user || null;
+      if (!user) { window.location.href = "login.html"; return; }
+      currentUserId = user.id;
+      window.TMS_OneSignal?.login(user.id);
+      setTimeout(async () => {
+        await loadUserComps();
+        await loadStreak();
+      }, 0);
+    });
+
+    AOS.init({duration: 1000, once: true});
+    feather.replace();
+  </script>
+</body>
+</html>

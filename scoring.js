@@ -32,6 +32,16 @@ export function calculateTipPoints(race, result, horseId, jokerUsed) {
   return points;
 }
 
+// Monday-of-week ISO date string (e.g. "2026-07-27"), used as a stable
+// week-grouping key that doesn't reset at year boundaries like a week number would.
+export function getWeekKey(dateStr) {
+  const d = new Date(dateStr);
+  const day = d.getUTCDay(); // 0 = Sunday
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + diffToMonday));
+  return monday.toISOString().slice(0, 10);
+}
+
 export function calculateCompPoints(races, tips, results) {
   const userPoints = {};
   const userWins = {};

@@ -1,5 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+import { calculateTipPoints, getWeekKey } from './scoring.js';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -1955,6 +1956,9 @@ async function saveResults() {
     // Recalculate points for this competition only
     await calculateAndSaveLeaderboard(race.compId || selectedAdminCompId || null);
 
+    setStatus('Recalculating streak…');
+    await calculateAndSaveStreak(race.compId || selectedAdminCompId || null);
+
     setStatus('Refreshing dashboard…');
     // Refresh dashboard cards after leaderboard update
     await loadDashboardStats(selectedAdminCompId);
@@ -2055,6 +2059,159 @@ async function calculateAndSaveLeaderboard(compId) {
     console.error('Error calculating leaderboard:', error);
   }
 }
+
+// Streak leaderboard: knocked out for the season the first week you score 0
+// across every race that week (unless nobody alive scored, which is a push).
+// Entrants stay open (new paid joiners are added as 'alive') until the first
+// race under the streak gets a result — after that the field is locked.
+async function calculateAndSaveStreak(compId) {
+  if (!compId) return;
+  try {
+    const { data: comp } = await supabase.from('comps').select('id,streak_start_date,streak_locked_at').eq('id', compId).maybeSingle();
+    if (!comp?.streak_start_date) return;
+
+    const entriesOpen = !comp.streak_locked_at;
+    if (entriesOpen) {
+      const { data: joinings } = await supabase.from('user_comp_joinings').select('user_id').eq('comp_id', compId).eq('payment_status', 'completed');
+      const { data: existingRows } = await supabase.from('streak_status').select('user_id').eq('comp_id', compId);
+      const existingIds = new Set((existingRows || []).map(r => r.user_id));
+      const newRows = (joinings || [])
+        .filter(j => !existingIds.has(j.user_id))
+        .map(j => ({ id: `${j.user_id}_${compId}`, user_id: j.user_id, comp_id: compId, status: 'alive', eliminated_week: null, updated_at: new Date().toISOString() }));
+      if (newRows.length > 0) {
+        await supabase.from('streak_status').upsert(newRows, { onConflict: 'user_id,comp_id' });
+      }
+    }
+
+    const { data: streakRows } = await supabase.from('streak_status').select('*').eq('comp_id', compId);
+    if (!streakRows || streakRows.length === 0) return;
+
+    const statusMap = {};
+    streakRows.forEach(row => { statusMap[row.user_id] = { status: row.status, eliminated_week: row.eliminated_week }; });
+
+    const races = allRaces.filter(r => {
+      const rCompId = r.comp_id || r.compId;
+      return rCompId === compId && r.date && new Date(r.date) >= new Date(comp.streak_start_date);
+    });
+    if (races.length === 0) return;
+
+    const raceById = {};
+    races.forEach(r => { raceById[r.id] = r; });
+
+    const { data: results } = await supabase.from('results').select('*').in('race_id', races.map(r => r.id));
+    const resultByRaceId = {};
+    (results || []).forEach(r => { resultByRaceId[r.race_id || r.id] = r; });
+
+    const { data: tips } = await supabase.from('tips').select('*').eq('comp_id', compId).in('race_id', races.map(r => r.id));
+
+    const weekMap = {};
+    races.forEach(race => {
+      if (!resultByRaceId[race.id]) return; // only weeks with a scored race count
+      const week = getWeekKey(race.date);
+      if (!weekMap[week]) weekMap[week] = [];
+      weekMap[week].push(race.id);
+    });
+    const weeks = Object.keys(weekMap).sort();
+
+    for (const week of weeks) {
+      const aliveUserIds = Object.keys(statusMap).filter(uid => statusMap[uid].status === 'alive');
+      if (aliveUserIds.length <= 1) break; // already down to a winner (or nobody left)
+
+      const raceIdsThisWeek = new Set(weekMap[week]);
+      const scoredThisWeek = new Set();
+      for (const tip of (tips || [])) {
+        if (!raceIdsThisWeek.has(tip.race_id)) continue;
+        if (statusMap[tip.user_id]?.status !== 'alive') continue;
+        const race = raceById[tip.race_id];
+        const result = resultByRaceId[tip.race_id];
+        const pts = calculateTipPoints(race, result, tip.horse_id, tip.joker === true);
+        if (pts > 0) scoredThisWeek.add(tip.user_id);
+      }
+
+      if (scoredThisWeek.size > 0) {
+        aliveUserIds.forEach(uid => {
+          if (!scoredThisWeek.has(uid)) {
+            statusMap[uid] = { status: 'eliminated', eliminated_week: week };
+          }
+        });
+      }
+      // else: wipeout week, everyone alive carries over
+
+      const stillAlive = Object.keys(statusMap).filter(uid => statusMap[uid].status === 'alive');
+      if (stillAlive.length === 1) {
+        statusMap[stillAlive[0]] = { status: 'winner', eliminated_week: null };
+        break;
+      }
+    }
+
+    const now = new Date().toISOString();
+    const upsertRows = Object.entries(statusMap).map(([userId, s]) => ({
+      id: `${userId}_${compId}`,
+      user_id: userId,
+      comp_id: compId,
+      status: s.status,
+      eliminated_week: s.eliminated_week,
+      updated_at: now
+    }));
+    await supabase.from('streak_status').upsert(upsertRows, { onConflict: 'user_id,comp_id' });
+
+    // The first race that gets a result closes the entry list for good.
+    if (entriesOpen && weeks.length > 0) {
+      await supabase.from('comps').update({ streak_locked_at: now }).eq('id', compId);
+    }
+  } catch (error) {
+    console.error('Error calculating streak:', error);
+  }
+}
+
+async function startStreak(compId) {
+  if (!compId) return;
+  if (!confirm('Start the streak leaderboard now? Currently-paid entrants (and anyone who joins before the first race is resulted) will be included, and only races from today onward will count.')) return;
+  try {
+    const nowIso = new Date().toISOString();
+    const { error: compError } = await supabase.from('comps').update({ streak_start_date: nowIso, streak_locked_at: null }).eq('id', compId);
+    if (compError) throw compError;
+
+    const { data: joinings } = await supabase.from('user_comp_joinings').select('user_id').eq('comp_id', compId).eq('payment_status', 'completed');
+    const seedRows = (joinings || []).map(j => ({
+      id: `${j.user_id}_${compId}`,
+      user_id: j.user_id,
+      comp_id: compId,
+      status: 'alive',
+      eliminated_week: null,
+      updated_at: nowIso
+    }));
+    if (seedRows.length > 0) {
+      const { error: seedError } = await supabase.from('streak_status').upsert(seedRows, { onConflict: 'user_id,comp_id' });
+      if (seedError) throw seedError;
+    }
+
+    await calculateAndSaveStreak(compId);
+    await refreshStreakControls(compId);
+    showNotification('Streak leaderboard started!', 'success', 'race-notifications');
+  } catch (error) {
+    console.error('Error starting streak:', error);
+    showNotification('Error starting streak: ' + error.message, 'error', 'race-notifications');
+  }
+}
+
+async function resetStreak(compId) {
+  if (!compId) return;
+  if (!confirm('Reset the streak leaderboard for this competition? This deletes all current streak progress so a new season can be started.')) return;
+  try {
+    const { error: deleteError } = await supabase.from('streak_status').delete().eq('comp_id', compId);
+    if (deleteError) throw deleteError;
+    const { error: compError } = await supabase.from('comps').update({ streak_start_date: null, streak_locked_at: null }).eq('id', compId);
+    if (compError) throw compError;
+    await refreshStreakControls(compId);
+    showNotification('Streak leaderboard reset.', 'success', 'race-notifications');
+  } catch (error) {
+    console.error('Error resetting streak:', error);
+    showNotification('Error resetting streak: ' + error.message, 'error', 'race-notifications');
+  }
+}
+window.startStreak = startStreak;
+window.resetStreak = resetStreak;
 
 // ============ TIPS DISPLAY ============
 async function loadRaceTips(race) {
@@ -2932,7 +3089,40 @@ window.handleLeaderboardCompChange = async function() {
     document.getElementById('lb-leaderboard-body').innerHTML =
       '<tr><td colspan="3" class="text-center text-gray-400 py-6">Select a competition</td></tr>';
   }
+  await refreshStreakControls(lbSelectedCompId);
 };
+
+async function refreshStreakControls(compId) {
+  const statusText = document.getElementById('streak-status-text');
+  const startBtn = document.getElementById('streak-start-btn');
+  const resetBtn = document.getElementById('streak-reset-btn');
+  if (!statusText || !startBtn || !resetBtn) return;
+
+  if (!compId) {
+    statusText.textContent = 'Select a competition above to manage its streak leaderboard.';
+    startBtn.classList.add('hidden');
+    resetBtn.classList.add('hidden');
+    return;
+  }
+
+  const { data: comp } = await supabase.from('comps').select('id,streak_start_date,streak_locked_at').eq('id', compId).maybeSingle();
+  if (comp?.streak_start_date) {
+    const { data: rows } = await supabase.from('streak_status').select('status').eq('comp_id', compId);
+    const alive = (rows || []).filter(r => r.status === 'alive').length;
+    const winner = (rows || []).find(r => r.status === 'winner');
+    const entriesNote = comp.streak_locked_at ? '' : ' — entries still open until the first race is resulted';
+    statusText.textContent = winner
+      ? 'Streak complete — a winner has been decided.'
+      : `Streak active since ${new Date(comp.streak_start_date).toLocaleDateString()} — ${alive} still alive${entriesNote}.`;
+    startBtn.classList.add('hidden');
+    resetBtn.classList.remove('hidden');
+  } else {
+    statusText.textContent = 'Streak not started for this competition yet.';
+    startBtn.classList.remove('hidden');
+    resetBtn.classList.add('hidden');
+  }
+}
+window.refreshStreakControls = refreshStreakControls;
 
 window.handleLeaderboardWeekChange = function() {
   renderLeaderboardWeek(document.getElementById('lb-week-select')?.value);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveScoredHorseId, calculateTipPoints, calculateCompPoints } from '../scoring.js';
+import { resolveScoredHorseId, calculateTipPoints, calculateCompPoints, getWeekKey } from '../scoring.js';
 
 describe('Scoring Logic', () => {
   describe('resolveScoredHorseId', () => {
@@ -158,6 +158,25 @@ describe('Scoring Logic', () => {
 
       const { userPoints } = calculateCompPoints(races, tips, results);
       expect(userPoints['u1']).toBe(20); // 10 * 2
+    });
+  });
+
+  describe('getWeekKey', () => {
+    it('returns the same key for races on different days of the same calendar week', () => {
+      expect(getWeekKey('2026-07-27')).toBe(getWeekKey('2026-08-02')); // Mon and Sun of the same week
+    });
+
+    it('returns different keys for races in adjacent weeks', () => {
+      expect(getWeekKey('2026-08-02')).not.toBe(getWeekKey('2026-08-03')); // Sun vs following Mon
+    });
+
+    it('keys by the Monday of the week', () => {
+      expect(getWeekKey('2026-07-30')).toBe('2026-07-27');
+    });
+
+    it('is stable across a year boundary', () => {
+      // Sun Jan 3 2027 and the preceding Thu Dec 31 2026 are the same ISO week
+      expect(getWeekKey('2026-12-31')).toBe(getWeekKey('2027-01-03'));
     });
   });
 });
