@@ -283,6 +283,48 @@
 
   <!-- Main Content -->
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+    <!-- Entries Closing Countdown (only shown if you haven't joined the default comp) -->
+    <section id="joinCountdownBanner" class="hidden mb-6 sm:mb-8" data-aos="fade-up">
+      <div class="card rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 relative overflow-hidden" style="background:linear-gradient(145deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98)); border:1px solid rgba(251, 191, 36, 0.35);">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div class="relative z-10 flex flex-col md:flex-row items-center md:items-center justify-between gap-4 md:gap-6">
+          <div class="flex items-center gap-3 w-full md:w-auto">
+            <div class="hidden xs:flex sm:flex items-center justify-center h-10 w-10 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex-shrink-0">
+              <i data-feather="clock" class="h-5 w-5 text-yellow-400"></i>
+            </div>
+            <div class="text-center md:text-left">
+              <p class="text-yellow-400 text-[24px] font-semibold tracking-wide uppercase mb-0.5">Entries close soon</p>
+              <h3 class="text-base sm:text-lg font-bold text-gray-100 leading-snug">You haven't joined this year's competition</h3>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-1.5 sm:gap-2" id="joinCountdownClock">
+            <div class="flex flex-col items-center justify-center bg-gray-900/70 border border-yellow-500/20 rounded-lg w-14 sm:w-16 py-1.5 sm:py-2">
+              <div class="text-xl sm:text-2xl font-bold gradient-text leading-none" id="cdDays">--</div>
+              <div class="text-[9px] uppercase tracking-wide text-gray-500 mt-1">Days</div>
+            </div>
+            <div class="flex flex-col items-center justify-center bg-gray-900/70 border border-yellow-500/20 rounded-lg w-14 sm:w-16 py-1.5 sm:py-2">
+              <div class="text-xl sm:text-2xl font-bold gradient-text leading-none" id="cdHours">--</div>
+              <div class="text-[9px] uppercase tracking-wide text-gray-500 mt-1">Hrs</div>
+            </div>
+            <div class="flex flex-col items-center justify-center bg-gray-900/70 border border-yellow-500/20 rounded-lg w-14 sm:w-16 py-1.5 sm:py-2">
+              <div class="text-xl sm:text-2xl font-bold gradient-text leading-none" id="cdMinutes">--</div>
+              <div class="text-[9px] uppercase tracking-wide text-gray-500 mt-1">Min</div>
+            </div>
+            <div class="flex flex-col items-center justify-center bg-gray-900/70 border border-yellow-500/20 rounded-lg w-14 sm:w-16 py-1.5 sm:py-2">
+              <div class="text-xl sm:text-2xl font-bold gradient-text leading-none" id="cdSeconds">--</div>
+              <div class="text-[9px] uppercase tracking-wide text-gray-500 mt-1">Sec</div>
+            </div>
+          </div>
+
+          <a href="comps.html" class="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gradient-to-r from-yellow-500 to-amber-500 text-gray-900 font-bold hover:from-yellow-400 hover:to-amber-400 transition-all duration-200 shadow-lg shadow-yellow-900/30 whitespace-nowrap w-full md:w-auto">
+            <i data-feather="award" class="h-5 w-5"></i>
+            Join Now
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- Welcome Section -->
 <section class="mb-10" data-aos="fade-up">
   <div class="card rounded-2xl shadow-2xl p-8 md:p-10 relative overflow-hidden">
@@ -412,7 +454,7 @@
  <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
     import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
-    import { resolveActiveCompId, mountCompFooterSwitcher, setStoredCompId } from './active-comp.js';
+    import { resolveActiveCompId, mountCompFooterSwitcher, setStoredCompId, fetchDefaultCompId } from './active-comp.js';
     import { guardedRedirect, clearRedirectGuard } from './auth-redirect-guard.js';
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -638,6 +680,42 @@
       feather.replace();
     }
 
+    // Entries close 11:59pm Thursday 20 August 2026 AEST (UTC+10)
+    const ENTRIES_CLOSE_AT = new Date('2026-08-20T23:59:00+10:00').getTime();
+    let joinCountdownInterval = null;
+
+    function startJoinCountdown() {
+      const banner = document.getElementById('joinCountdownBanner');
+      if (!banner) return;
+      banner.classList.remove('hidden');
+
+      const daysEl = document.getElementById('cdDays');
+      const hoursEl = document.getElementById('cdHours');
+      const minutesEl = document.getElementById('cdMinutes');
+      const secondsEl = document.getElementById('cdSeconds');
+
+      function tick() {
+        const remaining = ENTRIES_CLOSE_AT - Date.now();
+        if (remaining <= 0) {
+          clearInterval(joinCountdownInterval);
+          banner.classList.add('hidden');
+          return;
+        }
+        const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((remaining / (1000 * 60)) % 60);
+        const seconds = Math.floor((remaining / 1000) % 60);
+        daysEl.textContent = String(days);
+        hoursEl.textContent = String(hours).padStart(2, '0');
+        minutesEl.textContent = String(minutes).padStart(2, '0');
+        secondsEl.textContent = String(seconds).padStart(2, '0');
+      }
+
+      tick();
+      if (joinCountdownInterval) clearInterval(joinCountdownInterval);
+      joinCountdownInterval = setInterval(tick, 1000);
+    }
+
     async function loadUserCompsToDropdown(userId) {
       try {
         const { data: joinings } = await supabase
@@ -648,6 +726,13 @@
 
         const uniqueCompIds = [...new Set((joinings || []).map(j => j.comp_id).filter(Boolean))];
         userCompIds = uniqueCompIds;
+
+        // Countdown banner cares specifically about the admin-set default
+        // comp — a player who joined some other active comp still hasn't
+        // joined the one everyone's being funnelled toward, so it still shows.
+        const defaultCompId = await fetchDefaultCompId(supabase);
+        if (defaultCompId && !uniqueCompIds.includes(defaultCompId)) startJoinCountdown();
+
         if (uniqueCompIds.length === 0) { showNoCompModal(); return; }
 
         const { data: comps } = await supabase
