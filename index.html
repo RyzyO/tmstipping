@@ -352,7 +352,7 @@
     </div>
 
     <!-- Stats Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+    <div id="homeStatsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
       <div class="stat-card rounded-xl shadow-lg p-6" data-aos="fade-up">
         <div class="flex items-center justify-between mb-3">
           <div class="bg-gradient-to-br from-yellow-500/20 to-amber-600/20 p-3 rounded-xl border border-yellow-500/30">
@@ -388,7 +388,7 @@
     </div>
 
     <!-- Upcoming Races -->
-    <section data-aos="fade-up">
+    <section id="homeUpcomingRaces" data-aos="fade-up">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-2xl md:text-3xl font-bold gradient-text">Upcoming Races</h2>
       </div>
@@ -688,6 +688,8 @@
       const banner = document.getElementById('joinCountdownBanner');
       if (!banner) return;
       banner.classList.remove('hidden');
+      document.getElementById('homeStatsGrid')?.classList.add('hidden');
+      document.getElementById('homeUpcomingRaces')?.classList.add('hidden');
 
       const daysEl = document.getElementById('cdDays');
       const hoursEl = document.getElementById('cdHours');
@@ -699,6 +701,8 @@
         if (remaining <= 0) {
           clearInterval(joinCountdownInterval);
           banner.classList.add('hidden');
+          document.getElementById('homeStatsGrid')?.classList.remove('hidden');
+          document.getElementById('homeUpcomingRaces')?.classList.remove('hidden');
           return;
         }
         const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
