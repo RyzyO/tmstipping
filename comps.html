@@ -717,7 +717,7 @@
             </div>
             <div class="stat-tile p-3">
               <p class="text-[11px] uppercase tracking-wide text-gray-500 mb-1 flex items-center gap-1.5"><i data-feather="trending-up" class="h-3 w-3"></i>Points</p>
-              <p class="text-base font-bold text-white">${joining.points || 0}</p>
+              <p class="text-base font-bold text-white">${Number(joining.points || 0).toFixed(2)}</p>
             </div>
           </div>
           <p class="text-xs text-gray-500 mb-5 flex items-center gap-1.5"><i data-feather="calendar" class="h-3 w-3"></i>Ends ${endDate}</p>
