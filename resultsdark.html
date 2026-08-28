@@ -43,6 +43,18 @@
     .result-card { transition: all .3s ease; cursor:pointer; }
     .result-card.correct { background: linear-gradient(145deg, rgba(22, 163, 74, 0.15), rgba(34, 197, 94, 0.1)); border: 1px solid rgba(34, 197, 94, 0.3); }
     .result-card.incorrect { background: linear-gradient(145deg, rgba(220, 38, 38, 0.15), rgba(239, 68, 68, 0.1)); border: 1px solid rgba(239, 68, 68, 0.3); }
+    /* Jockey silks. Sized in the markup; these just give them a consistent frame so a
+       row of them reads as a set rather than as loose images. */
+    .silk {
+      display: block;
+      flex: none;
+      object-fit: contain;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+    .silk-sm { width: 26px; height: 34px; }
+    .silk-md { width: 38px; height: 50px; }
     .modal { background: rgba(0,0,0,0.9); }
     .modal-content {
       background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
@@ -232,21 +244,43 @@
       return bStart - aStart;
     }
 
+    // One entry per race. Applied to anything we're about to render or cache, so a
+    // cache that was written with duplicates in it heals itself on the next load
+    // instead of showing them until it expires.
+    function dedupeResults(entries) {
+      const byRaceId = new Map();
+      (entries || []).forEach((entry) => {
+        const id = entry?.race?.id;
+        if (!id) return;
+        byRaceId.set(id, entry);
+      });
+      return [...byRaceId.values()];
+    }
+
     function getCachedResults() {
       try {
         const raw = localStorage.getItem(getResultsCacheKey());
         if (!raw) return null;
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed?.entries)) return null;
-        return parsed.entries;
+        return dedupeResults(parsed.entries);
       } catch (error) {
-        localStorage.removeItem(RESULTS_CACHE_KEY);
+        localStorage.removeItem(getResultsCacheKey());
         return null;
       }
     }
 
     function saveCachedResults(entries) {
       localStorage.setItem(getResultsCacheKey(), JSON.stringify({ entries, updatedAt: Date.now() }));
+    }
+
+    // Silks come from Racing Australia by id (see the admin importer). Anything without
+    // an id — or whose image 404s — simply renders nothing, so the layout never depends
+    // on a silk being there.
+    function silkImg(silksId, size = "sm", alt = "") {
+      if (!silksId) return "";
+      const src = `https://www.racingaustralia.horse/JockeySilks/${silksId}.png`;
+      return `<img src="${src}" alt="${alt}" loading="lazy" class="silk silk-${size}" onerror="this.remove()">`;
     }
 
     function showLoading(){document.getElementById("loading-overlay").classList.remove("hidden");}
@@ -334,7 +368,10 @@
             selectEl.value = selectedCompId;
           }
 
-          const cached = getCachedResults();
+          // Only paint the cache before the first real load. Once a load has started,
+          // its fresher data wins — otherwise a re-fired auth event would drop us back
+          // to stale rows mid-flight.
+          const cached = resultsLoadToken === 0 ? getCachedResults() : null;
           if (cached && selectedCompId) {
             allResults = cached;
             renderResults();
@@ -353,10 +390,24 @@
       }
     }
 
+    // Bumped by every load so a slow, superseded run can't write its rows into the
+    // list a newer run is building.
+    //
+    // This is what caused duplicated races: the old code emptied the shared allResults
+    // array *before* awaiting Supabase, then pushed into it afterwards. onAuthStateChange
+    // fires more than once per session (INITIAL_SESSION, SIGNED_IN, token refresh, tab
+    // focus) and each firing kicked off a load, so two runs would both clear the array,
+    // both await, then both append a full set of races — and the doubled array was
+    // handed straight to saveCachedResults, so the duplicates persisted across reloads.
+    let resultsLoadToken = 0;
+
     async function loadAllResults() {
+      const token = ++resultsLoadToken;
       if (!hasInitialCache) showLoading();
       try {
-        allResults=[];
+        // Build into a local array and swap it in at the end, so a concurrent run
+        // can never interleave its rows with ours.
+        const entries = [];
         const [racesRes, tipsRes, resultsRes] = await Promise.all([
           supabase.from('races').select('*').eq('comp_id', selectedCompId),
           supabase.from('tips').select('*').eq('user_id', user.uid).eq('comp_id', selectedCompId),
@@ -416,7 +467,7 @@
             if(correct && joker && pts>0) pts*=2;
           }
 
-          allResults.push({
+          entries.push({
             race,
             rd,
             correct,
@@ -426,17 +477,28 @@
             winnerName,
             place1Name,
             place2Name,
+            // Captured here while the horse objects are already in hand, so the card
+            // and modal can show silks without re-walking race.horses on every render.
+            tippedSilksId: tippedHorse?.silksId || "",
+            winnerSilksId: rd ? race.horses?.[rd.winningHorseId]?.silksId || "" : "",
+            place1SilksId: rd ? race.horses?.[rd.place1HorseId]?.silksId || "" : "",
+            place2SilksId: rd ? race.horses?.[rd.place2HorseId]?.silksId || "" : "",
             dtStr,
             dtMillis
           });
         }
+
+        // A newer load started while we were awaiting — let it win.
+        if (token !== resultsLoadToken) return;
+
+        allResults = dedupeResults(entries);
         renderResults();
         saveCachedResults(allResults);
         setupWeekNavigation(allResults);
       } catch (error) {
         console.error('Error loading results:', error);
       } finally {
-        hideLoading();
+        if (token === resultsLoadToken) hideLoading();
       }
     }
 
@@ -486,7 +548,8 @@
       }
 
       // Render
-      results.forEach(({race,rd,correct,pts,joker,tippedName,winnerName,place1Name,place2Name,dtStr})=>{
+      results.forEach(({race,rd,correct,pts,joker,tippedName,winnerName,place1Name,place2Name,dtStr,
+                        tippedSilksId,winnerSilksId,place1SilksId,place2SilksId})=>{
         const card=document.createElement("div");
         const cardStateClass = rd ? (correct?"correct":"incorrect") : "";
         card.className=`p-6 rounded-xl shadow-lg result-card ${cardStateClass}`;
@@ -496,34 +559,60 @@
         const countdownHtml = jumpMillis
           ? `<p class="text-sm text-yellow-400 font-semibold" data-jump-millis="${jumpMillis}">${formatCountdown(jumpMillis)}</p>`
           : "";
+        // The silk sits beside the runner it belongs to rather than floating at the top
+        // of the card, so it reads as part of the tip line instead of decoration.
+        const tipLine = rd
+          ? (correct
+              ? `You earned <span class="text-green-500 font-bold">+${pts.toFixed(2)}</span>`
+              : "No points earned")
+          : (tippedName
+              ? `Tip placed: <span class="text-gray-100 font-semibold">${tippedName}</span>`
+              : "Tip placed");
+
         card.innerHTML=`
           <h3 class="text-xl font-bold mb-1">${race.name}</h3>
-          <p class="text-sm text-gray-400 mb-2">${dtStr}</p>
-          <p class="text-gray-300">
-            ${rd ? (correct?`You earned <span class="text-green-500 font-bold">+${pts.toFixed(2)}</span>`:"No points earned") : (tippedName ? `Tip placed: <span class="text-gray-100 font-semibold">${tippedName}</span>` : "Tip placed")}
-          </p>
-          ${rd ? "" : countdownHtml}
+          <p class="text-sm text-gray-400 mb-3">${dtStr}</p>
+          <div class="flex items-center gap-3">
+            ${silkImg(tippedSilksId, "sm", tippedName)}
+            <div class="min-w-0">
+              <p class="text-gray-300">${tipLine}</p>
+              ${rd && tippedName ? `<p class="text-sm text-gray-400 truncate">${tippedName}</p>` : ""}
+              ${rd ? "" : countdownHtml}
+            </div>
+          </div>
         `;
         card.onclick=()=>{
           const modalContent = `
             <div class="space-y-4">
               <div class="bg-gradient-to-r from-blue-600/20 to-blue-500/10 rounded-lg p-4 border border-blue-500/30">
-                <p class="text-xs text-blue-300 mb-1">Your Tip</p>
-                <p class="text-xl font-bold text-blue-200">${tippedName||"No tip placed"}</p>
+                <p class="text-xs text-blue-300 mb-2">Your Tip</p>
+                <div class="flex items-center gap-3">
+                  ${silkImg(tippedSilksId, "md", tippedName)}
+                  <p class="text-xl font-bold text-blue-200 min-w-0 break-words">${tippedName||"No tip placed"}</p>
+                </div>
               </div>
               ${rd ? `
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div class="bg-black/30 rounded-lg p-3 ${tippedName===winnerName?'border-2 border-green-500/50 bg-green-600/10':''}">
-                    <p class="text-xs text-gray-400 mb-1">🥇 1st Place</p>
-                    <p class="font-semibold text-gray-200">${winnerName}</p>
+                    <p class="text-xs text-gray-400 mb-2">🥇 1st Place</p>
+                    <div class="flex items-center gap-2">
+                      ${silkImg(winnerSilksId, "sm", winnerName)}
+                      <p class="font-semibold text-gray-200 min-w-0 break-words">${winnerName}</p>
+                    </div>
                   </div>
                   <div class="bg-black/30 rounded-lg p-3 ${tippedName===place1Name?'border-2 border-green-500/50 bg-green-600/10':''}">
-                    <p class="text-xs text-gray-400 mb-1">🥈 2nd Place</p>
-                    <p class="font-semibold text-gray-200">${place1Name}</p>
+                    <p class="text-xs text-gray-400 mb-2">🥈 2nd Place</p>
+                    <div class="flex items-center gap-2">
+                      ${silkImg(place1SilksId, "sm", place1Name)}
+                      <p class="font-semibold text-gray-200 min-w-0 break-words">${place1Name}</p>
+                    </div>
                   </div>
                   <div class="bg-black/30 rounded-lg p-3 ${tippedName===place2Name?'border-2 border-green-500/50 bg-green-600/10':''}">
-                    <p class="text-xs text-gray-400 mb-1">🥉 3rd Place</p>
-                    <p class="font-semibold text-gray-200">${place2Name}</p>
+                    <p class="text-xs text-gray-400 mb-2">🥉 3rd Place</p>
+                    <div class="flex items-center gap-2">
+                      ${silkImg(place2SilksId, "sm", place2Name)}
+                      <p class="font-semibold text-gray-200 min-w-0 break-words">${place2Name}</p>
+                    </div>
                   </div>
                 </div>
                 <div class="pt-4 border-t border-gray-700/50">
