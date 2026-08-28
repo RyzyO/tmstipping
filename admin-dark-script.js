@@ -2752,12 +2752,23 @@ window.handleUserAdminCompChange = async function() {
   const searchInput = document.getElementById('user-admin-search');
   searchInput.value = '';
 
+  // Reset the add-to-comp panel; its results are scoped to the selected comp.
+  const addSearch = document.getElementById('user-admin-add-search');
+  const addResults = document.getElementById('user-admin-add-results');
+  if (addSearch) addSearch.value = '';
+  if (addResults) { addResults.innerHTML = ''; addResults.classList.add('hidden'); }
+
   if (!uaSelectedCompId) {
     searchInput.disabled = true;
+    if (addSearch) addSearch.disabled = true;
+    setUserAdminAddStatus('Pick a competition to add users to it.');
     renderUserAdminResults([]);
     document.getElementById('user-admin-summary').textContent = 'Choose a competition and a user to begin editing.';
     return;
   }
+
+  if (addSearch) addSearch.disabled = false;
+  setUserAdminAddStatus('Start typing to find a user.');
 
   document.getElementById('user-admin-summary').textContent = 'Choose a user to begin editing.';
   await loadUsersForUserAdminComp(uaSelectedCompId);
@@ -2839,6 +2850,179 @@ window.selectUserAdminUserFromList = async function(userId) {
   await selectUserAdminUser(userId);
   window.filterUserAdminList();
   document.getElementById('user-admin-edit-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+};
+
+// ── Add a user to a competition ──────────────────────────────────────────────
+//
+// The player list above only holds users already joined to the selected comp, so
+// adding someone needs its own search over every user on the site. The join itself
+// mirrors completeJoinComp() in comps.html exactly — same row shape, same
+// participant_count bump — so an admin-added entry is indistinguishable from a
+// self-service signup.
+
+let uaAllUsers = [];
+let uaAllUsersLoaded = false;
+let uaAddInFlight = null;
+
+function setUserAdminAddStatus(message, tone = 'muted') {
+  const el = document.getElementById('user-admin-add-status');
+  if (!el) return;
+  const tones = {
+    muted:   'text-xs mt-2 text-gray-500',
+    working: 'text-xs mt-2 text-yellow-400',
+    success: 'text-xs mt-2 text-green-400',
+    error:   'text-xs mt-2 text-red-400',
+  };
+  el.textContent = message;
+  el.className = tones[tone] || tones.muted;
+}
+
+async function ensureAllUsersLoaded() {
+  if (uaAllUsersLoaded) return;
+  const { data, error } = await supabase
+    .from('users')
+    .select('id,email,first_name,last_name,team_name');
+  if (error) throw error;
+  uaAllUsers = data || [];
+  uaAllUsers.sort((a, b) =>
+    (a.team_name || a.email || a.id || '').toLowerCase()
+      .localeCompare((b.team_name || b.email || b.id || '').toLowerCase()));
+  uaAllUsersLoaded = true;
+}
+
+window.filterUserAdminAddList = async function() {
+  const input = document.getElementById('user-admin-add-search');
+  const resultsEl = document.getElementById('user-admin-add-results');
+  const q = (input?.value || '').trim().toLowerCase();
+
+  if (!uaSelectedCompId) return;
+
+  if (!q) {
+    resultsEl.classList.add('hidden');
+    resultsEl.innerHTML = '';
+    setUserAdminAddStatus('Start typing to find a user.');
+    return;
+  }
+
+  try {
+    if (!uaAllUsersLoaded) setUserAdminAddStatus('Loading users…', 'working');
+    await ensureAllUsersLoaded();
+  } catch (error) {
+    console.error('[user-admin] could not load users:', error);
+    setUserAdminAddStatus(`Couldn't load users: ${error?.message || 'unknown error'}`, 'error');
+    return;
+  }
+
+  // The search may have moved on while we were loading.
+  if ((input.value || '').trim().toLowerCase() !== q) return;
+
+  const matches = uaAllUsers.filter(u =>
+    (u.email && u.email.toLowerCase().includes(q)) ||
+    (u.first_name && u.first_name.toLowerCase().includes(q)) ||
+    (u.last_name && u.last_name.toLowerCase().includes(q)) ||
+    (u.team_name && u.team_name.toLowerCase().includes(q))
+  );
+
+  if (!matches.length) {
+    resultsEl.classList.remove('hidden');
+    resultsEl.innerHTML = '<div class="text-sm text-gray-400 p-4">No users match that search.</div>';
+    setUserAdminAddStatus(`0 of ${uaAllUsers.length} users`);
+    return;
+  }
+
+  // Cap the list — an admin should narrow the search rather than scroll hundreds.
+  const shown = matches.slice(0, 25);
+  resultsEl.classList.remove('hidden');
+  resultsEl.innerHTML = shown.map(user => {
+    const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    const status = uaPaymentStatusByUserId[user.id];
+    const alreadyIn = status === 'completed';
+    return `
+      <div class="w-full px-3 py-2.5 flex items-center justify-between gap-2 border-b border-gray-800/60 last:border-b-0">
+        <span class="min-w-0">
+          <span class="block text-sm font-semibold text-gray-100 truncate">${escapeHtml(user.team_name) || '(No Team)'}${name ? ` <span class="font-normal text-gray-400">(${escapeHtml(name)})</span>` : ''}</span>
+          <span class="block text-xs text-gray-500 truncate">${escapeHtml(user.email || user.id)}</span>
+        </span>
+        ${alreadyIn
+          ? '<span class="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-green-500/15 text-green-400">IN COMP</span>'
+          : `<button type="button" onclick="window.addUserToSelectedComp('${user.id}')"
+               class="btn-secondary flex-shrink-0 !py-1 !px-2.5 text-xs">
+               ${status ? 'Mark Joined' : 'Add'}
+             </button>`}
+      </div>
+    `;
+  }).join('');
+
+  const more = matches.length - shown.length;
+  setUserAdminAddStatus(
+    `${matches.length} of ${uaAllUsers.length} users${more > 0 ? ` — showing first ${shown.length}, refine to see the rest` : ''}`
+  );
+};
+
+window.addUserToSelectedComp = async function(userId) {
+  if (!uaSelectedCompId) {
+    setUserAdminAddStatus('Pick a competition first.', 'error');
+    return;
+  }
+  if (uaAddInFlight) return;               // one join at a time
+  uaAddInFlight = userId;
+
+  try {
+    setUserAdminAddStatus('Adding…', 'working');
+
+    const { data: comp, error: compError } = await supabase
+      .from('comps').select('*').eq('id', uaSelectedCompId).single();
+    if (compError) throw compError;
+    if (!comp) throw new Error('Competition not found');
+
+    // maybeSingle: a user who has never joined has no row, which is not an error.
+    const { data: existing, error: existingError } = await supabase
+      .from('user_comp_joinings').select('*')
+      .eq('user_id', userId).eq('comp_id', uaSelectedCompId).maybeSingle();
+    if (existingError) throw existingError;
+
+    const wasCompleted = existing?.payment_status === 'completed';
+    if (wasCompleted) {
+      setUserAdminAddStatus('That user is already in this competition.', 'error');
+      return;
+    }
+
+    // Same row shape completeJoinComp() writes, so existing progress is preserved
+    // when an admin completes a signup that was left pending mid-payment.
+    const { error: joinError } = await supabase.from('user_comp_joinings').upsert({
+      id: `${userId}_${uaSelectedCompId}`,
+      user_id: userId,
+      comp_id: uaSelectedCompId,
+      payment_status: 'completed',
+      rank: existing?.rank ?? null,
+      points: existing?.points ?? 0,
+      wins: existing?.wins ?? 0,
+      jokers_remaining: existing?.jokers_remaining ?? (comp.joker_allowance ?? 3)
+    }, { onConflict: 'user_id,comp_id' });
+    if (joinError) throw joinError;
+
+    // Only bump the count on a genuine new entrant — same condition comps.html uses.
+    const { error: countError } = await supabase.from('comps')
+      .update({ participant_count: (comp.participant_count || 0) + 1 })
+      .eq('id', uaSelectedCompId);
+    if (countError) console.warn('[user-admin] participant_count not updated:', countError.message);
+
+    const added = uaAllUsers.find(u => u.id === userId);
+    const label = added?.team_name || added?.email || userId;
+
+    // Refresh the comp's player list so the new entrant shows up, then reselect them.
+    await loadUsersForUserAdminComp(uaSelectedCompId);
+    await selectUserAdminUser(userId);
+    window.filterUserAdminList();
+    await window.filterUserAdminAddList();
+
+    setUserAdminAddStatus(`Added ${label} to ${comp.name || 'the competition'}.`, 'success');
+  } catch (error) {
+    console.error('[user-admin] add to comp failed:', error);
+    setUserAdminAddStatus(`Couldn't add user: ${error?.message || 'unknown error'}`, 'error');
+  } finally {
+    uaAddInFlight = null;
+  }
 };
 
 async function selectUserAdminUser(userId) {
@@ -3076,6 +3260,9 @@ window.exportLadderCsv = async function() {
 
 // ============ LEADERBOARD PANEL ============
 let lbSelectedCompId = null;
+// Key for the all-weeks-combined standing, stored alongside the numeric week keys.
+const LB_OVERALL_KEY = 'overall';
+
 let lbWeekRaceMap = {};
 let lbWeekList = [];
 let lbWeekLeaderboard = {};
@@ -3183,9 +3370,20 @@ async function loadLeaderboardData() {
     return;
   }
 
-  const { data: usersData } = await supabase.from('users').select('id,team_name,email');
+  // silk is the profile silk each user picks (users.silk → static/silks/<n>.png);
+  // jokers_remaining lives on the joining row, so it's per competition, not per week.
+  const { data: usersData } = await supabase.from('users').select('id,team_name,email,silk');
   const userIdToTeam = {};
-  (usersData || []).forEach(u => { userIdToTeam[u.id] = u.team_name || u.email || u.id; });
+  const userIdToSilk = {};
+  (usersData || []).forEach(u => {
+    userIdToTeam[u.id] = u.team_name || u.email || u.id;
+    userIdToSilk[u.id] = u.silk || null;
+  });
+
+  const { data: joiningsData } = await supabase.from('user_comp_joinings')
+    .select('user_id,jokers_remaining').eq('comp_id', lbSelectedCompId);
+  const userIdToJokers = {};
+  (joiningsData || []).forEach(j => { userIdToJokers[j.user_id] = j.jokers_remaining; });
 
   const { data: tipsData } = await supabase.from('tips').select('*').eq('comp_id', lbSelectedCompId);
   const tips = tipsData || [];
@@ -3195,6 +3393,11 @@ async function loadLeaderboardData() {
   (resultsData || []).forEach(r => { results[r.race_id || r.id] = r; });
 
   lbWeekLeaderboard = {};
+  // Running total across every week, so the dropdown can offer an overall standing
+  // alongside the week-by-week ones. Weeks partition the races, so summing them is
+  // the same as scoring the whole comp in one pass.
+  const overallPoints = {};
+
   for (const week of lbWeekList) {
     const raceIds = lbWeekRaceMap[week];
     const userPoints = {};
@@ -3212,21 +3415,52 @@ async function loadLeaderboardData() {
       if (tip.joker && points > 0) points *= 2;
       userPoints[tip.user_id] += points;
     }
+    const toEntry = (userId, points) => ({
+      userId,
+      user: userIdToTeam[userId] || userId,
+      points,
+      silk: userIdToSilk[userId] || null,
+      jokers: userIdToJokers[userId] ?? null,
+    });
+
     lbWeekLeaderboard[week] = Object.keys(userPoints)
-      .map(userId => ({ user: userIdToTeam[userId] || userId, points: userPoints[userId] }))
+      .map(userId => toEntry(userId, userPoints[userId]))
       .sort((a, b) => b.points - a.points);
+
+    for (const userId of Object.keys(userPoints)) {
+      overallPoints[userId] = (overallPoints[userId] || 0) + userPoints[userId];
+    }
   }
+
+  lbWeekLeaderboard[LB_OVERALL_KEY] = Object.keys(overallPoints)
+    .map(userId => ({
+      userId,
+      user: userIdToTeam[userId] || userId,
+      points: overallPoints[userId],
+      silk: userIdToSilk[userId] || null,
+      jokers: userIdToJokers[userId] ?? null,
+    }))
+    .sort((a, b) => b.points - a.points);
 
   const weekSelect = document.getElementById('lb-week-select');
   const previousWeek = weekSelect.value;
   weekSelect.innerHTML = '';
+
+  const overallOption = document.createElement('option');
+  overallOption.value = LB_OVERALL_KEY;
+  overallOption.textContent = 'Overall (all weeks)';
+  weekSelect.appendChild(overallOption);
+
   lbWeekList.forEach(week => {
     const option = document.createElement('option');
     option.value = week;
     option.textContent = `Week ${week}`;
     weekSelect.appendChild(option);
   });
-  weekSelect.value = lbWeekList.includes(Number(previousWeek)) ? previousWeek : lbWeekList[0];
+
+  weekSelect.value = previousWeek === LB_OVERALL_KEY || lbWeekList.includes(Number(previousWeek))
+    ? previousWeek
+    : lbWeekList[lbWeekList.length - 1];   // default to the most recent week
 
   renderLeaderboardWeek(weekSelect.value);
 }
@@ -3235,7 +3469,7 @@ function renderLeaderboardWeek(week) {
   const tbody = document.getElementById('lb-leaderboard-body');
   const data = lbWeekLeaderboard[week] || [];
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-gray-400 py-6">No tips recorded for this week.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="3" class="text-center text-gray-400 py-6">No tips recorded ${week === LB_OVERALL_KEY ? 'for this competition' : 'for this week'}.</td></tr>`;
     return;
   }
   tbody.innerHTML = data.map((entry, idx) => `
@@ -3246,6 +3480,404 @@ function renderLeaderboardWeek(week) {
     </tr>
   `).join('');
 }
+
+// ── Leaderboard PNG export ───────────────────────────────────────────────────
+//
+// Drawn straight onto a canvas at 3x rather than screenshotting the DOM: it needs no
+// library, and the silks are same-origin files so the canvas never gets tainted and
+// toBlob() works. All geometry below is in logical px and multiplied by LB_EXPORT_SCALE.
+
+const LB_EXPORT_SCALE = 3;
+
+// Frame shapes offered before export. 'auto' has no ratio — the frame just wraps the
+// content. Everything else fixes the frame and fits the card inside it.
+const LB_ASPECT_RATIOS = {
+  '1:1':  1,
+  '4:5':  4 / 5,
+  '9:16': 9 / 16,
+  '4:3':  4 / 3,
+  '16:9': 16 / 9,
+};
+
+// users.silk is a number 1-66, or the string 'champions' for the unlocked one.
+const LB_DEFAULT_SILK_SRC = 'static/silks/1.png';
+
+function userSilkSrc(silk) {
+  if (silk === null || silk === undefined || silk === '') return null;
+  const key = String(silk).trim();
+  if (key.toLowerCase() === 'champions') return 'static/silks/champion.png';
+  if (/^\d+$/.test(key)) return `static/silks/${key}.png`;
+  return null;
+}
+
+// Never rejects — resolves to null so the caller can fall back.
+function loadImageOrNull(src) {
+  return new Promise(resolve => {
+    if (!src) { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+// Match the public leaderboard, which renders `entry.silk || 1` — a user who never
+// picked one still shows silk 1 rather than a blank. Also covers a silk whose file is
+// missing (champion.png isn't in the repo), so nothing renders as an empty box.
+async function loadSilkWithFallback(silk) {
+  const img = await loadImageOrNull(userSilkSrc(silk));
+  return img || await loadImageOrNull(LB_DEFAULT_SILK_SRC);
+}
+
+// Ties are decided on the score as *displayed* (2dp). Points are sums of floats, so
+// two rows can print an identical 5.74 while differing far below the decimal — ranking
+// those apart would look like a bug to anyone reading the image.
+const lbScoreKey = (points) => (Number(points) || 0).toFixed(2);
+
+// Standard competition ranking: equal scores share a rank, and the next distinct score
+// skips to its ordinal position — 1, 1, 3 rather than 1, 1, 2.
+function assignLeaderboardRanks(rows) {
+  let rank = 0;
+  let previousKey = null;
+  return rows.map((row, i) => {
+    const key = lbScoreKey(row.points);
+    if (key !== previousKey) {
+      rank = i + 1;
+      previousKey = key;
+    }
+    return { ...row, rank };
+  });
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  if (typeof ctx.roundRect === 'function') {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
+}
+
+// Trim to fit the column, with an ellipsis — team names have no length limit.
+function fitText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let out = text;
+  while (out.length > 1 && ctx.measureText(out + '…').width > maxWidth) {
+    out = out.slice(0, -1);
+  }
+  return out + '…';
+}
+
+window.exportLeaderboardPng = async function() {
+  const btn = document.getElementById('lb-export-png-btn');
+  const week = document.getElementById('lb-week-select')?.value;
+  // Exactly ten rows. Tied scores share a rank within those ten, but the list is never
+  // extended past the cut — in a real comp a long tail of players sits on the same
+  // score (0.00 especially), and following that tie pulled in dozens of extra rows.
+  const rows = (lbWeekLeaderboard[week] || []).slice(0, 10);
+
+  const isOverall = week === LB_OVERALL_KEY;
+
+  if (!rows.length) {
+    showNotification(
+      isOverall ? 'Nothing to export — this competition has no scores yet.'
+                : 'Nothing to export — this week has no leaderboard yet.',
+      'error', 'lb-notifications'
+    );
+    return;
+  }
+
+  const original = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Rendering…';
+    feather.replace();
+  }
+
+  try {
+    const compName = allComps.find(c => c.id === lbSelectedCompId)?.name || 'Competition';
+    const [silks, logo] = await Promise.all([
+      Promise.all(rows.map(r => loadSilkWithFallback(r.silk))),
+      loadImageOrNull('images/logo.png'),   // the same mark the site navbar uses
+    ]);
+
+    // ── Layout ──
+    //
+    // The rows are laid out in their own coordinate space first, then that block is
+    // scaled and centred inside whatever frame the chosen aspect ratio gives us. Doing
+    // it in that order means the ratio can never clip anything — worst case the card
+    // gets smaller. Scaling happens on the context *before* drawing, so text and shapes
+    // are rendered at final resolution and stay crisp at any ratio.
+    const S = LB_EXPORT_SCALE;
+    const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif';
+    const CARD_W = 900;          // one column of rows
+    const COL_GAP = 28;
+    const ROW_H = 96;
+    const ROW_GAP = 12;
+    const FOOTER_H = 76;
+    const OUTER = 44;            // breathing room between the card and the frame edge
+    const LOGO_H = logo ? 96 : 0;
+
+    // Header height is derived from where the header text actually ends, not a magic
+    // number. The JOKERS caption sits just above the rows, and in a two-column layout
+    // the left column's caption lands under the centred subtitle — with a hardcoded
+    // height the two shared a baseline and overlapped.
+    const HEAD_TOP = 48;
+    const headY = HEAD_TOP + (logo ? LOGO_H + 34 : 0);
+    const SUBTITLE_Y = headY + 90;          // baseline of the "Top 10 · …" line
+    const CAPTION_Y = SUBTITLE_Y + 42;      // baseline of the JOKERS caption
+    const HEADER_H = CAPTION_Y + 18;        // rows begin below the caption
+
+    const layoutFor = (cols) => {
+      const rowsPerCol = Math.ceil(rows.length / cols);
+      return {
+        cols,
+        rowsPerCol,
+        contentW: CARD_W * cols + COL_GAP * (cols - 1),
+        contentH: HEADER_H + rowsPerCol * (ROW_H + ROW_GAP) - ROW_GAP + FOOTER_H,
+      };
+    };
+
+    const ratioKey = document.getElementById('lb-export-ratio')?.value || 'auto';
+    const ratio = LB_ASPECT_RATIOS[ratioKey] || null;
+
+    // Pick the column count that lets the card render largest in this frame, rather
+    // than guessing from the ratio: a wide frame naturally prefers two columns, a tall
+    // one prefers a single column, and this just falls out of the arithmetic.
+    let layout = layoutFor(1);
+    let scale = 1;
+    let frameLogicalW = layout.contentW + OUTER * 2;
+    let frameLogicalH = layout.contentH + OUTER * 2;
+
+    if (ratio) {
+      frameLogicalW = 1000;
+      frameLogicalH = Math.round(frameLogicalW / ratio);
+
+      const candidates = rows.length > 4 ? [layoutFor(1), layoutFor(2)] : [layoutFor(1)];
+      let best = null;
+      for (const candidate of candidates) {
+        // Never magnify past 1.25 — the silks are small raster PNGs and soften if
+        // pushed much beyond their natural size.
+        const fit = Math.min(
+          (frameLogicalW - OUTER * 2) / candidate.contentW,
+          (frameLogicalH - OUTER * 2) / candidate.contentH,
+          1.25
+        );
+        if (!best || fit > best.scale) best = { layout: candidate, scale: fit };
+      }
+      layout = best.layout;
+      scale = best.scale;
+    }
+
+    const W = layout.contentW;   // content-space width
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(frameLogicalW * S);
+    canvas.height = Math.round(frameLogicalH * S);
+    const ctx = canvas.getContext('2d');
+    ctx.scale(S, S);
+    ctx.textBaseline = 'middle';
+
+    // ── Background (fills the whole frame, behind the card) ──
+    const bg = ctx.createLinearGradient(0, 0, frameLogicalW, frameLogicalH);
+    bg.addColorStop(0, '#111827');
+    bg.addColorStop(1, '#0b1120');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, frameLogicalW, frameLogicalH);
+
+    // Warm glow behind the header, echoing the site's gold accent. Painted over the
+    // whole frame, not a header-height rect — the gradient already fades to
+    // transparent, and clipping it to a rect left a hard band across the first row.
+    const glow = ctx.createRadialGradient(
+      frameLogicalW / 2, 0, 0,
+      frameLogicalW / 2, 0, Math.max(frameLogicalW, frameLogicalH) * 0.75
+    );
+    glow.addColorStop(0, 'rgba(251, 191, 36, 0.16)');
+    glow.addColorStop(1, 'rgba(251, 191, 36, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, frameLogicalW, frameLogicalH);
+
+    // Centre the card in the frame and switch into content coordinates.
+    ctx.save();
+    ctx.translate(
+      (frameLogicalW - layout.contentW * scale) / 2,
+      (frameLogicalH - layout.contentH * scale) / 2
+    );
+    ctx.scale(scale, scale);
+
+    // ── Header ──
+    if (logo) {
+      const logoW = logo.naturalWidth * (LOGO_H / logo.naturalHeight);
+      ctx.drawImage(logo, (W - logoW) / 2, HEAD_TOP, logoW, LOGO_H);
+    }
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = `700 20px ${FONT}`;
+    ctx.letterSpacing = '3px';
+    ctx.fillText(compName.toUpperCase(), W / 2, headY);
+    ctx.letterSpacing = '0px';
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = `800 54px ${FONT}`;
+    ctx.fillText(isOverall ? 'Overall Leaderboard' : `Week ${week} Leaderboard`, W / 2, headY + 50);
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `500 22px ${FONT}`;
+    ctx.fillText(
+      isOverall ? `Top ${rows.length} · All weeks` : `Top ${rows.length}`,
+      W / 2, SUBTITLE_Y
+    );
+
+    // ── Rows ──
+    const MEDALS = ['#fbbf24', '#cbd5e1', '#d08a4e'];
+
+    // Reserve one fixed-width column for the joker pills so the points stay in a
+    // straight line even on rows that have no pill to show.
+    ctx.font = `700 26px ${FONT}`;
+    const jokerColW = rows.some(r => r.jokers !== null && r.jokers !== undefined)
+      ? rows.reduce((max, r) => {
+          if (r.jokers === null || r.jokers === undefined) return max;
+          return Math.max(max, ctx.measureText(String(r.jokers)).width + 34);
+        }, 56)
+      : 0;
+
+    // With the icon gone, a small column caption keeps the bare number readable.
+    if (jokerColW) {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#64748b';
+      ctx.font = `600 15px ${FONT}`;
+      ctx.letterSpacing = '1.5px';
+      for (let col = 0; col < layout.cols; col++) {
+        const colX = col * (CARD_W + COL_GAP);
+        ctx.fillText('JOKERS', colX + CARD_W - 28 - jokerColW / 2, CAPTION_Y);
+      }
+      ctx.letterSpacing = '0px';
+    }
+
+    // Medal colour follows the rank, not the row position, so tied players get the same
+    // treatment — two on rank 1 are both gold, and the next distinct score is rank 3.
+    const ranked = assignLeaderboardRanks(rows);
+
+    ranked.forEach((entry, i) => {
+      const col = Math.floor(i / layout.rowsPerCol);
+      const rowInCol = i % layout.rowsPerCol;
+      const x = col * (CARD_W + COL_GAP);
+      const y = HEADER_H + rowInCol * (ROW_H + ROW_GAP);
+
+      const isTop3 = entry.rank <= 3;
+      const accent = isTop3 ? MEDALS[entry.rank - 1] : '#475569';
+
+      roundRectPath(ctx, x, y, CARD_W, ROW_H, 16);
+      ctx.fillStyle = isTop3 ? 'rgba(251, 191, 36, 0.07)' : 'rgba(148, 163, 184, 0.06)';
+      ctx.fill();
+      ctx.strokeStyle = isTop3 ? 'rgba(251, 191, 36, 0.28)' : 'rgba(148, 163, 184, 0.16)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const midY = y + ROW_H / 2;
+
+      // Rank
+      ctx.textAlign = 'center';
+      ctx.fillStyle = accent;
+      ctx.font = `800 ${isTop3 ? 40 : 32}px ${FONT}`;
+      ctx.fillText(String(entry.rank), x + 46, midY + 1);
+
+      // Silk — drawn to fit its box, keeping the source aspect ratio.
+      const silk = silks[i];
+      const boxX = x + 88, boxW = 58, boxH = 74, boxY = midY - boxH / 2;
+      if (silk) {
+        const s = Math.min(boxW / silk.naturalWidth, boxH / silk.naturalHeight);
+        ctx.drawImage(silk, boxX + (boxW - silk.naturalWidth * s) / 2,
+                            boxY + (boxH - silk.naturalHeight * s) / 2,
+                            silk.naturalWidth * s, silk.naturalHeight * s);
+      } else {
+        roundRectPath(ctx, boxX + 6, boxY + 6, boxW - 12, boxH - 12, 6);
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.12)';
+        ctx.fill();
+      }
+
+      // Jokers remaining — the count on its own, no icon.
+      const rightEdge = x + CARD_W - 28;
+      const jokerColX = rightEdge - jokerColW;
+      if (entry.jokers !== null && entry.jokers !== undefined) {
+        ctx.font = `700 26px ${FONT}`;
+        const pillH = 44;
+        const pillX = rightEdge - jokerColW;
+        roundRectPath(ctx, pillX, midY - pillH / 2, jokerColW, pillH, 22);
+        ctx.fillStyle = 'rgba(139, 92, 246, 0.16)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(167, 139, 250, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = '#c4b5fd';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(entry.jokers), pillX + jokerColW / 2, midY + 1);
+      }
+
+      // Points — always right-aligned to the same x, pill or no pill.
+      const pointsRight = jokerColW ? jokerColX - 24 : rightEdge;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = isTop3 ? '#fde68a' : '#e2e8f0';
+      ctx.font = `800 34px ${FONT}`;
+      const pointsText = entry.points.toFixed(2);
+      ctx.fillText(pointsText, pointsRight, midY + 1);
+      const pointsW = ctx.measureText(pointsText).width;
+
+      // Team name — gets whatever space the points and pill leave.
+      const nameX = boxX + boxW + 22;
+      const nameMax = (pointsRight - pointsW - 24) - nameX;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#f1f5f9';
+      ctx.font = `700 28px ${FONT}`;
+      ctx.fillText(fitText(ctx, entry.user, nameMax), nameX, midY + 1);
+    });
+
+    // ── Footer ──
+    const rowsBlockH = layout.rowsPerCol * (ROW_H + ROW_GAP) - ROW_GAP;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#64748b';
+    ctx.font = `500 19px ${FONT}`;
+    ctx.fillText(
+      `The Mock Sports  •  ${new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+      W / 2, HEADER_H + rowsBlockH + 30
+    );
+
+    ctx.restore();
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('Canvas could not produce a PNG');
+
+    const safeComp = compName.replace(/[^\w\d]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const scopeSlug = isOverall ? 'overall' : `week-${week}`;
+    const ratioSlug = ratio ? `-${ratioKey.replace(':', 'x')}` : '';
+    link.download = `${safeComp || 'leaderboard'}-${scopeSlug}-top-${rows.length}${ratioSlug}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+    showNotification(`Exported top ${rows.length} (${canvas.width}×${canvas.height}).`, 'success', 'lb-notifications');
+  } catch (error) {
+    console.error('[lb-export]', error);
+    showNotification('Error exporting PNG: ' + error.message, 'error', 'lb-notifications');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = original;
+      feather.replace();
+    }
+  }
+};
 
 function getNotificationUserSearchText(user) {
   const firstName = user.firstName || '';

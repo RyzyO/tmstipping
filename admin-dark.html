@@ -1275,6 +1275,21 @@
                 <div id="user-admin-results" class="space-y-1 max-h-[420px] overflow-y-auto pr-1 rounded-lg border border-gray-700/60 bg-gray-900/40">
                   <div class="text-sm text-gray-400 p-4">Choose a competition to see its players.</div>
                 </div>
+
+                <!-- Add a user who isn't in this comp yet -->
+                <div class="border-t border-gray-700 mt-6 pt-5">
+                  <h3 class="text-sm font-semibold text-gray-200 mb-1 flex items-center gap-2">
+                    <i data-feather="user-plus" class="h-4 w-4 text-yellow-400"></i>
+                    Add User to Competition
+                  </h3>
+                  <p class="text-xs text-gray-500 mb-3">Joins them exactly as signing up on the comps page would — marked paid, with the comp's joker allowance.</p>
+                  <div class="form-group m-0 relative">
+                    <i data-feather="search" class="h-4 w-4 absolute left-3 top-[11px] text-gray-500 pointer-events-none"></i>
+                    <input type="text" id="user-admin-add-search" class="!pl-9" placeholder="Search all users..." oninput="window.filterUserAdminAddList()" disabled autocomplete="off">
+                  </div>
+                  <div id="user-admin-add-status" class="text-xs mt-2 text-gray-500"></div>
+                  <div id="user-admin-add-results" class="space-y-1 max-h-[300px] overflow-y-auto pr-1 mt-2 rounded-lg border border-gray-700/60 bg-gray-900/40 hidden"></div>
+                </div>
               </div>
 
               <div class="lg:col-span-2">
@@ -1324,11 +1339,29 @@
 
         <div id="leaderboard-panel" class="hidden">
           <div class="card rounded-lg p-8">
-            <div class="flex items-center justify-between mb-6">
+            <div id="lb-notifications"></div>
+            <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
               <h2 class="text-xl md:text-2xl font-bold gradient-text flex items-center gap-2">
                 <i data-feather="bar-chart-2" class="h-6 w-6"></i>
                 Leaderboard
               </h2>
+              <div class="flex items-end gap-2 flex-wrap">
+                <div class="form-group m-0">
+                  <label for="lb-export-ratio" class="text-xs">Aspect ratio</label>
+                  <select id="lb-export-ratio" class="!py-2">
+                    <option value="auto">Auto (fit content)</option>
+                    <option value="1:1">Square — 1:1</option>
+                    <option value="4:5">Portrait — 4:5</option>
+                    <option value="9:16">Story — 9:16</option>
+                    <option value="4:3">Landscape — 4:3</option>
+                    <option value="16:9">Widescreen — 16:9</option>
+                  </select>
+                </div>
+                <button type="button" id="lb-export-png-btn" onclick="window.exportLeaderboardPng()" class="btn-secondary" title="Download the top 10 as a high-resolution PNG">
+                  <i data-feather="image" class="h-4 w-4"></i>
+                  Export Top 10 PNG
+                </button>
+              </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -1391,7 +1424,7 @@
     </div>
   </footer>
 
-  <script type="module" src="admin-dark-script.js?v=20260828a"></script>
+  <script type="module" src="admin-dark-script.js?v=20260828h"></script>
 
   <!-- RA Meeting Browser Modal -->
   <div id="ra-browser-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);overflow-y:auto;" onclick="if(event.target===this)closeRAMeetingBrowser()">
