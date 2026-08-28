@@ -1,6 +1,15 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
 import { calculateTipPoints, getWeekKey } from './scoring.js';
+import {
+  normalizeHorseName,
+  normalizeHorseNumber,
+  extractRASilkEntries,
+  buildSilkIndex,
+  lookupSilkId,
+  raKeyDateFromISO,
+  parseRaceNameParts,
+} from './ra-silks.js';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -591,21 +600,6 @@ async function scrapeHorsesFromUrl() {
   }
 }
 
-function normalizeHorseName(value) {
-  return (value || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '')
-    .trim();
-}
-
-function normalizeHorseNumber(value) {
-  const match = (value || '').toString().trim().match(/^(\d+)([a-z])?/i);
-  if (!match) {
-    return '';
-  }
-  return `${match[1]}${match[2] ? match[2].toLowerCase() : ''}`;
-}
-
 function buildHorseRowIndex() {
   const rows = Array.from(document.querySelectorAll('#horses-list .horse-row'));
   const byNumber = new Map();
@@ -736,26 +730,44 @@ function getTargetRaceNumberForSilks() {
   return extractRaceNumberFromText(raceNameInput) || extractRaceNumberFromText(selectedRaceTitle);
 }
 
+// Our own Supabase edge function (supabase/functions/ra-proxy). Returns the origin's
+// bytes untouched, so silk <img> tags survive — unlike r.jina.ai, which renders to
+// markdown and drops the silk image on a large share of horse pages. Always tried
+// first; the public proxies stay as fallbacks in case the function isn't deployed.
+const SELF_PROXY_BASE = `${SUPABASE_URL.replace(/\/+$/, '')}/functions/v1/ra-proxy`;
+
+function buildSelfProxyUrl(targetUrl) {
+  return `${SELF_PROXY_BASE}?url=${encodeURIComponent(targetUrl)}`;
+}
+
+// The edge function sits behind Supabase's gateway, so it needs the project key.
+function proxyRequestHeaders(proxyUrl) {
+  if (!proxyUrl.startsWith(SELF_PROXY_BASE)) return undefined;
+  return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
+}
+
 function buildProxyUrls(targetUrl, preferRaw = false) {
+  const selfUrl       = buildSelfProxyUrl(targetUrl);
   const jinaUrl       = `https://r.jina.ai/${targetUrl}`;
   // allorigins needs the full target URL encoded so its own ?url= param isn't split
   // by any ? or & in the target. encodeURIComponent handles already-encoded sequences
   // safely: %2C in the target becomes %252C in the outer URL, which allorigins decodes
   // back to %2C before forwarding — RA then decodes that to the actual comma.
   const allOriginsUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+  const codeTabsUrl   = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
 
   if (preferRaw) {
-    return [allOriginsUrl, jinaUrl];
+    return [selfUrl, allOriginsUrl, codeTabsUrl, jinaUrl];
   }
-  return [jinaUrl, allOriginsUrl];
+  return [selfUrl, jinaUrl, allOriginsUrl, codeTabsUrl];
 }
 
 // Fetch with an AbortController timeout so hung requests don't block forever.
-async function fetchWithTimeout(url, timeoutMs = 25000) {
+async function fetchWithTimeout(url, timeoutMs = 25000, headers) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const resp = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+    const resp = await fetch(url, { signal: controller.signal, cache: 'no-store', headers });
     clearTimeout(timer);
     return resp;
   } catch (err) {
@@ -765,33 +777,45 @@ async function fetchWithTimeout(url, timeoutMs = 25000) {
   }
 }
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Walks the proxy list, then walks it again (twice more, with backoff) before giving
+// up. Public proxies fail transiently often enough that a single pass through them was
+// the main reason silk scraping only landed some of the time.
 window.fetchHtmlViaProxy = async function fetchHtmlViaProxy(targetUrl, contextLabel, preferRaw = false, validator = null) {
   const proxyUrls = buildProxyUrls(targetUrl, preferRaw);
+  const ATTEMPTS = 3;
   let lastError = null;
 
-  for (const proxyUrl of proxyUrls) {
-    try {
-      console.log(`[${contextLabel}] Trying proxy:`, proxyUrl);
-      const response = await fetchWithTimeout(proxyUrl, 25000);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    for (const proxyUrl of proxyUrls) {
+      try {
+        console.log(`[${contextLabel}] Trying proxy (attempt ${attempt}):`, proxyUrl);
+        const response = await fetchWithTimeout(proxyUrl, 45000, proxyRequestHeaders(proxyUrl));
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
 
-      const html = await response.text();
-      console.log(`[${contextLabel}] Got response (${html.length} chars) from:`, proxyUrl);
-      if (!html || html.length < 200) {
-        throw new Error('Response too small / empty');
-      }
+        const html = await response.text();
+        console.log(`[${contextLabel}] Got response (${html.length} chars) from:`, proxyUrl);
+        if (!html || html.length < 200) {
+          throw new Error('Response too small / empty');
+        }
 
-      if (typeof validator === 'function' && !validator(html)) {
-        throw new Error('Response missing required content');
-      }
+        // A proxy can return 200 with content that's missing the bit we actually came
+        // for (Jina strips silk images from some horse pages). Treat that as a failure
+        // so the next proxy gets a turn instead of us accepting a useless response.
+        if (typeof validator === 'function' && !validator(html)) {
+          throw new Error('Response missing required content');
+        }
 
-      return html;
-    } catch (error) {
-      console.warn(`[${contextLabel}] Proxy failed:`, proxyUrl, error.message || error);
-      lastError = error;
+        return html;
+      } catch (error) {
+        console.warn(`[${contextLabel}] Proxy failed:`, proxyUrl, error.message || error);
+        lastError = error;
+      }
     }
+    if (attempt < ATTEMPTS) await sleep(700 * attempt);
   }
 
   throw new Error(`All proxy fetch attempts failed for ${targetUrl}. Last error: ${lastError?.message || 'Unknown error'}`);
@@ -1667,7 +1691,7 @@ async function loadRaceHorses(race) {
       <td><input type="text" value="${horse.jockey || ''}" data-field="jockey" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.barrier || ''}" data-field="barrier" data-idx="${idx}"></td>
       <td><input type="text" value="${horse.weight || ''}" data-field="weight" data-idx="${idx}"></td>
-      <td><input type="text" value="${horse.silkDesc || horse.silkId || ''}" data-field="silkDesc" data-idx="${idx}"></td>
+      <td><input type="text" value="${horse.silksId || horse.silkId || horse.silkDesc || ''}" data-field="silksId" data-idx="${idx}" placeholder="e.g. 74159"></td>
       <td>
         <div class="flex flex-wrap gap-2 items-center">
           <button onclick="saveHorseChange(this)" class="btn-secondary" style="font-size: 0.75rem; padding: 6px 10px;">Save</button>
@@ -1697,7 +1721,10 @@ async function saveHorseChange(btn) {
   const jockey = inputs[3].value;
   const barrier = inputs[4].value;
   const weight = inputs[5].value;
-  const silkDesc = inputs[6].value;
+  // silksId, not silkDesc: the tipping pages build the silk image URL from silksId
+  // (https://www.racingaustralia.horse/JockeySilks/<silksId>.png), so a value saved
+  // under silkDesc was never rendered anywhere.
+  const silksId = inputs[6].value.trim();
 
   const race = allRaces.find(r => r.id === currentRaceId);
   const existingHorse = race?.horses?.[idx] || {};
@@ -1707,7 +1734,7 @@ async function saveHorseChange(btn) {
     const updatedHorses = { ...(race?.horses || {}) };
     updatedHorses[idx] = {
       ...(updatedHorses[idx] || {}),
-      no: horseNumber, number: horseNumber, name, trainer, jockey, barrier, weight, silkDesc
+      no: horseNumber, number: horseNumber, name, trainer, jockey, barrier, weight, silksId
     };
     const { error } = await supabase.from('races').update({ horses: updatedHorses }).eq('id', currentRaceId);
     if (error) throw error;
@@ -4619,7 +4646,7 @@ window.selectRARace = function(idx) {
   if (window.feather) feather.replace();
 
   showNotification(`Race ${race.raceNum} loaded — fetching silks and form data in background…`, 'success', 'form-notifications');
-  enrichRAHorsesInBackground(race.horses, race.sourceUrl);
+  enrichRAHorsesInBackground(race.horses, race.sourceUrl, race.raceNum);
 };
 
 // Map each runner's normalized name → an absolute HorseFullForm URL (horseHref).
@@ -4650,18 +4677,81 @@ async function fetchRAHorseHrefs(meetingUrl) {
   return map;
 }
 
-async function enrichRAHorsesInBackground(horses, sourceUrl) {
+// Fetch the meeting page as raw HTML and index its silks by race + number + name.
+// Parsing lives in ra-silks.js so it can be unit-tested against captured RA pages.
+async function fetchRAMeetingSilkMap(meetingUrl, raceNum) {
+  // Acceptances.aspx carries no silk images; Form.aspx is the page that has them.
+  const formUrl = meetingUrl.replace(/Acceptances\.aspx/i, 'Form.aspx');
+  const html = await fetchHtmlViaProxy(
+    formUrl,
+    'ra-silk-map',
+    true,                                       // raw HTML — Jina's markdown drops silks
+    (body) => /JockeySilks\/\d+\.png/i.test(body)
+  );
+
+  const index = buildSilkIndex(extractRASilkEntries(html), raceNum);
+  console.log(`[ra-silk-map] ${index.count} silks indexed from ${formUrl}${raceNum ? ` (race ${raceNum})` : ''}`);
+  return index;
+}
+
+// Writes a silk id straight into the matching row in the horses table.
+function applySilkToRow(horse) {
+  if (!horse.silksId) return false;
+  const rows = Array.from(document.querySelectorAll('#horses-list .horse-row'));
+  for (const row of rows) {
+    const nameVal = row.querySelector('.horse-name')?.value || '';
+    const noVal   = row.querySelector('.horse-no')?.value   || '';
+    const nameMatch = normalizeHorseName(nameVal) === normalizeHorseName(horse.name);
+    const noMatch   = normalizeHorseNumber(noVal) === normalizeHorseNumber(horse.number);
+    if (!nameMatch && !noMatch) continue;
+    const silkInput = row.querySelector('.horse-silk-id');
+    if (silkInput) {
+      silkInput.value = horse.silksId;
+      return true;
+    }
+  }
+  return false;
+}
+
+async function enrichRAHorsesInBackground(horses, sourceUrl, raceNum) {
   const statusEl  = document.getElementById('ra-enrich-status');
   const msgEl     = document.getElementById('ra-enrich-msg');
   const barEl     = document.getElementById('ra-enrich-bar');
+
+  statusEl.classList.remove('hidden');
+  if (msgEl) msgEl.textContent = 'Fetching silks for the meeting…';
+  feather.replace();
+
+  // ── Pass 1: one fetch of the meeting form page gets every silk on the card. ──
+  // This is the path that should satisfy every horse; the per-horse fetches below
+  // exist only for form/prizemoney and for the rare silk this pass couldn't match.
+  let silkMap = null;
+  let silkMapError = null;
+  if (sourceUrl) {
+    try {
+      silkMap = await fetchRAMeetingSilkMap(sourceUrl, raceNum);
+      for (const horse of horses) {
+        const silksId = lookupSilkId(silkMap, horse);
+        if (silksId) {
+          horse.silksId = silksId;
+          applySilkToRow(horse);
+        }
+      }
+    } catch (err) {
+      console.warn('[enrichRA] meeting silk map failed:', err.message);
+      silkMapError = err.message;
+    }
+  }
+
+  const silksResolved = horses.filter(h => h.silksId).length;
+  console.log(`[enrichRA] silk map resolved ${silksResolved}/${horses.length} horses`);
 
   // Races are parsed from Jina markdown, which has no horse links — so horseHref
   // is empty. Resolve it from the raw meeting HTML so we can fetch each horse's
   // form page for silks + prizemoney.
   let hrefResolveError = null;
   if (!horses.some(h => h.horseHref) && sourceUrl) {
-    statusEl.classList.remove('hidden');
-    if (msgEl) msgEl.textContent = 'Resolving horse links for silks…';
+    if (msgEl) msgEl.textContent = 'Resolving horse links for form data…';
     feather.replace();
     try {
       const hrefByName = await fetchRAHorseHrefs(sourceUrl);
@@ -4677,10 +4767,16 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
 
   const enrichable = horses.filter(h => h.horseHref);
   if (!enrichable.length) {
-    if (msgEl) msgEl.textContent = hrefResolveError
-      ? `Couldn't load silks: ${hrefResolveError}`
-      : "Couldn't match any horses to silk links — you'll need to add silks manually for this race.";
-    showNotification('Silk auto-fetch failed for this race — add silks manually or retry.', 'error', 'form-notifications');
+    // Silks may still have landed via the meeting page even with no horse links.
+    if (silksResolved) {
+      if (msgEl) msgEl.textContent = `Silks loaded for ${silksResolved} horse${silksResolved !== 1 ? 's' : ''} — form data unavailable.`;
+      showNotification(`Silks loaded for ${silksResolved} horse${silksResolved !== 1 ? 's' : ''}.`, 'success', 'form-notifications');
+    } else {
+      if (msgEl) msgEl.textContent = (silkMapError || hrefResolveError)
+        ? `Couldn't load silks: ${silkMapError || hrefResolveError}`
+        : "Couldn't match any horses to silk links — you'll need to add silks manually for this race.";
+      showNotification('Silk auto-fetch failed for this race — add silks manually or retry.', 'error', 'form-notifications');
+    }
     setTimeout(() => statusEl.classList.add('hidden'), 6000);
     return;
   }
@@ -4704,10 +4800,20 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
       const horseUrl = /^https?:\/\//i.test(horse.horseHref)
         ? horse.horseHref
         : new URL(`FreeFields/HorseFullForm.aspx?${horse.horseHref}`, 'https://www.racingaustralia.horse').href;
-      // Jina-first (preferRaw=false): the silk image URL and prizemoney are present in
-      // Jina's markdown, and this avoids the slow allorigins timeout that stalls
-      // production when that proxy is down.
-      const horseHtml = await fetchHtmlViaProxy(horseUrl, `ra-enrich:${horse.name}`, false);
+      // Raw-first: Jina's markdown of a horse page silently omits the silk <img> for a
+      // sizeable share of horses (reproducible per-horse, not transient), so raw HTML
+      // from our own proxy is the only source that always carries it.
+      //
+      // If this horse still needs a silk, demand one in the response — that stops a
+      // silk-less Jina render from being accepted as success while the next proxy,
+      // which would have had it, never gets tried.
+      const needsSilk = !horse.silksId;
+      const horseHtml = await fetchHtmlViaProxy(
+        horseUrl,
+        `ra-enrich:${horse.name}`,
+        true,
+        needsSilk ? (body) => /JockeySilks\/\d+\.png/i.test(body) : null
+      );
 
       // Silk ID
       const silkM = horseHtml.match(/JockeySilks\/(\d+)\.png/i);
@@ -4756,9 +4862,23 @@ async function enrichRAHorsesInBackground(horses, sourceUrl) {
   await Promise.all(workers);
 
   barEl.style.width = '100%';
-  msgEl.textContent = `Done — silks and form data loaded for ${done} horse${done !== 1 ? 's' : ''}.`;
+
+  // Report on silks specifically — "done" only counts horses we attempted.
+  const withSilks = horses.filter(h => h.silksId).length;
+  const missingSilks = horses.filter(h => !h.silksId);
+  if (missingSilks.length) {
+    console.warn('[enrichRA] no silk for:', missingSilks.map(h => `${h.number} ${h.name}`));
+    msgEl.textContent = `Silks: ${withSilks}/${horses.length}. Missing: ${missingSilks.map(h => h.name).join(', ')}`;
+    showNotification(
+      `${missingSilks.length} horse${missingSilks.length !== 1 ? 's' : ''} missing a silk — add manually.`,
+      'error',
+      'form-notifications'
+    );
+  } else {
+    msgEl.textContent = `Done — silks (${withSilks}/${horses.length}) and form data loaded.`;
+  }
   feather.replace();
-  setTimeout(() => statusEl.classList.add('hidden'), 5000);
+  setTimeout(() => statusEl.classList.add('hidden'), missingSilks.length ? 10000 : 5000);
 }
 
 function parseRAHorseFormHistory(html) {
@@ -4800,6 +4920,243 @@ function parseRAHorseFormHistory(html) {
 
   return history.slice(0, 10);
 }
+
+// ── Retrospective silk backfill ──────────────────────────────────────────────
+//
+// Fills silksId on races that were saved before silk scraping worked reliably.
+// Everything hangs off rebuilding the meeting's RA key from what we stored:
+//   date "2026-08-29" + venue "Rosehill Gardens" → Key=2026Aug29,NSW,Rosehill Gardens
+// The state isn't stored, so we probe the eight of them and keep whichever returns a
+// page that actually has silks on it. Meetings stay up on RA for a while after they're
+// run, so this works for past races until RA prunes them.
+//
+// raKeyDateFromISO and parseRaceNameParts live in ra-silks.js alongside the parser.
+
+// The backfill probes up to 16 URLs per meeting to find the right state, so it goes
+// straight at our own proxy rather than walking the public fallbacks each time. That
+// makes the edge function a hard requirement here — check it once up front so an
+// undeployed function reads as one clear message instead of every race "not found".
+async function selfProxyUnavailableReason() {
+  const probe = buildSelfProxyUrl('https://racingaustralia.horse/home.aspx');
+  try {
+    const response = await fetchWithTimeout(probe, 20000, proxyRequestHeaders(probe));
+    if (response.ok) return null;
+    return `the ra-proxy function returned HTTP ${response.status} — deploy it with: supabase functions deploy ra-proxy --no-verify-jwt`;
+  } catch (err) {
+    return `the ra-proxy function isn't reachable (${err.message}) — deploy it with: supabase functions deploy ra-proxy --no-verify-jwt`;
+  }
+}
+
+// Resolve a meeting to its silk entries, trying each state and both the form and the
+// results page. Results.aspx also carries silks and outlives Form.aspx for some
+// meetings, so it's a genuine second chance rather than a duplicate attempt.
+async function fetchRASilkEntriesForMeeting(dateISO, venue, cache) {
+  const keyDate = raKeyDateFromISO(dateISO);
+  if (!keyDate || !venue) return null;
+
+  const cacheKey = `${keyDate}|${venue}`;
+  if (cache && cache.has(cacheKey)) return cache.get(cacheKey);
+
+  const states = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'];
+  let entries = null;
+
+  outer:
+  for (const page of ['Form', 'Results']) {
+    for (const state of states) {
+      const key = `${keyDate},${state},${venue}`;
+      const target = `https://racingaustralia.horse/FreeFields/${page}.aspx?Key=${encodeURIComponent(key)}`;
+      const proxyUrl = buildSelfProxyUrl(target);
+      let html;
+      try {
+        // Single attempt per candidate: most of these are wrong-state guesses, and
+        // retrying every miss three times would make a bulk backfill crawl.
+        const response = await fetchWithTimeout(proxyUrl, 45000, proxyRequestHeaders(proxyUrl));
+        if (!response.ok) continue;
+        html = await response.text();
+      } catch {
+        continue;
+      }
+      // Wrong state (or a pruned meeting) returns a short placeholder page.
+      if (!/JockeySilks\/\d+\.png/i.test(html)) continue;
+
+      const found = extractRASilkEntries(html);
+      if (found.length) {
+        console.log(`[silk-backfill] ${cacheKey} → ${page}.aspx ${state}, ${found.length} silks`);
+        entries = found;
+        break outer;
+      }
+    }
+  }
+
+  if (cache) cache.set(cacheKey, entries);
+  return entries;
+}
+
+// Fill in silksId for one saved race. Returns a summary; only writes to the database
+// when something actually changed.
+async function backfillSilksForRace(race, cache) {
+  const horses = race?.horses || {};
+  const keys = Object.keys(horses);
+  const missing = keys.filter(k => !horses[k]?.silksId);
+
+  if (!keys.length)    return { status: 'skipped', reason: 'no horses', filled: 0, missing: 0 };
+  if (!missing.length) return { status: 'skipped', reason: 'already complete', filled: 0, missing: 0 };
+
+  const { raceNum, venue } = parseRaceNameParts(race.name);
+  if (!venue) {
+    return { status: 'failed', reason: 'no venue in race name', filled: 0, missing: missing.length };
+  }
+
+  const entries = await fetchRASilkEntriesForMeeting(race.date, venue, cache);
+  if (!entries) {
+    return { status: 'failed', reason: 'meeting not found on Racing Australia', filled: 0, missing: missing.length };
+  }
+
+  const index = buildSilkIndex(entries, raceNum);
+  const updated = { ...horses };
+  let filled = 0;
+  for (const key of missing) {
+    const horse = updated[key];
+    const silksId = lookupSilkId(index, { name: horse?.name, number: horse?.no ?? horse?.number });
+    if (!silksId) continue;
+    updated[key] = { ...horse, silksId };
+    filled++;
+  }
+
+  if (!filled) {
+    return { status: 'failed', reason: 'no horses matched the meeting', filled: 0, missing: missing.length };
+  }
+
+  const { error } = await supabase.from('races').update({ horses: updated }).eq('id', race.id);
+  if (error) throw error;
+
+  // Keep the in-memory copy in step so the UI doesn't need a full reload.
+  allRaces = allRaces.map(r => (r.id === race.id ? { ...r, horses: updated } : r));
+
+  return { status: 'ok', filled, missing: missing.length - filled };
+}
+
+// Backfill the race currently open in the editor.
+window.backfillSilksForCurrentRace = async function() {
+  if (!currentRaceId) return;
+  const race = allRaces.find(r => r.id === currentRaceId);
+  if (!race) return;
+
+  const btn = document.getElementById('backfill-silks-btn');
+  const original = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Fetching…';
+    feather.replace();
+  }
+
+  try {
+    const unavailable = await selfProxyUnavailableReason();
+    if (unavailable) {
+      showNotification(`Can't fetch silks — ${unavailable}`, 'error', 'race-notifications');
+      return;
+    }
+
+    const result = await backfillSilksForRace(race, new Map());
+    if (result.status === 'ok') {
+      showNotification(
+        `Added ${result.filled} silk${result.filled !== 1 ? 's' : ''}.` +
+        (result.missing ? ` ${result.missing} still missing — no silk registered on RA.` : ''),
+        result.missing ? 'error' : 'success',
+        'race-notifications'
+      );
+      await refreshCurrentRaceData();
+    } else if (result.status === 'skipped') {
+      showNotification(`Nothing to do — ${result.reason}.`, 'success', 'race-notifications');
+    } else {
+      showNotification(`Couldn't fetch silks: ${result.reason}.`, 'error', 'race-notifications');
+    }
+  } catch (err) {
+    console.error('[silk-backfill]', err);
+    showNotification('Error fetching silks: ' + err.message, 'error', 'race-notifications');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = original;
+      feather.replace();
+    }
+  }
+};
+
+// Backfill every saved race that's still missing silks.
+window.backfillSilksForAllRaces = async function() {
+  const candidates = allRaces.filter(race => {
+    const horses = Object.values(race?.horses || {});
+    return horses.length && horses.some(h => !h?.silksId);
+  });
+
+  if (!candidates.length) {
+    showNotification('Every race already has silks.', 'success', 'form-notifications');
+    return;
+  }
+
+  const unavailable = await selfProxyUnavailableReason();
+  if (unavailable) {
+    showNotification(`Can't fetch silks — ${unavailable}`, 'error', 'form-notifications');
+    return;
+  }
+
+  const proceed = confirm(
+    `${candidates.length} race${candidates.length !== 1 ? 's are' : ' is'} missing silks. ` +
+    `Fetch them from Racing Australia now? Meetings RA has already removed will be skipped.`
+  );
+  if (!proceed) return;
+
+  const btn      = document.getElementById('backfill-all-silks-btn');
+  const statusEl = document.getElementById('silk-backfill-status');
+  const msgEl    = document.getElementById('silk-backfill-msg');
+  const barEl    = document.getElementById('silk-backfill-bar');
+  const original = btn?.innerHTML;
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin"></i> Working…'; }
+  statusEl?.classList.remove('hidden');
+  feather.replace();
+
+  // Shared across races so a meeting is only fetched once even when several races
+  // from the same card need backfilling.
+  const cache = new Map();
+  let done = 0, filled = 0, racesFixed = 0;
+  const failures = [];
+
+  for (const race of candidates) {
+    if (msgEl) msgEl.textContent = `Backfilling… (${done + 1} / ${candidates.length}) ${race.name}`;
+    if (barEl) barEl.style.width = `${Math.round((done / candidates.length) * 100)}%`;
+    try {
+      const result = await backfillSilksForRace(race, cache);
+      if (result.status === 'ok') { racesFixed++; filled += result.filled; }
+      else if (result.status === 'failed') failures.push(`${race.name} — ${result.reason}`);
+    } catch (err) {
+      failures.push(`${race.name} — ${err.message}`);
+    }
+    done++;
+  }
+
+  if (barEl) barEl.style.width = '100%';
+  if (msgEl) {
+    msgEl.textContent = `Added ${filled} silk${filled !== 1 ? 's' : ''} across ${racesFixed} race${racesFixed !== 1 ? 's' : ''}.` +
+      (failures.length ? ` ${failures.length} couldn't be resolved.` : '');
+  }
+  if (failures.length) console.warn('[silk-backfill] unresolved:\n  ' + failures.join('\n  '));
+
+  showNotification(
+    `Backfill done — ${filled} silk${filled !== 1 ? 's' : ''} added across ${racesFixed} race${racesFixed !== 1 ? 's' : ''}.` +
+    (failures.length ? ` ${failures.length} race${failures.length !== 1 ? 's' : ''} skipped (see console).` : ''),
+    'success',
+    'form-notifications'
+  );
+
+  if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  await loadRacesList();
+  if (currentRaceId) await refreshCurrentRaceData();
+  feather.replace();
+  setTimeout(() => statusEl?.classList.add('hidden'), 8000);
+};
+
 
 // ── Racing Australia Meeting Browser ─────────────────────────────────────────
 

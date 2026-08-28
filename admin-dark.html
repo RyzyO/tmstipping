@@ -778,10 +778,27 @@
                 </h3>
                 <p class="text-gray-400 text-sm mb-4">Browse upcoming meetings, pick a race, and silks, last 10, prizemoney and form data are fetched automatically.</p>
 
-                <button type="button" onclick="openRAMeetingBrowser()" class="btn-primary w-full sm:w-auto justify-center mb-4" id="ra-browse-btn">
-                  <i data-feather="calendar" class="h-4 w-4"></i>
-                  Browse Meetings
-                </button>
+                <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                  <button type="button" onclick="openRAMeetingBrowser()" class="btn-primary w-full sm:w-auto justify-center" id="ra-browse-btn">
+                    <i data-feather="calendar" class="h-4 w-4"></i>
+                    Browse Meetings
+                  </button>
+                  <button type="button" onclick="backfillSilksForAllRaces()" class="btn-secondary w-full sm:w-auto justify-center" id="backfill-all-silks-btn" title="Fill in silks on already-saved races by re-reading their meeting on Racing Australia">
+                    <i data-feather="award" class="h-4 w-4"></i>
+                    Backfill Missing Silks
+                  </button>
+                </div>
+
+                <!-- Backfill progress -->
+                <div id="silk-backfill-status" class="hidden mb-4 p-3 rounded-lg bg-gray-800 border border-gray-700">
+                  <div class="flex items-center gap-2 text-sm text-yellow-400 mb-2">
+                    <i data-feather="loader" class="h-4 w-4 animate-spin"></i>
+                    <span id="silk-backfill-msg">Backfilling silks…</span>
+                  </div>
+                  <div class="h-1 bg-gray-700 rounded-full">
+                    <div id="silk-backfill-bar" class="h-full bg-yellow-400 rounded-full transition-all duration-300" style="width:0%"></div>
+                  </div>
+                </div>
 
                 <details class="ra-disclosure mb-2">
                   <summary>Or paste a Racing Australia form URL</summary>
@@ -970,7 +987,8 @@
             <div id="horses-tab" class="tab-content hidden">
               <div class="mb-4 flex justify-between items-center">
                 <h3 class="text-base md:text-lg font-semibold">Manage Horses</h3>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                  <button onclick="backfillSilksForCurrentRace()" class="btn-secondary text-xs md:text-sm" id="backfill-silks-btn"><i data-feather="award" class="h-4 w-4"></i> Fetch Silks</button>
                   <button onclick="recalculateRaceHorseTipCounts()" class="btn-secondary text-xs md:text-sm"><i data-feather="bar-chart-2" class="h-4 w-4"></i> Recalculate Tip %</button>
                   <button onclick="addHorseToRace()" class="btn-secondary text-xs md:text-sm"><i data-feather="plus" class="h-4 w-4"></i> Add</button>
                 </div>
@@ -1373,7 +1391,7 @@
     </div>
   </footer>
 
-  <script type="module" src="admin-dark-script.js?v=20260401f"></script>
+  <script type="module" src="admin-dark-script.js?v=20260828a"></script>
 
   <!-- RA Meeting Browser Modal -->
   <div id="ra-browser-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);overflow-y:auto;" onclick="if(event.target===this)closeRAMeetingBrowser()">
