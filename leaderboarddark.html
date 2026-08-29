@@ -242,6 +242,11 @@
     <div class="max-w-2xl mx-auto mb-8 space-y-3">
       <input id="search-input" type="text" placeholder="Search team name..."
         class="search-input w-full px-5 py-3 rounded-xl text-gray-100 focus:outline-none transition-all">
+      <select id="state-filter" class="search-input w-full px-5 py-3 rounded-xl text-gray-100 focus:outline-none transition-all">
+        <option value="all">Overall Leaderboard</option>
+        <option value="nsw">NSW Races Only</option>
+        <option value="vic">VIC Races Only</option>
+      </select>
       <button id="find-me-btn" class="find-me-btn w-full px-5 py-3 rounded-xl text-gray-900 font-semibold focus:outline-none transition-all">
         <span class="flex items-center justify-center gap-2">
           <i data-feather="target" class="h-5 w-5"></i>
@@ -259,7 +264,7 @@
             <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Rank</th>
             <th class="px-6 py-4 text-left text-sm font-semibold text-gray-300">Team</th>
             <th class="px-6 py-4 text-right text-sm font-semibold text-gray-300">Points</th>
-            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-300">Jokers</th>
+            <th id="jokers-header" class="px-6 py-4 text-center text-sm font-semibold text-gray-300">Jokers</th>
           </tr>
         </thead>
         <tbody id="leaderboard-body" class="divide-y divide-gray-700/50"></tbody>
@@ -328,7 +333,15 @@
     let searchTimeout;
     let currentUserId = null;
     let selectedCompId = new URLSearchParams(window.location.search).get("compId") || null;
-    let modalCacheCompId = null;
+    let raceDataCompId = null;
+    let currentStateFilter = 'all';
+
+    function getRaceState(raceName) {
+      const n = (raceName || '').toLowerCase();
+      if (n.includes('randwick') || n.includes('rosehill')) return 'nsw';
+      if (n.includes('flemington') || n.includes('caulfield') || n.includes('valley')) return 'vic';
+      return null;
+    }
 
     function getLeaderboardCacheKey() {
       return `tmstipping:leaderboardCache:${selectedCompId || 'none'}`;
@@ -579,7 +592,7 @@
         await mountCompFooterSwitcher(supabase, document.getElementById('footer-comp-switcher'), {
           onChange: async (compId) => {
             selectedCompId = compId;
-            modalCacheCompId = null;
+            raceDataCompId = null;
             cachedRaces = {};
             cachedResults = {};
             cachedTips = {};
@@ -624,8 +637,8 @@
 
         cachedLeaderboard.sort((a, b) => b.points - a.points);
 
-        renderLeaderboard(cachedLeaderboard);
         writeCachedLeaderboard(cachedLeaderboard);
+        await applyStateFilter();
         hideLoading();
       } catch (error) {
         console.error('Error loading leaderboard:', error);
@@ -634,30 +647,93 @@
       }
     }
 
+    async function ensureRaceDataLoaded() {
+      if (raceDataCompId === selectedCompId && Object.keys(cachedRaces).length > 0) return;
+
+      const [tipsRes, resultsRes, racesRes] = await Promise.all([
+        supabase.from('tips').select('*').eq('comp_id', selectedCompId),
+        supabase.from('results').select('*'),
+        supabase.from('races').select('*').eq('comp_id', selectedCompId)
+      ]);
+
+      cachedRaces = {};
+      cachedResults = {};
+      cachedTips = {};
+      (racesRes.data||[]).forEach(r => { cachedRaces[r.id] = r; });
+      (resultsRes.data||[]).forEach(r => {
+        cachedResults[r.id] = { ...r, winningHorseId: r.winning_horse_id, place1HorseId: r.place1_horse_id, place1Points: r.place1_points, place2HorseId: r.place2_horse_id, place2Points: r.place2_points };
+      });
+      (tipsRes.data||[]).forEach(t => {
+        if (!cachedTips[t.user_id]) cachedTips[t.user_id] = {};
+        cachedTips[t.user_id][t.race_id] = { ...t, horseId: t.horse_id, raceId: t.race_id, userId: t.user_id };
+      });
+      raceDataCompId = selectedCompId;
+    }
+
+    function computeStateLeaderboard(state) {
+      const totals = {};
+      cachedLeaderboard.forEach(e => { totals[e.userId] = { points: 0 }; });
+
+      for (const [raceId, race] of Object.entries(cachedRaces)) {
+        if (getRaceState(race.name) !== state) continue;
+        const result = cachedResults[raceId];
+        if (!result) continue;
+
+        const winnerHorseId = result.winningHorseId || result.winner?.idx;
+        const place1HorseId = result.place1HorseId || result.place1?.idx;
+        const place2HorseId = result.place2HorseId || result.place2?.idx;
+        const winnerPoints = parseFloat(result.points ?? result.winner?.points) || 0;
+        const place1Points = parseFloat(result.place1Points ?? result.place1?.points) || 0;
+        const place2Points = parseFloat(result.place2Points ?? result.place2?.points) || 0;
+
+        for (const [userId, tipsByRace] of Object.entries(cachedTips)) {
+          const tip = tipsByRace[raceId];
+          if (!tip || !totals[userId]) continue;
+
+          let scoredHorseId = tip.horseId;
+          if (race.horses && tip.horseId && race.horses[tip.horseId]?.scratched) {
+            const sub = Object.entries(race.horses).find(([_, h]) => h.substitute);
+            if (sub) scoredHorseId = sub[0];
+          }
+
+          let pts = 0, correct = false;
+          if (scoredHorseId === winnerHorseId) { pts = winnerPoints; correct = true; }
+          else if (scoredHorseId === place1HorseId) { pts = place1Points; correct = true; }
+          else if (scoredHorseId === place2HorseId) { pts = place2Points; correct = true; }
+          if (correct && tip.joker) pts *= 2;
+
+          totals[userId].points += pts;
+        }
+      }
+
+      return cachedLeaderboard
+        .map(e => ({ ...e, points: totals[e.userId]?.points || 0 }))
+        .sort((a, b) => b.points - a.points);
+    }
+
+    async function applyStateFilter() {
+      if (currentStateFilter === 'all') {
+        renderLeaderboard(cachedLeaderboard);
+        return;
+      }
+      await ensureRaceDataLoaded();
+      renderLeaderboard(computeStateLeaderboard(currentStateFilter));
+    }
+
+    document.getElementById('state-filter')?.addEventListener('change', async (e) => {
+      currentStateFilter = e.target.value;
+      showLoading();
+      try {
+        await applyStateFilter();
+      } finally {
+        hideLoading();
+      }
+    });
+
     async function loadUserResults(entry) {
       showLoading();
       try {
-        // Load comp-scoped modal data
-        if (modalCacheCompId !== selectedCompId || Object.keys(cachedRaces).length === 0) {
-          const [tipsRes, resultsRes, racesRes] = await Promise.all([
-            supabase.from('tips').select('*').eq('comp_id', selectedCompId),
-            supabase.from('results').select('*'),
-            supabase.from('races').select('*').eq('comp_id', selectedCompId)
-          ]);
-
-          cachedRaces = {};
-          cachedResults = {};
-          cachedTips = {};
-          (racesRes.data||[]).forEach(r => { cachedRaces[r.id] = r; });
-          (resultsRes.data||[]).forEach(r => {
-            cachedResults[r.id] = { ...r, winningHorseId: r.winning_horse_id, place1HorseId: r.place1_horse_id, place1Points: r.place1_points, place2HorseId: r.place2_horse_id, place2Points: r.place2_points };
-          });
-          (tipsRes.data||[]).forEach(t => {
-            if (!cachedTips[t.user_id]) cachedTips[t.user_id] = {};
-            cachedTips[t.user_id][t.race_id] = { ...t, horseId: t.horse_id, raceId: t.race_id, userId: t.user_id };
-          });
-          modalCacheCompId = selectedCompId;
-        }
+        await ensureRaceDataLoaded();
 
         // Use cached user tips directly
         const userTips = cachedTips[entry.userId] || {};

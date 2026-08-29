@@ -224,16 +224,10 @@
 </footer>
 
 <script type="module">
-  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-  import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
-  import { resolveActiveCompId } from './active-comp.js';
-
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
   // 1st gets 40%, then 20/15/9/6, then 2% each from 6th through 10th.
   const PRIZE_PERCENTAGES = [40, 20, 15, 9, 6, 2, 2, 2, 2, 2];
   const ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
-  const DEFAULT_ENTRY_FEE = 30;
+  const TOTAL_PRIZE_POOL = 9000;
 
   function formatCurrency(amount) {
     return `$${Math.round(amount).toLocaleString('en-AU')}`;
@@ -270,62 +264,19 @@
     `).join('');
   }
 
-  function renderFallback() {
-    document.getElementById('prize-pool-subtitle').textContent = `$${DEFAULT_ENTRY_FEE} entry · prize pool grows with every paid player!`;
-    document.getElementById('prize-pool-total').textContent = 'Prizes TBC';
+  function renderPrizePool() {
+    const amounts = PRIZE_PERCENTAGES.map(pct => TOTAL_PRIZE_POOL * (pct / 100));
+
+    renderTop3(amounts);
+    renderRanks4to5(amounts);
+    renderRanks6to10(amounts);
+
+    document.getElementById('prize-pool-subtitle').textContent = `${formatCurrency(TOTAL_PRIZE_POOL)} prize pool!`;
+    document.getElementById('prize-pool-total').textContent = formatCurrency(TOTAL_PRIZE_POOL);
     document.getElementById('prize-pool-players').textContent = '';
-    ['prize-amount-1', 'prize-amount-2', 'prize-amount-3'].forEach(id => {
-      document.getElementById(id).textContent = 'TBC';
-    });
-    document.getElementById('prize-ranks-4-5').innerHTML = PRIZE_PERCENTAGES.slice(3, 5).map((pct, idx) => `
-      <div class="prize-card prize-card--compact rounded-xl p-3 text-center w-full">
-        <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 3]}</p>
-        <p class="text-2xl font-extrabold gradient-text">${pct}%</p>
-        <p class="text-xs text-gray-500 mt-1">TBC</p>
-      </div>
-    `).join('');
-    document.getElementById('prize-ranks-6-10').innerHTML = PRIZE_PERCENTAGES.slice(5, 10).map((pct, idx) => `
-      <div class="prize-card prize-card--compact rounded-xl p-3 text-center w-full">
-        <p class="text-sm font-semibold text-gray-400 mb-1">${ORDINALS[idx + 5]}</p>
-        <p class="text-2xl font-extrabold gradient-text">${pct}%</p>
-        <p class="text-xs text-gray-500 mt-1">TBC</p>
-      </div>
-    `).join('');
   }
 
-  async function loadPrizePool() {
-    try {
-      const compId = await resolveActiveCompId(supabase);
-      if (!compId) { renderFallback(); return; }
-
-      const [{ data: comp }, { count: paidCount }] = await Promise.all([
-        supabase.from('comps').select('entry_fee').eq('id', compId).single(),
-        supabase.from('user_comp_joinings').select('id', { count: 'exact', head: true })
-          .eq('comp_id', compId).eq('payment_status', 'completed')
-      ]);
-
-      const entryFee = comp?.entry_fee || DEFAULT_ENTRY_FEE;
-      const players = paidCount || 0;
-      const totalPool = entryFee * players;
-
-      const amounts = PRIZE_PERCENTAGES.map(pct => totalPool * (pct / 100));
-
-      renderTop3(amounts);
-      renderRanks4to5(amounts);
-      renderRanks6to10(amounts);
-
-      document.getElementById('prize-pool-subtitle').textContent =
-        totalPool > 0 ? `${formatCurrency(totalPool)} prize pool so far!` : `$${entryFee} entry · prize pool grows with every paid player!`;
-      document.getElementById('prize-pool-total').textContent = formatCurrency(totalPool);
-      document.getElementById('prize-pool-players').textContent =
-        `Based on ${players} paid player${players === 1 ? '' : 's'}, updates live as more players join`;
-    } catch (err) {
-      console.error('Failed to load live prize pool', err);
-      renderFallback();
-    }
-  }
-
-  loadPrizePool();
+  renderPrizePool();
 
   function toggleMenu() {
     document.getElementById('mobileMenu').classList.toggle('hidden');
