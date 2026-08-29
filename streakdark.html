@@ -256,6 +256,14 @@
       </div>
     </section>
 
+    <div id="my-streak-status" class="hidden card rounded-2xl shadow-2xl p-6 md:p-8 mb-8 flex items-center gap-4" data-aos="fade-up">
+      <div id="my-streak-icon" class="w-14 h-14 rounded-full flex items-center justify-center border flex-shrink-0"></div>
+      <div>
+        <p class="text-xs uppercase tracking-wider text-gray-400 mb-1">Your Status</p>
+        <p id="my-streak-message" class="text-xl md:text-2xl font-bold text-gray-100"></p>
+      </div>
+    </div>
+
     <div id="streak-empty-state" class="hidden card rounded-2xl shadow-2xl p-10 text-center text-gray-400" data-aos="fade-up">
       The streak leaderboard hasn't started for this competition yet — check back once it's live.
     </div>
@@ -377,10 +385,53 @@
       return `<i data-feather="${icon}"></i>`;
     }
 
+    function formatWeekOf(dateStr) {
+      if (!dateStr) return 'an earlier week';
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d)) return 'an earlier week';
+      return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function renderMyStatus(entries) {
+      const card = document.getElementById('my-streak-status');
+      const icon = document.getElementById('my-streak-icon');
+      const message = document.getElementById('my-streak-message');
+      if (!card || !icon || !message) return;
+
+      const mine = (entries || []).find(e => e.userId === currentUserId);
+      if (!mine) {
+        card.classList.add('hidden');
+        return;
+      }
+
+      card.classList.remove('hidden');
+
+      if (mine.status === 'winner') {
+        icon.className = 'w-14 h-14 rounded-full flex items-center justify-center border flex-shrink-0 bg-yellow-500/15 border-yellow-500/40 text-yellow-300';
+        icon.innerHTML = '<i data-feather="award" class="h-7 w-7"></i>';
+        message.className = 'text-xl md:text-2xl font-bold gradient-text';
+        message.textContent = "You're the Streak Champion!";
+      } else if (mine.status === 'eliminated') {
+        icon.className = 'w-14 h-14 rounded-full flex items-center justify-center border flex-shrink-0 bg-gray-600/20 border-gray-500/40 text-gray-400';
+        icon.innerHTML = '<i data-feather="x-circle" class="h-7 w-7"></i>';
+        message.className = 'text-xl md:text-2xl font-bold text-gray-200';
+        message.textContent = `You were eliminated — week of ${formatWeekOf(mine.eliminatedWeek)}`;
+      } else {
+        icon.className = 'w-14 h-14 rounded-full flex items-center justify-center border flex-shrink-0 bg-green-500/15 border-green-500/40 text-green-400';
+        icon.innerHTML = '<i data-feather="check-circle" class="h-7 w-7"></i>';
+        message.className = 'text-xl md:text-2xl font-bold text-green-400';
+        message.textContent = "You're still alive!";
+      }
+
+      feather.replace();
+    }
+
     function renderStreak(entries) {
       const emptyState = document.getElementById('streak-empty-state');
       const content = document.getElementById('streak-content');
       const winnerBanner = document.getElementById('streak-winner-banner');
+
+      renderMyStatus(entries);
 
       if (!entries) {
         emptyState.classList.remove('hidden');

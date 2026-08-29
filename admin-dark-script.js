@@ -2131,12 +2131,19 @@ async function calculateAndSaveStreak(compId) {
 
     const { data: tips } = await supabase.from('tips').select('*').eq('comp_id', compId).in('race_id', races.map(r => r.id));
 
-    const weekMap = {};
+    const weekAllRaces = {};
     races.forEach(race => {
-      if (!resultByRaceId[race.id]) return; // only weeks with a scored race count
       const week = getWeekKey(race.date);
-      if (!weekMap[week]) weekMap[week] = [];
-      weekMap[week].push(race.id);
+      if (!weekAllRaces[week]) weekAllRaces[week] = [];
+      weekAllRaces[week].push(race.id);
+    });
+
+    // Only evaluate a week once every race scheduled that week has a result —
+    // otherwise a user could be eliminated off an early race before a later
+    // race that same week (their chance to survive) has even been run.
+    const weekMap = {};
+    Object.entries(weekAllRaces).forEach(([week, raceIds]) => {
+      if (raceIds.every(id => resultByRaceId[id])) weekMap[week] = raceIds;
     });
     const weeks = Object.keys(weekMap).sort();
 
