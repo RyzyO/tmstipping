@@ -1,0 +1,27 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /admin-dark.html
+Disallow: /admin-silks.html
+Disallow: /admin-leaderboard.html
+Disallow: /admin copy.html
+Disallow: /adminlogin.html
+Disallow: /db-setup.html
+Disallow: /user-admin.html
+Disallow: /migrate-to-multicomp.html
+Disallow: /reset-password.html
+Disallow: /temp.html
+Disallow: /tempedits.html
+Disallow: /OLDDDD.html
+Disallow: /comps.html
+Disallow: /dark.html
+Disallow: /tipdark.html
+Disallow: /leaderboarddark.html
+Disallow: /resultsdark.html
+Disallow: /streakdark.html
+Disallow: /notificationsdark.html
+Disallow: /profiledark.html
+Disallow: /podcastdark.html
+Disallow: /prizesdark.html
+
+Sitemap: https://tipping.themocksports.com.au/sitemap.xml
