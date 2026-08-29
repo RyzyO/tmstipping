@@ -5,7 +5,8 @@
   "scripts": {
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:smoke": "node tests/smoke.js"
+    "test:smoke": "node tests/smoke.js",
+    "seed:bbl": "node seed-bbl.js"
   },
   "devDependencies": {
     "vitest": "^1.0.0",

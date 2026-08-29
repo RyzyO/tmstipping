@@ -1,0 +1,8 @@
+# Secrets — never commit these
+key.json
+.env
+.env.*
+
+# Tipzy concept mockups — not part of the tmstipping site
+v3.html
+v3tip.html
