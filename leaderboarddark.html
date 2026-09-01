@@ -238,6 +238,30 @@
       </div>
     </section>
 
+    <!-- Roughest Win Banner -->
+    <section id="roughest-win-banner" class="hidden mb-8" data-aos="fade-up">
+      <div class="card rounded-2xl shadow-2xl p-6 md:p-8 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-yellow-600/10 to-transparent rounded-full blur-3xl"></div>
+        <div class="relative z-10 flex items-center gap-5">
+          <div class="rank-badge rank-1 flex-shrink-0" style="width: 3.5rem; height: 3.5rem;">
+            <i data-feather="trending-up" class="h-6 w-6"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-1.5">Roughest Win So Far</p>
+            <div class="flex items-center gap-3 flex-wrap text-base md:text-lg">
+              <img id="roughest-win-silk" src="" alt="Silk" class="w-9 h-9 rounded-lg object-cover object-top border border-gray-600">
+              <span id="roughest-win-team" class="font-bold text-gray-100"></span>
+              <span id="roughest-win-joker-badge" class="hidden bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs font-semibold">JOKER</span>
+              <span class="text-gray-600">&middot;</span>
+              <span id="roughest-win-horse" class="font-semibold text-gray-300"></span>
+              <span class="text-gray-600">&middot;</span>
+              <span id="roughest-win-points" class="font-bold gradient-text"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Search Section -->
     <div class="max-w-2xl mx-auto mb-8 space-y-3">
       <input id="search-input" type="text" placeholder="Search team name..."
@@ -332,6 +356,7 @@
     let cachedTips = {};
     let searchTimeout;
     let currentUserId = null;
+    let roughestWinUserId = null;
     let selectedCompId = new URLSearchParams(window.location.search).get("compId") || null;
     let raceDataCompId = null;
     let currentStateFilter = 'all';
@@ -471,6 +496,8 @@
         const isDeveloper = entry.teamName === 'RyzyO';
         const verifiedBadge = isVerified ? '<svg class="h-4 w-4 ml-1" style="display: inline-block; vertical-align: middle;" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#1DA1F2"/><path d="M9.5 14.5L6 11L7.5 9.5L9.5 11.5L14.5 6.5L16 8L9.5 14.5Z" fill="white"/></svg>' : '';
         const developerBadge = isDeveloper ? '<svg class="h-4 w-4 ml-1" style="display: inline-block; vertical-align: middle;" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#10B981"/><path d="M8 7L6 11L8 15M14 7L16 11L14 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '';
+        const isRoughestWinner = entry.userId === roughestWinUserId;
+        const rocketBadge = isRoughestWinner ? '<svg class="h-4 w-4 ml-1 flex-shrink-0" style="display: inline-block; vertical-align: middle;" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><title>Roughest win</title><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>' : '';
         const silkNumber = entry.silk || 1;
         
         tr.setAttribute('data-user-id', entry.userId);
@@ -481,7 +508,7 @@
           <td class="px-6 py-4 font-semibold text-gray-100">
             <div class="flex items-center gap-2">
               <img src="static/silks/${silkNumber}.png" alt="Silk" class="w-12 h-12 rounded-lg object-cover object-top border border-gray-600">
-              <span>${entry.teamName || entry.userId}</span>${verifiedBadge}${developerBadge}
+              <span>${entry.teamName || entry.userId}</span>${verifiedBadge}${developerBadge}${rocketBadge}
             </div>
           </td>
           <td class="px-6 py-4 text-right">
@@ -519,6 +546,7 @@
                   <span>${truncateForMobile(entry.teamName || entry.userId)}</span>
                   ${isVerified ? '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#1DA1F2"/><path d="M9.5 14.5L6 11L7.5 9.5L9.5 11.5L14.5 6.5L16 8L9.5 14.5Z" fill="white"/></svg>' : ''}
                   ${isDeveloper ? '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="11" cy="11" r="11" fill="#10B981"/><path d="M8 7L6 11L8 15M14 7L16 11L14 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+                  ${isRoughestWinner ? '<svg class="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><title>Roughest win</title><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>' : ''}
                 </h4>
               </div>
             </div>
@@ -638,6 +666,7 @@
         cachedLeaderboard.sort((a, b) => b.points - a.points);
 
         writeCachedLeaderboard(cachedLeaderboard);
+        await computeAndRenderRoughestWin();
         await applyStateFilter();
         hideLoading();
       } catch (error) {
@@ -709,6 +738,76 @@
       return cachedLeaderboard
         .map(e => ({ ...e, points: totals[e.userId]?.points || 0 }))
         .sort((a, b) => b.points - a.points);
+    }
+
+    async function computeAndRenderRoughestWin() {
+      const banner = document.getElementById('roughest-win-banner');
+      try {
+        await ensureRaceDataLoaded();
+
+        let roughest = null;
+
+        for (const [raceId, race] of Object.entries(cachedRaces)) {
+          const result = cachedResults[raceId];
+          if (!result) continue;
+
+          const winnerHorseId = result.winningHorseId || result.winner?.idx;
+          const place1HorseId = result.place1HorseId || result.place1?.idx;
+          const place2HorseId = result.place2HorseId || result.place2?.idx;
+          const winnerPoints = parseFloat(result.points ?? result.winner?.points) || 0;
+          const place1Points = parseFloat(result.place1Points ?? result.place1?.points) || 0;
+          const place2Points = parseFloat(result.place2Points ?? result.place2?.points) || 0;
+
+          for (const [userId, tipsByRace] of Object.entries(cachedTips)) {
+            const tip = tipsByRace[raceId];
+            if (!tip) continue;
+
+            let scoredHorseId = tip.horseId;
+            if (race.horses && tip.horseId && race.horses[tip.horseId]?.scratched) {
+              const sub = Object.entries(race.horses).find(([_, h]) => h.substitute);
+              if (sub) scoredHorseId = sub[0];
+            }
+
+            let pts = 0, correct = false, horseId = null;
+            if (scoredHorseId === winnerHorseId) { pts = winnerPoints; correct = true; horseId = winnerHorseId; }
+            else if (scoredHorseId === place1HorseId) { pts = place1Points; correct = true; horseId = place1HorseId; }
+            else if (scoredHorseId === place2HorseId) { pts = place2Points; correct = true; horseId = place2HorseId; }
+            if (!correct) continue;
+            if (tip.joker) pts *= 2;
+            if (pts <= 0) continue;
+
+            if (!roughest || pts > roughest.points) {
+              roughest = {
+                points: pts,
+                userId,
+                horseName: race.horses?.[horseId]?.name || "—",
+                joker: !!tip.joker
+              };
+            }
+          }
+        }
+
+        roughestWinUserId = roughest ? roughest.userId : null;
+
+        if (!roughest || !banner) {
+          banner?.classList.add('hidden');
+          return;
+        }
+
+        const userEntry = cachedLeaderboard.find(e => e.userId === roughest.userId);
+        const teamName = userEntry?.teamName || roughest.userId;
+        const silkNumber = userEntry?.silk || 1;
+
+        document.getElementById('roughest-win-team').textContent = teamName;
+        document.getElementById('roughest-win-horse').textContent = roughest.horseName;
+        document.getElementById('roughest-win-points').textContent = `${roughest.points.toFixed(2)} pts`;
+        document.getElementById('roughest-win-silk').src = `static/silks/${silkNumber}.png`;
+        document.getElementById('roughest-win-joker-badge').classList.toggle('hidden', !roughest.joker);
+        banner.classList.remove('hidden');
+      } catch (error) {
+        console.error('Error computing roughest win:', error);
+        banner?.classList.add('hidden');
+      }
     }
 
     async function applyStateFilter() {
