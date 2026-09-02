@@ -55,6 +55,16 @@
     }
     .silk-sm { width: 26px; height: 34px; }
     .silk-md { width: 38px; height: 50px; }
+    /* Colour wash set once a silk's dominant colour comes back from the
+       silk-color edge function; transparent/flat until then so nothing shifts. */
+    .silk-accent {
+      background-image: linear-gradient(135deg, transparent 0%, transparent 100%);
+      box-shadow: inset 0 0 0 1px transparent;
+      transition: background-image 0.4s ease, box-shadow 0.4s ease;
+    }
+    .silk-accent img.silk {
+      transition: box-shadow 0.4s ease;
+    }
     .modal { background: rgba(0,0,0,0.9); }
     .modal-content {
       background: linear-gradient(145deg, rgba(31, 41, 55, 0.95), rgba(17, 24, 39, 0.95));
@@ -162,7 +172,8 @@
         </select>
       </div>
     </div>
-      </select>
+
+    <div class="flex flex-col sm:flex-row gap-3 mb-8" data-aos="fade-up">
       <select id="filter-win" class="filter-select px-4 py-2.5 rounded-lg text-gray-100 flex-1">
         <option value="all">All Results</option>
         <option value="wins">Wins Only</option>
@@ -211,10 +222,14 @@
 
   <!-- Modal -->
   <div id="result-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal" onclick="if(event.target.id==='result-modal') closeModal()">
-    <div class="modal-content rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 relative">
-      <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl" aria-label="Close">&times;</button>
-      <h3 id="modal-race-name" class="text-2xl md:text-3xl font-bold mb-6 gradient-text"></h3>
-      <div id="modal-race-details" class="text-gray-200 space-y-4"></div>
+    <div class="modal-content rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-5 md:p-6 relative">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <h3 id="modal-race-name" class="text-lg md:text-xl font-bold text-gray-100 leading-tight min-w-0 truncate"></h3>
+        <button onclick="closeModal()" class="flex-shrink-0 -m-1 p-1 rounded-full text-gray-500 hover:text-gray-300 hover:bg-gray-800/60 transition" aria-label="Close">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="modal-race-details" class="text-gray-200 space-y-3"></div>
     </div>
   </div>
 
@@ -283,12 +298,82 @@
       return `<img src="${src}" alt="${alt}" loading="lazy" class="silk silk-${size}" onerror="this.remove()">`;
     }
 
+    // One consistent badge shape for all three placings — colour is the only thing
+    // that changes, rather than mixing medal emoji with plain ordinal text.
+    const MEDAL_STYLES = {
+      1: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+      2: 'bg-slate-400/15 text-slate-300 border-slate-400/30',
+      3: 'bg-orange-700/15 text-orange-400 border-orange-700/30',
+    };
+    function medalBadge(position) {
+      return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full border text-[11px] font-bold flex-shrink-0 ${MEDAL_STYLES[position]}">${position}</span>`;
+    }
+
+    // Dominant colour per silk, extracted server-side (see supabase/functions/silk-color) —
+    // the images themselves have no CORS headers, so a browser can't sample their pixels.
+    // Cached in localStorage since a silk's colour never changes once drawn.
+    const silkColorMemCache = new Map();
+    function getSilkColor(silksId) {
+      if (!silksId) return Promise.resolve(null);
+      if (silkColorMemCache.has(silksId)) return silkColorMemCache.get(silksId);
+
+      const promise = (async () => {
+        const cacheKey = `tmstipping:silkColor:v2:${silksId}`;
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) return cached;
+        } catch (error) { /* localStorage unavailable — fall through to network */ }
+
+        try {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/silk-color?id=${silksId}`);
+          if (!res.ok) return null;
+          const { color } = await res.json();
+          if (color) {
+            try { localStorage.setItem(cacheKey, color); } catch (error) { /* ignore quota errors */ }
+          }
+          return color || null;
+        } catch (error) {
+          return null;
+        }
+      })();
+
+      silkColorMemCache.set(silksId, promise);
+      return promise;
+    }
+
+    // Colours entries whose silk accent border is still transparent, matched by their
+    // data-silk-accent id. Safe to call repeatedly — already-coloured elements just no-op.
+    function hexToRgba(hex, alpha) {
+      const clean = hex.replace('#', '');
+      const r = parseInt(clean.substring(0, 2), 16);
+      const g = parseInt(clean.substring(2, 4), 16);
+      const b = parseInt(clean.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function applySilkAccents(root) {
+      root.querySelectorAll('[data-silk-accent]').forEach((el) => {
+        const silksId = el.getAttribute('data-silk-accent');
+        if (!silksId) return;
+        getSilkColor(silksId).then((color) => {
+          if (!color) return;
+          el.style.backgroundImage = `linear-gradient(135deg, ${hexToRgba(color, 0.14)} 0%, transparent 70%)`;
+          el.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(color, 0.18)}`;
+          const silk = el.querySelector('img.silk');
+          if (silk) silk.style.boxShadow = `0 0 0 2px ${hexToRgba(color, 0.55)}, 0 1px 2px rgba(0, 0, 0, 0.35)`;
+        });
+      });
+    }
+
     function showLoading(){document.getElementById("loading-overlay").classList.remove("hidden");}
     function hideLoading(){document.getElementById("loading-overlay").classList.add("hidden");}
     function openModal(race, detailsHtml){
       document.getElementById("modal-race-name").textContent = race.name;
-      document.getElementById("modal-race-details").innerHTML = detailsHtml;
+      const detailsEl = document.getElementById("modal-race-details");
+      detailsEl.innerHTML = detailsHtml;
       document.getElementById("result-modal").classList.remove("hidden");
+      applySilkAccents(detailsEl);
+      feather.replace();
     }
     window.closeModal=()=>document.getElementById("result-modal").classList.add("hidden");
 
@@ -448,7 +533,7 @@
           const tippedHorse=horseId?race.horses?.[horseId]:null;
           const tippedName=tippedHorse?.name||"";
 
-          let correct=false, pts=0;
+          let correct=false, pts=0, correctPosition=null;
           let winnerName="", place1Name="", place2Name="";
           if (rd) {
             const winnerPoints=parseFloat(rd.points)||0;
@@ -461,9 +546,9 @@
             place1Name=place1Horse?.name||"";
             place2Name=place2Horse?.name||"";
 
-            if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints;}
-            else if(horseId===rd.place1HorseId){correct=true; pts=place1Points;}
-            else if(horseId===rd.place2HorseId){correct=true; pts=place2Points;}
+            if(horseId===rd.winningHorseId){correct=true; pts=winnerPoints; correctPosition=1;}
+            else if(horseId===rd.place1HorseId){correct=true; pts=place1Points; correctPosition=2;}
+            else if(horseId===rd.place2HorseId){correct=true; pts=place2Points; correctPosition=3;}
             if(correct && joker && pts>0) pts*=2;
           }
 
@@ -477,6 +562,7 @@
             winnerName,
             place1Name,
             place2Name,
+            correctPosition,
             // Captured here while the horse objects are already in hand, so the card
             // and modal can show silks without re-walking race.horses on every render.
             tippedSilksId: tippedHorse?.silksId || "",
@@ -549,10 +635,14 @@
 
       // Render
       results.forEach(({race,rd,correct,pts,joker,tippedName,winnerName,place1Name,place2Name,dtStr,
-                        tippedSilksId,winnerSilksId,place1SilksId,place2SilksId})=>{
+                        correctPosition,tippedSilksId,winnerSilksId,place1SilksId,place2SilksId})=>{
         const card=document.createElement("div");
         const cardStateClass = rd ? (correct?"correct":"incorrect") : "";
-        card.className=`p-6 rounded-xl shadow-lg result-card ${cardStateClass}`;
+        // A "no points earned" card needs to read as unambiguously red at a glance —
+        // the silk wash would otherwise sit on top of (and dilute) that red background.
+        const showSilkAccent = cardStateClass !== "incorrect";
+        card.className=`p-6 rounded-xl shadow-lg result-card ${showSilkAccent ? "silk-accent" : ""} ${cardStateClass}`;
+        if (showSilkAccent && tippedSilksId) card.setAttribute('data-silk-accent', tippedSilksId);
         const jumpMillis = race.date && race.time
           ? DateTime.fromISO(`${race.date}T${race.time}`, { zone: "Australia/Sydney" }).toMillis()
           : null;
@@ -582,47 +672,54 @@
           </div>
         `;
         card.onclick=()=>{
+          const positions = [
+            { position: 1, label: "1st", name: winnerName, silksId: winnerSilksId, badge: medalBadge(1) },
+            { position: 2, label: "2nd", name: place1Name, silksId: place1SilksId, badge: medalBadge(2) },
+            { position: 3, label: "3rd", name: place2Name, silksId: place2SilksId, badge: medalBadge(3) },
+          ];
+          const tipPlacing = positions.find(p => p.position === correctPosition);
+
           const modalContent = `
-            <div class="space-y-4">
-              <div class="bg-gradient-to-r from-blue-600/20 to-blue-500/10 rounded-lg p-4 border border-blue-500/30">
-                <p class="text-xs text-blue-300 mb-2">Your Tip</p>
-                <div class="flex items-center gap-3">
-                  ${silkImg(tippedSilksId, "md", tippedName)}
-                  <p class="text-xl font-bold text-blue-200 min-w-0 break-words">${tippedName||"No tip placed"}</p>
+            <div class="space-y-3">
+              <div class="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 ${tippedSilksId ? "silk-accent" : ""}" ${tippedSilksId ? `data-silk-accent="${tippedSilksId}"` : ""}>
+                ${silkImg(tippedSilksId, "sm", tippedName)}
+                <div class="min-w-0 flex-1">
+                  <span class="block text-[10px] font-semibold uppercase tracking-wide text-yellow-400/90 mb-0.5">Your Tip</span>
+                  <p class="text-base font-semibold text-gray-100 truncate">${tippedName || "No tip placed"}</p>
                 </div>
               </div>
               ${rd ? `
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div class="bg-black/30 rounded-lg p-3 ${tippedName===winnerName?'border-2 border-green-500/50 bg-green-600/10':''}">
-                    <p class="text-xs text-gray-400 mb-2">🥇 1st Place</p>
-                    <div class="flex items-center gap-2">
-                      ${silkImg(winnerSilksId, "sm", winnerName)}
-                      <p class="font-semibold text-gray-200 min-w-0 break-words">${winnerName}</p>
-                    </div>
-                  </div>
-                  <div class="bg-black/30 rounded-lg p-3 ${tippedName===place1Name?'border-2 border-green-500/50 bg-green-600/10':''}">
-                    <p class="text-xs text-gray-400 mb-2">🥈 2nd Place</p>
-                    <div class="flex items-center gap-2">
-                      ${silkImg(place1SilksId, "sm", place1Name)}
-                      <p class="font-semibold text-gray-200 min-w-0 break-words">${place1Name}</p>
-                    </div>
-                  </div>
-                  <div class="bg-black/30 rounded-lg p-3 ${tippedName===place2Name?'border-2 border-green-500/50 bg-green-600/10':''}">
-                    <p class="text-xs text-gray-400 mb-2">🥉 3rd Place</p>
-                    <div class="flex items-center gap-2">
-                      ${silkImg(place2SilksId, "sm", place2Name)}
-                      <p class="font-semibold text-gray-200 min-w-0 break-words">${place2Name}</p>
-                    </div>
-                  </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  ${positions.map(p => {
+                    const isTip = p === tipPlacing;
+                    return `
+                      <div class="rounded-lg p-2.5 bg-gray-800/50 ${p.silksId ? "silk-accent" : ""}" ${p.silksId ? `data-silk-accent="${p.silksId}"` : ""}>
+                        <div class="flex items-center gap-1.5 mb-1.5">
+                          ${p.badge}
+                          <span class="text-[11px] text-gray-500 font-medium">${p.label}</span>
+                          ${isTip ? '<i data-feather="check-circle" class="h-3.5 w-3.5 text-green-400 ml-auto"></i>' : ""}
+                        </div>
+                        <div class="flex items-center gap-2 min-w-0">
+                          ${silkImg(p.silksId, "sm", p.name)}
+                          <p class="text-sm font-medium text-gray-200 truncate min-w-0">${p.name}</p>
+                        </div>
+                      </div>
+                    `;
+                  }).join("")}
                 </div>
-                <div class="pt-4 border-t border-gray-700/50">
-                  ${correct?`<p class="text-3xl font-bold text-green-400">✓ +${pts.toFixed(2)}</p>`:`<p class="text-lg font-semibold text-red-400">✗ No points</p>`}
+                <div class="pt-3 border-t border-gray-800 flex items-center justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="text-sm ${correct ? "text-gray-300" : "text-gray-500"}">
+                      ${correct ? `${tippedName} finished ${tipPlacing.label}` : (tippedName ? `${tippedName} didn't place` : "No tip placed")}
+                    </p>
+                    ${joker && correct ? '<p class="text-xs text-purple-400 font-medium mt-0.5">Joker applied — points doubled</p>' : ""}
+                  </div>
+                  <p class="text-2xl font-bold ${correct ? "text-green-400" : "text-gray-600"} flex-shrink-0">${correct ? "+" + pts.toFixed(2) : "0.00"}</p>
                 </div>
-                ${joker && correct?`<p class="mt-2 bg-purple-600/30 text-purple-300 px-3 py-2 rounded border border-purple-500/30 text-sm font-semibold">🔥 JOKER BONUS - Points Doubled!</p>`:``}
               ` : `
-                <div class="bg-gray-800/60 rounded-lg p-4 border border-gray-700">
-                  <p class="text-xs text-gray-400 mb-2">Countdown to jump</p>
-                  ${jumpMillis ? `<p class="text-lg font-semibold text-yellow-400" data-jump-millis="${jumpMillis}">${formatCountdown(jumpMillis)}</p>` : `<p class="text-sm text-gray-400">Jump time unavailable</p>`}
+                <div class="p-3 rounded-lg bg-gray-800/50">
+                  <p class="text-xs text-gray-500 mb-1">Countdown to jump</p>
+                  ${jumpMillis ? `<p class="text-base font-semibold text-yellow-400" data-jump-millis="${jumpMillis}">${formatCountdown(jumpMillis)}</p>` : `<p class="text-sm text-gray-400">Jump time unavailable</p>`}
                 </div>
               `}
             </div>
@@ -632,6 +729,7 @@
         };
         container.appendChild(card);
       });
+      applySilkAccents(container);
       startCountdownRefresh();
     }
 

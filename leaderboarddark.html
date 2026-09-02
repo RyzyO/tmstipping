@@ -142,17 +142,20 @@
       50% { background: rgba(251, 191, 36, 0.25); }
     }
     .date-group {
-      margin-bottom: 16px;
+      margin-bottom: 8px;
     }
+    /* A single rounded pill, not a boxed card wrapping the races beneath it — the
+       modal already has plenty of nesting without a second container per date. */
     .date-header {
-      padding: 12px 16px;
-      background: rgba(251, 191, 36, 0.15);
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      border-radius: 8px;
+      background: rgba(31, 41, 55, 0.6);
+      border-radius: 10px;
+      padding: 10px 14px;
       cursor: pointer;
-      transition: all 0.2s;
-      font-size: 0.95rem;
-      font-weight: 600;
+      transition: background 0.2s;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       color: #fbbf24;
       display: flex;
       justify-content: space-between;
@@ -160,25 +163,35 @@
       user-select: none;
     }
     .date-header:hover {
-      background: rgba(251, 191, 36, 0.25);
-      border-color: rgba(251, 191, 36, 0.5);
-    }
-    .date-header.expanded {
-      background: rgba(251, 191, 36, 0.2);
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 0;
+      background: rgba(31, 41, 55, 0.9);
     }
     .races-for-date {
       display: none;
-      border: 1px solid rgba(251, 191, 36, 0.3);
-      border-top: none;
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
-      background: rgba(17, 24, 39, 0.5);
-      padding: 8px;
     }
     .races-for-date.show {
       display: block;
+    }
+    /* Jockey silks. Sized in the markup; these just give them a consistent frame so a
+       row of them reads as a set rather than as loose images. */
+    .silk {
+      display: block;
+      flex: none;
+      object-fit: contain;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    }
+    .silk-sm { width: 26px; height: 34px; }
+    .silk-md { width: 38px; height: 50px; }
+    /* Colour wash set once a silk's dominant colour comes back from the
+       silk-color edge function; transparent/flat until then so nothing shifts. */
+    .silk-accent {
+      background-image: linear-gradient(135deg, transparent 0%, transparent 100%);
+      box-shadow: inset 0 0 0 1px transparent;
+      transition: background-image 0.4s ease, box-shadow 0.4s ease;
+    }
+    .silk-accent img.silk {
+      transition: box-shadow 0.4s ease;
     }
   </style>
 </head>
@@ -314,14 +327,18 @@
 
   <!-- Modal -->
   <div id="user-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal" role="dialog" aria-modal="true" aria-labelledby="modal-user-name">
-    <div class="modal-content rounded-2xl shadow-2xl max-w-2xl w-full mx-4 p-6 md:p-8 relative overflow-y-auto max-h-[90vh]">
-      <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-yellow-400 transition text-2xl" aria-label="Close modal">&times;</button>
-      <div class="flex items-center gap-4 mb-8">
-        <div id="modal-rank-badge" class="rank-badge rank-other"></div>
-        <img id="modal-silk-image" src="" alt="Silk" class="w-16 h-16 rounded-lg object-cover object-top border border-gray-600">
-        <h3 id="modal-user-name" class="text-2xl md:text-3xl font-bold gradient-text flex-1"></h3>
+    <div class="modal-content w-full h-full sm:h-auto sm:max-h-[90vh] sm:max-w-2xl sm:mx-4 rounded-none sm:rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 relative overflow-hidden flex flex-col">
+      <div class="flex items-center justify-between gap-3 mb-4 sm:mb-6 flex-shrink-0">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="modal-rank-badge" class="rank-badge rank-other flex-shrink-0" style="width: 2.75rem; height: 2.75rem; font-size: 1rem;"></div>
+          <img id="modal-silk-image" src="" alt="Silk" class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover object-top border border-gray-600 flex-shrink-0">
+          <h3 id="modal-user-name" class="text-lg sm:text-xl font-bold gradient-text truncate min-w-0"></h3>
+        </div>
+        <button onclick="closeModal()" class="flex-shrink-0 -m-1 p-1 rounded-full text-gray-500 hover:text-gray-300 hover:bg-gray-800/60 transition" aria-label="Close modal">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
-      <div id="modal-user-results" class="space-y-4"></div>
+      <div id="modal-user-results" class="flex-1 overflow-y-auto overflow-x-hidden min-h-0"></div>
     </div>
   </div>
 
@@ -465,6 +482,85 @@
     function truncateForMobile(name, maxLen = 16) {
       if (!name) return name;
       return name.length > maxLen ? `${name.slice(0, maxLen)}..` : name;
+    }
+
+    // Silks come from Racing Australia by id (see the admin importer). Anything without
+    // a silksId (unmatched/unscraped horses) just renders no image rather than relying
+    // on a silk being there.
+    function silkImg(silksId, size = "sm", alt = "") {
+      if (!silksId) return "";
+      const src = `https://www.racingaustralia.horse/JockeySilks/${silksId}.png`;
+      return `<img src="${src}" alt="${alt}" loading="lazy" class="silk silk-${size}" onerror="this.remove()">`;
+    }
+
+    // One consistent badge shape for the tip row and all three placings — a flat
+    // list of tagged rows reads far better on mobile than a card for each one.
+    const MEDAL_STYLES = {
+      1: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+      2: 'bg-slate-400/15 text-slate-300 border-slate-400/30',
+      3: 'bg-orange-700/15 text-orange-400 border-orange-700/30',
+    };
+    function medalBadge(position) {
+      return `<span class="inline-flex items-center justify-center w-5 h-5 rounded-full border text-[11px] font-bold flex-shrink-0 ${MEDAL_STYLES[position]}">${position}</span>`;
+    }
+    function tipBadge() {
+      return '<span class="inline-flex items-center justify-center w-5 h-5 rounded-full border text-[10px] font-bold flex-shrink-0 bg-yellow-500/15 text-yellow-400 border-yellow-500/30">T</span>';
+    }
+
+    // Dominant colour per silk, extracted server-side (see supabase/functions/silk-color) —
+    // the images themselves have no CORS headers, so a browser can't sample their pixels.
+    // Cached in localStorage since a silk's colour never changes once drawn.
+    const silkColorMemCache = new Map();
+    function getSilkColor(silksId) {
+      if (!silksId) return Promise.resolve(null);
+      if (silkColorMemCache.has(silksId)) return silkColorMemCache.get(silksId);
+
+      const promise = (async () => {
+        const cacheKey = `tmstipping:silkColor:v2:${silksId}`;
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) return cached;
+        } catch (error) { /* localStorage unavailable — fall through to network */ }
+
+        try {
+          const res = await fetch(`${SUPABASE_URL}/functions/v1/silk-color?id=${silksId}`);
+          if (!res.ok) return null;
+          const { color } = await res.json();
+          if (color) {
+            try { localStorage.setItem(cacheKey, color); } catch (error) { /* ignore quota errors */ }
+          }
+          return color || null;
+        } catch (error) {
+          return null;
+        }
+      })();
+
+      silkColorMemCache.set(silksId, promise);
+      return promise;
+    }
+
+    // Colours entries whose silk accent border is still transparent, matched by their
+    // data-silk-accent id. Safe to call repeatedly — already-coloured elements just no-op.
+    function hexToRgba(hex, alpha) {
+      const clean = hex.replace('#', '');
+      const r = parseInt(clean.substring(0, 2), 16);
+      const g = parseInt(clean.substring(2, 4), 16);
+      const b = parseInt(clean.substring(4, 6), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    function applySilkAccents(root) {
+      root.querySelectorAll('[data-silk-accent]').forEach((el) => {
+        const silksId = el.getAttribute('data-silk-accent');
+        if (!silksId) return;
+        getSilkColor(silksId).then((color) => {
+          if (!color) return;
+          el.style.backgroundImage = `linear-gradient(135deg, ${hexToRgba(color, 0.14)} 0%, transparent 70%)`;
+          el.style.boxShadow = `inset 0 0 0 1px ${hexToRgba(color, 0.18)}`;
+          const silk = el.querySelector('img.silk');
+          if (silk) silk.style.boxShadow = `0 0 0 2px ${hexToRgba(color, 0.55)}, 0 1px 2px rgba(0, 0, 0, 0.35)`;
+        });
+      });
     }
 
     function renderLeaderboard(entries) {
@@ -866,9 +962,6 @@
         const container = document.getElementById("modal-user-results");
         container.innerHTML = "";
 
-        const isCurrentUser = currentUserId === entry.userId;
-        const tipLabel = isCurrentUser ? "Your tip" : "Their tip";
-
         let resultCount = 0;
         const fragment = document.createDocumentFragment();
 
@@ -937,50 +1030,69 @@
             if (sub) scoredHorseId = sub[0];
           }
 
-          let pts = 0, correct = false;
+          let pts = 0, correct = false, correctPosition = null;
           if (scoredHorseId === winnerHorseId) {
             pts = winnerPoints;
             correct = true;
+            correctPosition = 1;
           } else if (scoredHorseId === place1HorseId) {
             pts = place1Points;
             correct = true;
+            correctPosition = 2;
           } else if (scoredHorseId === place2HorseId) {
             pts = place2Points;
             correct = true;
+            correctPosition = 3;
           }
           if (correct && tip.joker) pts *= 2;
 
+            const tipHorse = race.horses?.[tip.horseId];
+            const tipName = tipHorse?.name || "—";
+            const positionLabel = correctPosition === 1 ? "1st" : correctPosition === 2 ? "2nd" : correctPosition === 3 ? "3rd" : "";
+
+            // Medal rows read badge → silk → name, left to right. The tip row deliberately
+            // mirrors that (badge on the left, silk + name pushed to the right) so it can
+            // never be mistaken for a placing row at a glance — especially when the tip
+            // and one of the placings happen to be the same horse.
+            const row = (badge, silksId, name, extra = "") => `
+              <div class="flex items-center gap-2 py-1.5 px-1.5 -mx-1.5 rounded-lg ${silksId ? "silk-accent" : ""}" ${silksId ? `data-silk-accent="${silksId}"` : ""}>
+                ${badge}
+                ${silkImg(silksId, "sm", name)}
+                <span class="text-sm text-gray-200 truncate min-w-0 flex-1">${name}</span>
+                ${extra}
+              </div>
+            `;
+            const tipRow = (silksId, name, extra = "") => `
+              <div class="flex items-center justify-between gap-2 py-1.5 px-1.5 -mx-1.5 rounded-lg ${silksId ? "silk-accent" : ""}" ${silksId ? `data-silk-accent="${silksId}"` : ""}>
+                ${tipBadge()}
+                <div class="flex items-center gap-2 min-w-0 justify-end">
+                  ${extra}
+                  <span class="text-sm font-semibold text-yellow-300 truncate min-w-0 text-right">${name}</span>
+                  ${silkImg(silksId, "sm", name)}
+                </div>
+              </div>
+            `;
+
             const div = document.createElement("div");
-            div.className = `p-4 mb-3 rounded-xl border ${correct ? "border-green-500/30 bg-gradient-to-br from-green-900/20 to-green-900/10" : "border-red-500/30 bg-gradient-to-br from-red-900/20 to-red-900/10"}`;
+            div.className = "py-4 px-3 border-b border-gray-800 last:border-0";
             div.innerHTML = `
-              <div class="flex justify-between items-start mb-3">
-                <h4 class="text-base font-bold text-white flex-1">${race.name}</h4>
+              <div class="flex justify-between items-center gap-2 mb-2.5">
+                <h4 class="text-sm font-bold text-white truncate min-w-0 flex-1">${race.name}</h4>
+                ${correct
+                  ? '<svg class="h-4 w-4 text-green-400 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+                  : '<svg class="h-4 w-4 text-red-400/70 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'}
               </div>
-              <div class="space-y-2 text-sm mb-3">
-                <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
-                  <span class="text-gray-300">${tipLabel}:</span>
-                  <div class="flex items-center gap-2">
-                    <strong class="text-yellow-400">${race.horses?.[tip.horseId]?.name || "—"}</strong>
-                    ${tip.joker ? "<span class='bg-purple-600/80 text-white px-2 py-0.5 rounded text-xs font-semibold'>JOKER</span>" : ""}
-                  </div>
-                </div>
-                <div class="space-y-2">
-                  <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
-                    <span class="text-gray-400">1st Place:</span>
-                    <span class="font-semibold text-gray-200">${winnerName}</span>
-                  </div>
-                  <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
-                    <span class="text-gray-400">2nd Place:</span>
-                    <span class="font-semibold text-gray-200">${place1Name}</span>
-                  </div>
-                  <div class="flex items-center justify-between p-3 bg-black/30 rounded-lg">
-                    <span class="text-gray-400">3rd Place:</span>
-                    <span class="font-semibold text-gray-200">${place2Name}</span>
-                  </div>
-                </div>
+              <div class="space-y-0.5">
+                ${tipRow(tipHorse?.silksId, tipName, tip.joker ? "<span class='bg-purple-600/80 text-white px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0'>JOKER</span>" : "")}
+                ${row(medalBadge(1), race.horses?.[winnerHorseId]?.silksId, winnerName)}
+                ${row(medalBadge(2), race.horses?.[place1HorseId]?.silksId, place1Name)}
+                ${row(medalBadge(3), race.horses?.[place2HorseId]?.silksId, place2Name)}
               </div>
-              <div class="pt-3 border-t border-gray-700/50">
-                ${correct ? `<p class="text-green-400 font-bold">✓ +${pts.toFixed(2)} points</p>` : `<p class="text-red-400 font-semibold">✗ No points</p>`}
+              <div class="flex items-center justify-between pt-2.5 mt-1">
+                <span class="text-xs ${correct ? "text-gray-400" : "text-gray-500"}">
+                  ${correct ? `${tipName} finished ${positionLabel}` : (tipHorse ? `${tipName} didn't place` : "No tip placed")}
+                </span>
+                <span class="text-base font-bold ${correct ? "text-green-400" : "text-gray-600"} flex-shrink-0">${correct ? "+" + pts.toFixed(2) : "0.00"}</span>
               </div>
             `;
             racesContainer.appendChild(div);
@@ -1004,6 +1116,7 @@
           container.innerHTML = '<div class="p-8 text-center text-gray-400"><p class="text-base">No results to display yet.</p></div>';
         } else {
           container.appendChild(fragment);
+          applySilkAccents(container);
         }
 
         // Get user rank from leaderboard

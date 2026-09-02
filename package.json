@@ -9,10 +9,11 @@
     "seed:bbl": "node seed-bbl.js"
   },
   "devDependencies": {
-    "vitest": "^1.0.0",
-    "@supabase/supabase-js": "^2.38.0"
+    "@supabase/supabase-js": "^2.38.0",
+    "vitest": "^1.0.0"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.38.0"
+    "@supabase/supabase-js": "^2.38.0",
+    "supabase": "^2.116.0"
   }
 }
