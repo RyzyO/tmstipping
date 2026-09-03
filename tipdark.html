@@ -585,7 +585,7 @@
         if(dt<now) continue; shown++;
         if(tipsMap.has(race.id)) tippedCount++;
         let photo="default.jpg"; const n=(race.name||"").toLowerCase();
-        if(n.includes("valley")) photo="valley.jpg"; else if(n.includes("randwick")) photo="randwick.jpg"; else if(n.includes("rosehill")) photo="rosehill.jpg"; else if(n.includes("caulfield")) photo="caulfield.jpg"; else if(n.includes("flemington")) photo="flemington.jpg";
+        if(n.includes("valley")) photo="valley.jpg"; else if(n.includes("randwick")) photo="randwick.jpg"; else if(n.includes("rosehill")) photo="rosehill.jpg"; else if(n.includes("caulfield")) photo="caulfield.jpg"; else if(n.includes("flemington")) photo="flemington.jpg"; else if(n.includes("sandown")) photo="sandown.jpg";
         const isLocked=now>=dt; const timerId="timer-"+race.id; const tipped=tipsMap.has(race.id);
         const tipData=tipByRace[race.id]||null;
         const tippedHorse=tipped ? (race.horses?.[tipData?.horseId] || null) : null;
