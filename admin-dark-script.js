@@ -4996,13 +4996,43 @@ function parseRAMeetingFromMarkdown(md, meetingUrl) {
   return races.sort((a, b) => a.raceNum - b.raceNum);
 }
 
+// Some parse strategies can emit more than one entry for the same race
+// (e.g. a heading matched twice, or two fallback strategies both firing).
+// Collapse those into a single race, keyed by race number — not name, since
+// two distinct races on the same card can legitimately share a generic name
+// like "Maiden Plate". Keeps the fullest horse list of the duplicates.
+function mergeRacesByName(races) {
+  const byName = new Map();
+  const order = [];
+
+  for (const race of races) {
+    const key = race.raceNum != null ? `#${race.raceNum}` : (race.name || '').trim().toLowerCase();
+    const existing = byName.get(key);
+    if (!existing) {
+      byName.set(key, race);
+      order.push(key);
+      continue;
+    }
+    // Keep whichever copy has more horses; merge in any horses the other has that it's missing.
+    const [keep, other] = existing.horses.length >= race.horses.length ? [existing, race] : [race, existing];
+    const seen = new Set(keep.horses.map(h => `${h.number}|${h.name}`.toLowerCase()));
+    for (const h of other.horses) {
+      const k = `${h.number}|${h.name}`.toLowerCase();
+      if (!seen.has(k)) { keep.horses.push(h); seen.add(k); }
+    }
+    byName.set(key, keep);
+  }
+
+  return order.map(key => byName.get(key));
+}
+
 function parseRAMeetingPage(html, meetingUrl) {
   // Jina AI proxy returns markdown, not HTML. Detect by absence of <html> tag.
   if (!/<html[\s>]/i.test(html)) {
     // Form.aspx renders as tab-separated markdown; Acceptances.aspx as a pipe table.
     let races = parseRAMeetingFromMarkdown(html, meetingUrl);
     if (!races.length) races = parseRAAcceptancesFromMarkdown(html, meetingUrl);
-    return races;
+    return mergeRacesByName(races);
   }
 
   const parser = new DOMParser();
@@ -5014,93 +5044,112 @@ function parseRAMeetingPage(html, meetingUrl) {
 
   const races = [];
 
-  // Strategy 1: find named anchors <a name="RaceN"> or elements id="RaceN"
-  const raceAnchors = Array.from(doc.querySelectorAll('a[name], [id]'))
-    .filter(el => /^Race\d+$/i.test(el.getAttribute('name') || el.id || ''));
+  // Heading text looks like: "Race 1 - 1:18PM BRYANT'S PIES COUNTRY BOOSTED
+  // MAIDEN PLATE (1100 METRES) Times displayed in local time of Race Meeting"
+  const RACE_HDR = /^Race\s+(\d+)\s*[-–]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(.*)/i;
 
-  for (const anchor of raceAnchors) {
-    const idStr = anchor.getAttribute('name') || anchor.id;
-    const raceNum = parseInt(idStr.replace(/\D/g, ''), 10);
-    if (!raceNum) continue;
+  function parseRaceHeadingText(headingText) {
+    const text = headingText.replace(/\s+/g, ' ').trim();
+    const m = text.match(RACE_HDR);
+    if (!m) return null;
+    const raceNum = parseInt(m[1], 10);
+    const restHead = m[3].replace(/Times displayed.*$/i, '').trim();
+    const distM = restHead.match(/\((\d{3,5})\s*METRES?\)/i) || restHead.match(/\b(\d{3,5})\s*m\b/i);
+    const distance = distM ? distM[1] + 'm' : '';
+    const pm = restHead.match(/\$([\d,]+)/);
+    const name = restHead.replace(/\s*\(\d{3,5}\s*METRES?\)\s*/i, '').replace(/\$[\d,]+.*/,'').trim();
+    return { raceNum, time: parseTimeFrom12h(m[2].trim()), distance, prize: pm ? '$' + pm[1] : '', name };
+  }
 
-    let raceTitle = '';
-    let raceTime = '';
-    let raceDistance = '';
-    let racePrize = '';
+  // Strategy 1: the real Form.aspx layout — each race is a
+  // <table class="race-title"> heading immediately followed (a couple of
+  // siblings later, after a <br>) by the runner table
+  // (<table class="race-strip-fields">, or historically without that class).
+  const titleTables = Array.from(doc.querySelectorAll('table.race-title'));
+  for (const titleTable of titleTables) {
+    const headingText = titleTable.querySelector('th')?.textContent || titleTable.textContent || '';
+    const parsed = parseRaceHeadingText(headingText);
+    if (!parsed || !parsed.raceNum) continue;
+
+    // Find the next table sibling after the heading table — that's the runner list.
     let table = null;
-
-    // Walk forward from the anchor looking for a heading then a table.
-    // The anchor is often inline inside a heading, so start from its
-    // parent and then move through siblings.
-    const start = anchor.parentElement || anchor;
-    let el = start.nextElementSibling || start.parentElement?.nextElementSibling;
+    let el = titleTable.nextElementSibling;
     let steps = 0;
-
-    while (el && steps < 20) {
-      // Stop if we hit the next race section
-      const elId = el.getAttribute?.('name') || el.id || '';
-      if (/^Race\d+$/i.test(elId) && elId !== idStr) break;
-      if (el.querySelector?.('a[name^="Race"]') &&
-          el.querySelector('a[name^="Race"]') !== anchor) {
-        const inner = el.querySelector('a[name^="Race"]');
-        if ((inner.getAttribute('name') || '') !== idStr) break;
+    while (el && steps < 10) {
+      if ((el.tagName || '').toLowerCase() === 'table' && el.querySelectorAll('tr').length >= 2) {
+        table = el;
+        break;
       }
-
-      const tag = (el.tagName || '').toLowerCase();
-      const text = el.textContent || '';
-
-      if (/^h[1-6]$/.test(tag)) {
-        if (!raceTime) {
-          const tm = text.match(/(\d{1,2}:\d{2}\s*(?:am|pm))/i);
-          if (tm) raceTime = parseTimeFrom12h(tm[1]);
-        }
-        if (!raceDistance) {
-          const dm = text.match(/\b(\d{3,5})\s*[Mm]\b/);
-          if (dm) raceDistance = dm[1] + 'm';
-        }
-        if (!racePrize) {
-          const pm = text.match(/\$([\d,]+)/);
-          if (pm) racePrize = '$' + pm[1];
-        }
-        if (!raceTitle) {
-          // Heading text is typically: "Race N (N) TIME - RACE NAME - DISTm - $PRIZE"
-          const parts = text.replace(/\s+/g, ' ').split(/\s*[-–]\s*/);
-          const namePart = parts.find(p => {
-            const t = p.trim();
-            return t.length > 3
-              && !/^\d+$/.test(t)
-              && !/^\$/.test(t)
-              && !/^\d+m$/i.test(t)
-              && !/^\d{1,2}:\d{2}/.test(t)
-              && !/^Race\s*\d/i.test(t);
-          });
-          if (namePart) raceTitle = namePart.trim();
-        }
-      }
-
-      if (tag === 'table' && !table) {
-        if (el.querySelectorAll('tr').length >= 3) table = el;
-      }
-
-      if (table) break;
       el = el.nextElementSibling;
       steps++;
     }
-
     if (!table) continue;
+
     const horses = parseRAHorsesFromTable(table);
     if (!horses.length) continue;
 
     races.push({
-      raceNum,
-      name: raceTitle || `Race ${raceNum}`,
+      raceNum: parsed.raceNum,
+      name: parsed.name || `Race ${parsed.raceNum}`,
       date: meetingDate,
-      time: raceTime,
-      distance: raceDistance,
-      prize: racePrize,
+      time: parsed.time,
+      distance: parsed.distance,
+      prize: parsed.prize,
       horses,
       sourceUrl: meetingUrl
     });
+  }
+
+  // Strategy 1b: older/alternate markup — named anchors <a name="RaceN"> with
+  // a heading found by scanning nearby text for the same "Race N - TIME NAME"
+  // pattern, in case the site drops the race-title table class above.
+  if (!races.length) {
+    const raceAnchors = Array.from(doc.querySelectorAll('a[name], [id]'))
+      .filter(el => /^Race\d+$/i.test(el.getAttribute('name') || el.id || ''));
+
+    for (const anchor of raceAnchors) {
+      const idStr = anchor.getAttribute('name') || anchor.id;
+      const anchorRaceNum = parseInt(idStr.replace(/\D/g, ''), 10);
+      if (!anchorRaceNum) continue;
+
+      let parsed = null;
+      let table = null;
+      let el = anchor.nextElementSibling || anchor.parentElement?.nextElementSibling;
+      let steps = 0;
+
+      while (el && steps < 20) {
+        const elId = el.getAttribute?.('name') || el.id || '';
+        if (/^Race\d+$/i.test(elId) && elId !== idStr) break;
+
+        if (!parsed) {
+          const candidate = parseRaceHeadingText(el.textContent || '');
+          if (candidate) parsed = candidate;
+        }
+
+        if ((el.tagName || '').toLowerCase() === 'table' && !table && el.querySelectorAll('tr').length >= 2) {
+          table = el;
+        }
+
+        if (parsed && table) break;
+        el = el.nextElementSibling;
+        steps++;
+      }
+
+      if (!table) continue;
+      const horses = parseRAHorsesFromTable(table);
+      if (!horses.length) continue;
+
+      races.push({
+        raceNum: parsed?.raceNum || anchorRaceNum,
+        name: parsed?.name || `Race ${anchorRaceNum}`,
+        date: meetingDate,
+        time: parsed?.time || '',
+        distance: parsed?.distance || '',
+        prize: parsed?.prize || '',
+        horses,
+        sourceUrl: meetingUrl
+      });
+    }
   }
 
   // Strategy 2: no anchors — scan all tables and infer race sections from
@@ -5116,6 +5165,15 @@ function parseRAMeetingPage(html, meetingUrl) {
       let steps = 0;
       while (prev && steps < 6) {
         const txt = prev.textContent || '';
+        const parsed = parseRaceHeadingText(txt);
+        if (parsed) {
+          raceNum = parsed.raceNum;
+          raceTitle = parsed.name;
+          raceTime = parsed.time;
+          raceDistance = parsed.distance;
+          racePrize = parsed.prize;
+          break;
+        }
         const rm = txt.match(/\bRace\s*(\d+)\b/i);
         if (rm) {
           raceNum = parseInt(rm[1], 10);
@@ -5140,7 +5198,7 @@ function parseRAMeetingPage(html, meetingUrl) {
     }
   }
 
-  return races.sort((a, b) => a.raceNum - b.raceNum);
+  return mergeRacesByName(races.sort((a, b) => a.raceNum - b.raceNum));
 }
 
 function parseRAHorsesFromTable(table) {
