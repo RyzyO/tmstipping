@@ -1400,9 +1400,33 @@
                 <button type="button" id="streak-start-btn" class="btn-primary" onclick="window.startStreak(document.getElementById('lb-comp-select').value)">
                   Start Streak
                 </button>
+                <button type="button" id="streak-recalc-btn" class="btn-secondary hidden" onclick="window.recalculateStreak(document.getElementById('lb-comp-select').value)">
+                  <i data-feather="refresh-cw" class="h-4 w-4"></i> Recalculate
+                </button>
                 <button type="button" id="streak-reset-btn" class="btn-secondary hidden" onclick="window.resetStreak(document.getElementById('lb-comp-select').value)">
                   Reset Streak
                 </button>
+              </div>
+
+              <div id="streak-manage-wrap" class="hidden mt-6">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                  <h4 class="font-semibold text-gray-200">Entrants</h4>
+                  <input id="streak-manage-search" type="text" placeholder="Search team name..." class="form-group !m-0 !w-auto" style="min-width: 220px;">
+                </div>
+                <p class="text-xs text-gray-500 mb-3">Status is recalculated from tips and results every time a race's results are saved (or Recalculate is clicked) — an override here is a temporary fix and will be replaced the next time that runs.</p>
+                <div class="overflow-x-auto">
+                  <table class="horse-table">
+                    <thead>
+                      <tr>
+                        <th>Team</th>
+                        <th>Status</th>
+                        <th>Eliminated Week</th>
+                        <th>Override</th>
+                      </tr>
+                    </thead>
+                    <tbody id="streak-manage-body"></tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

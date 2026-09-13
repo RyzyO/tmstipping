@@ -1973,36 +1973,27 @@ async function saveResults() {
   const setStatus = (msg) => { if (statusEl) { statusEl.textContent = msg; statusEl.classList.remove('hidden'); } };
 
   if (btn) { btn.disabled = true; btn.innerHTML = '<i data-feather="loader" class="h-4 w-4 animate-spin inline-block mr-1"></i> Saving…'; if (window.feather) feather.replace(); }
-  setStatus('Saving result…');
+  setStatus('Saving result and recalculating…');
 
   try {
-
-    const result = {
-      id: currentRaceId,
-      race_id: currentRaceId,
-      race_name: race.name,
-      winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx]?.name, points: winnerPoints } : null,
-      place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx]?.name, points: place1Points } : null,
-      place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx]?.name, points: place2Points } : null,
-      winning_horse_id: winnerIdx || null,
-      place1_horse_id: place1Idx || null,
-      place2_horse_id: place2Idx || null,
-      points: winnerPoints,
-      place1_points: place1Points,
-      place2_points: place2Points,
-      comp_id: race.comp_id || race.compId || null,
-      created_at: new Date().toISOString()
-    };
-
-    const { error: resultError } = await supabase.from('results').upsert(result);
-    if (resultError) throw resultError;
-
-    setStatus('Recalculating leaderboard…');
-    // Recalculate points for this competition only
-    await calculateAndSaveLeaderboard(race.compId || selectedAdminCompId || null);
-
-    setStatus('Recalculating streak…');
-    await calculateAndSaveStreak(race.compId || selectedAdminCompId || null);
+    // The actual recalculation (this comp's leaderboard, then its streak) normally
+    // runs server-side in the save-race-results edge function instead of as dozens
+    // of round-trips from this browser tab — see that function for the ported logic.
+    // If the function is unreachable (not deployed, cold-start timeout, quota issue,
+    // etc.) fall back to doing the same work client-side rather than blocking the
+    // admin from resulting a race at all — same DB writes either way, RLS still
+    // enforces admin-only, just slower on this path.
+    try {
+      const { data: fnResult, error: fnError } = await supabase.functions.invoke('save-race-results', {
+        body: { raceId: currentRaceId, winnerHorseId: winnerIdx, place1HorseId: place1Idx, place2HorseId: place2Idx, winnerPoints, place1Points, place2Points }
+      });
+      if (fnError) throw fnError;
+      if (fnResult?.error) throw new Error(fnResult.error);
+    } catch (fnFailure) {
+      console.warn('save-race-results edge function failed, falling back to client-side:', fnFailure);
+      setStatus('Recalculating in browser (edge function unavailable)…');
+      await saveResultsClientSide(race, winnerIdx, place1Idx, place2Idx, winnerPoints, place1Points, place2Points);
+    }
 
     setStatus('Refreshing dashboard…');
     // Refresh dashboard cards after leaderboard update
@@ -2019,6 +2010,116 @@ async function saveResults() {
   }
 }
 
+// Client-side fallback for saveResults(), used only when the save-race-results
+// edge function can't be reached. Mirrors that function's logic exactly (same
+// result row shape, same comp-scoped + batched leaderboard recalculation) so
+// behavior doesn't depend on which path ran.
+async function saveResultsClientSide(race, winnerIdx, place1Idx, place2Idx, winnerPoints, place1Points, place2Points) {
+  const result = {
+    id: race.id,
+    race_id: race.id,
+    race_name: race.name,
+    winner: winnerIdx ? { idx: winnerIdx, name: race.horses[winnerIdx]?.name, points: winnerPoints } : null,
+    place1: place1Idx ? { idx: place1Idx, name: race.horses[place1Idx]?.name, points: place1Points } : null,
+    place2: place2Idx ? { idx: place2Idx, name: race.horses[place2Idx]?.name, points: place2Points } : null,
+    winning_horse_id: winnerIdx || null,
+    place1_horse_id: place1Idx || null,
+    place2_horse_id: place2Idx || null,
+    points: winnerPoints,
+    place1_points: place1Points,
+    place2_points: place2Points,
+    comp_id: race.comp_id || race.compId || null,
+    created_at: new Date().toISOString()
+  };
+
+  const { error: resultError } = await supabase.from('results').upsert(result);
+  if (resultError) throw resultError;
+
+  const compId = race.comp_id || race.compId || null;
+  if (compId) {
+    await calculateAndSaveLeaderboardForComp(compId);
+    await calculateAndSaveStreak(compId);
+  }
+}
+
+// Scoped to the one comp the race belongs to (a race can't affect any other
+// comp's points) and writes with a single batched upsert — same approach as
+// the edge function's calculateAndSaveLeaderboard, kept here only as the
+// client-side fallback path.
+async function calculateAndSaveLeaderboardForComp(compId) {
+  try {
+    const races = allRaces.filter(r => (r.comp_id || r.compId) === compId);
+    const raceById = {};
+    races.forEach(r => { raceById[r.id] = r; });
+    const raceIds = races.map(r => r.id);
+    if (raceIds.length === 0) return;
+
+    const results = await fetchAllRows((from, to) => supabase.from('results').select('*').in('race_id', raceIds).range(from, to));
+    if (results.length === 0) return;
+
+    const tips = await fetchAllRows((from, to) => supabase.from('tips').select('*').eq('comp_id', compId).in('race_id', raceIds).range(from, to));
+    const tipsByRaceId = {};
+    tips.forEach(t => {
+      if (!tipsByRaceId[t.race_id]) tipsByRaceId[t.race_id] = [];
+      tipsByRaceId[t.race_id].push(t);
+    });
+
+    // Only existing joinings are ever written — a stray tip with no corresponding
+    // user_comp_joinings row must not turn into a phantom one via upsert.
+    const existingJoinings = await fetchAllRows((from, to) => supabase.from('user_comp_joinings').select('user_id').eq('comp_id', compId).range(from, to));
+    const existingUserIds = new Set(existingJoinings.map(j => j.user_id));
+
+    const userPoints = {};
+    for (const result of results) {
+      const raceId = result.race_id || result.id;
+      const winnerHorseId = result.winning_horse_id || result.winner?.idx || null;
+      const place1HorseId = result.place1_horse_id || result.place1?.idx || null;
+      const place2HorseId = result.place2_horse_id || result.place2?.idx || null;
+      const winnerPoints = Number(result.points ?? result.winner?.points ?? 0) || 0;
+      const place1Points = Number(result.place1_points ?? result.place1?.points ?? 0) || 0;
+      const place2Points = Number(result.place2_points ?? result.place2?.points ?? 0) || 0;
+
+      for (const tip of (tipsByRaceId[raceId] || [])) {
+        const userId = tip.user_id;
+        if (!userId || !existingUserIds.has(userId)) continue;
+        if (!userPoints[userId]) userPoints[userId] = { user_id: userId, points: 0, wins: 0 };
+
+        const scoredHorseId = resolveScoredHorseId(raceById[raceId], tip.horse_id);
+
+        let pts = 0, wasWin = false;
+        if (winnerHorseId && scoredHorseId == winnerHorseId) { pts += winnerPoints; wasWin = true; }
+        else if (place1HorseId && scoredHorseId == place1HorseId) pts += place1Points;
+        else if (place2HorseId && scoredHorseId == place2HorseId) pts += place2Points;
+        if (pts > 0 && tip.joker === true) pts *= 2;
+
+        userPoints[userId].points += pts;
+        if (wasWin) userPoints[userId].wins += 1;
+      }
+    }
+
+    const entries = Object.values(userPoints).sort((a, b) =>
+      b.points !== a.points ? b.points - a.points : b.wins - a.wins
+    );
+
+    let lastPoints = null, lastWins = null, lastRank = 0;
+    const now = new Date().toISOString();
+    const upsertRows = entries.map((entry, idx) => {
+      const rank = (entry.points === lastPoints && entry.wins === lastWins) ? lastRank : idx + 1;
+      lastPoints = entry.points; lastWins = entry.wins; lastRank = rank;
+      return { id: `${entry.user_id}_${compId}`, user_id: entry.user_id, comp_id: compId, points: entry.points, wins: entry.wins, rank, updated_at: now };
+    });
+
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < upsertRows.length; i += BATCH_SIZE) {
+      const { error } = await supabase.from('user_comp_joinings').upsert(upsertRows.slice(i, i + BATCH_SIZE), { onConflict: 'user_id,comp_id' });
+      if (error) throw error;
+    }
+  } catch (error) {
+    console.error('Error calculating leaderboard:', error);
+    throw error;
+  }
+}
+
 // Canonical scoring rule: if a user's tipped horse was scratched, their points
 // fall to the horse nominated as the race's substitute. Mirrors resultsdark.html
 // so the leaderboard totals match what users see on the results page.
@@ -2028,81 +2129,6 @@ function resolveScoredHorseId(race, tippedHorseId) {
     if (sub) return sub[0];
   }
   return tippedHorseId;
-}
-
-async function calculateAndSaveLeaderboard(compId) {
-  try {
-    const { data: results } = await supabase.from('results').select('*');
-    const compLeaderboardMap = {};
-
-    const raceCompIdMap = {};
-    const raceById = {};
-    allRaces.forEach(r => { raceCompIdMap[r.id] = r.comp_id || r.compId || null; raceById[r.id] = r; });
-
-    for (const result of (results || [])) {
-      const raceId = result.race_id || result.id;
-      const { data: tips } = await supabase.from('tips').select('*').eq('race_id', raceId);
-
-      const winnerHorseId = result.winning_horse_id || result.winner?.idx || null;
-      const place1HorseId = result.place1_horse_id || result.place1?.idx || null;
-      const place2HorseId = result.place2_horse_id || result.place2?.idx || null;
-      const winnerPoints = Number(result.points ?? result.winner?.points ?? 0) || 0;
-      const place1Points = Number(result.place1_points ?? result.place1?.points ?? 0) || 0;
-      const place2Points = Number(result.place2_points ?? result.place2?.points ?? 0) || 0;
-
-      for (const tip of (tips || [])) {
-        const userId = tip.user_id;
-        const tipCompId = tip.comp_id || raceCompIdMap[raceId] || null;
-        if (!tipCompId || !userId) continue;
-
-        if (!compLeaderboardMap[tipCompId]) compLeaderboardMap[tipCompId] = {};
-        if (!compLeaderboardMap[tipCompId][userId]) compLeaderboardMap[tipCompId][userId] = { user_id: userId, points: 0, wins: 0 };
-
-        // If the tipped horse was scratched, points fall to the nominated substitute.
-        const scoredHorseId = resolveScoredHorseId(raceById[raceId], tip.horse_id);
-
-        let pts = 0;
-        let wasWin = false;
-        if (winnerHorseId && scoredHorseId == winnerHorseId) { pts += winnerPoints; wasWin = true; }
-        else if (place1HorseId && scoredHorseId == place1HorseId) pts += place1Points;
-        else if (place2HorseId && scoredHorseId == place2HorseId) pts += place2Points;
-        if (pts > 0 && tip.joker === true) pts *= 2;
-
-        compLeaderboardMap[tipCompId][userId].points += pts;
-        if (wasWin) compLeaderboardMap[tipCompId][userId].wins += 1;
-      }
-    }
-
-    for (const [cId, usersMap] of Object.entries(compLeaderboardMap)) {
-      const entries = Object.values(usersMap).sort((a, b) =>
-        b.points !== a.points ? b.points - a.points : b.wins - a.wins
-      );
-
-      let lastPoints = null, lastWins = null, lastRank = 0;
-      const upsertRows = entries.map((entry, idx) => {
-        const rank = (entry.points === lastPoints && entry.wins === lastWins) ? lastRank : idx + 1;
-        lastPoints = entry.points; lastWins = entry.wins; lastRank = rank;
-        return {
-          id: `${entry.user_id}_${cId}`,
-          user_id: entry.user_id,
-          comp_id: cId,
-          points: entry.points,
-          wins: entry.wins,
-          rank,
-          updated_at: new Date().toISOString()
-        };
-      });
-
-      for (const row of upsertRows) {
-        await supabase.from('user_comp_joinings')
-          .update({ points: row.points, wins: row.wins, rank: row.rank, updated_at: row.updated_at })
-          .eq('user_id', row.user_id)
-          .eq('comp_id', row.comp_id);
-      }
-    }
-  } catch (error) {
-    console.error('Error calculating leaderboard:', error);
-  }
 }
 
 // Streak leaderboard: knocked out for the season the first week you score 0
@@ -2128,11 +2154,15 @@ async function calculateAndSaveStreak(compId) {
       }
     }
 
-    const { data: streakRows } = await supabase.from('streak_status').select('*').eq('comp_id', compId);
+    const streakRows = await fetchAllRows((from, to) => supabase.from('streak_status').select('*').eq('comp_id', compId).range(from, to));
     if (!streakRows || streakRows.length === 0) return;
 
+    // Status is recomputed from scratch every time (like points in calculateAndSaveLeaderboard),
+    // not layered onto whatever's already stored — otherwise a bad calculation (e.g. tips
+    // silently missing past a query row cap) permanently eliminates someone even after the
+    // underlying bug is fixed, since the loop below only ever eliminates, never revives.
     const statusMap = {};
-    streakRows.forEach(row => { statusMap[row.user_id] = { status: row.status, eliminated_week: row.eliminated_week }; });
+    streakRows.forEach(row => { statusMap[row.user_id] = { status: 'alive', eliminated_week: null }; });
 
     const races = allRaces.filter(r => {
       const rCompId = r.comp_id || r.compId;
@@ -2240,10 +2270,10 @@ async function startStreak(compId) {
 
     await calculateAndSaveStreak(compId);
     await refreshStreakControls(compId);
-    showNotification('Streak leaderboard started!', 'success', 'race-notifications');
+    showNotification('Streak leaderboard started!', 'success', 'lb-notifications');
   } catch (error) {
     console.error('Error starting streak:', error);
-    showNotification('Error starting streak: ' + error.message, 'error', 'race-notifications');
+    showNotification('Error starting streak: ' + error.message, 'error', 'lb-notifications');
   }
 }
 
@@ -2256,14 +2286,150 @@ async function resetStreak(compId) {
     const { error: compError } = await supabase.from('comps').update({ streak_start_date: null, streak_locked_at: null }).eq('id', compId);
     if (compError) throw compError;
     await refreshStreakControls(compId);
-    showNotification('Streak leaderboard reset.', 'success', 'race-notifications');
+    showNotification('Streak leaderboard reset.', 'success', 'lb-notifications');
   } catch (error) {
     console.error('Error resetting streak:', error);
-    showNotification('Error resetting streak: ' + error.message, 'error', 'race-notifications');
+    showNotification('Error resetting streak: ' + error.message, 'error', 'lb-notifications');
+  }
+}
+
+// Re-runs the same elimination logic saveResults triggers automatically, without
+// touching any race result — for backfilling after a scoring-logic fix, or if
+// eliminations ever drift from the underlying tips/results for any other reason.
+async function recalculateStreak(compId) {
+  if (!compId) return;
+  const btn = document.getElementById('streak-recalc-btn');
+  if (btn) btn.disabled = true;
+  try {
+    await calculateAndSaveStreak(compId);
+    await refreshStreakControls(compId);
+    showNotification('Streak recalculated from tips and results.', 'success', 'lb-notifications');
+  } catch (error) {
+    console.error('Error recalculating streak:', error);
+    showNotification('Error recalculating streak: ' + error.message, 'error', 'lb-notifications');
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 window.startStreak = startStreak;
 window.resetStreak = resetStreak;
+window.recalculateStreak = recalculateStreak;
+
+// ============ STREAK MANUAL MANAGEMENT ============
+let streakManageRows = []; // [{ userId, teamName, status, eliminatedWeek }]
+
+async function loadStreakManageTable(compId) {
+  const wrap = document.getElementById('streak-manage-wrap');
+  const tbody = document.getElementById('streak-manage-body');
+  if (!wrap || !tbody) return;
+
+  if (!compId) {
+    wrap.classList.add('hidden');
+    return;
+  }
+
+  const streakRows = await fetchAllRows((from, to) => supabase.from('streak_status').select('*').eq('comp_id', compId).range(from, to));
+  if (streakRows.length === 0) {
+    wrap.classList.add('hidden');
+    return;
+  }
+
+  const userIds = streakRows.map(r => r.user_id);
+  const users = await fetchAllRows((from, to) => supabase.from('users').select('id,team_name,email').in('id', userIds).range(from, to));
+  const userMap = {};
+  users.forEach(u => { userMap[u.id] = u.team_name || u.email || u.id; });
+
+  streakManageRows = streakRows
+    .map(r => ({ userId: r.user_id, teamName: userMap[r.user_id] || r.user_id, status: r.status, eliminatedWeek: r.eliminated_week }))
+    .sort((a, b) => {
+      const rank = s => s === 'winner' ? 0 : s === 'alive' ? 1 : 2;
+      const rd = rank(a.status) - rank(b.status);
+      return rd !== 0 ? rd : a.teamName.localeCompare(b.teamName);
+    });
+
+  wrap.classList.remove('hidden');
+  renderStreakManageTable();
+}
+
+function renderStreakManageTable() {
+  const tbody = document.getElementById('streak-manage-body');
+  if (!tbody) return;
+  const filter = (document.getElementById('streak-manage-search')?.value || '').toLowerCase();
+
+  const STATUS_BADGE = {
+    alive: 'bg-green-900/40 text-green-300',
+    eliminated: 'bg-gray-700 text-gray-400',
+    winner: 'bg-yellow-900/40 text-yellow-300',
+  };
+
+  const rows = streakManageRows.filter(r => !filter || r.teamName.toLowerCase().includes(filter));
+
+  tbody.innerHTML = rows.map(r => `
+    <tr data-streak-row="${r.userId}">
+      <td>${escapeHtml(r.teamName)}</td>
+      <td><span class="text-xs px-2 py-1 rounded-full ${STATUS_BADGE[r.status] || STATUS_BADGE.eliminated}">${r.status}</span></td>
+      <td>${r.eliminatedWeek || '—'}</td>
+      <td>
+        <div class="flex items-center gap-2 flex-wrap">
+          <select class="form-group !m-0 !w-auto streak-override-status" data-user-id="${r.userId}">
+            <option value="alive" ${r.status === 'alive' ? 'selected' : ''}>Alive</option>
+            <option value="eliminated" ${r.status === 'eliminated' ? 'selected' : ''}>Eliminated</option>
+            <option value="winner" ${r.status === 'winner' ? 'selected' : ''}>Winner</option>
+          </select>
+          <input type="date" class="form-group !m-0 !w-auto streak-override-week" data-user-id="${r.userId}" value="${r.eliminatedWeek || ''}" ${r.status !== 'eliminated' ? 'disabled' : ''}>
+          <button class="btn-secondary text-xs streak-override-save" data-user-id="${r.userId}">Save</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+document.getElementById('streak-manage-search')?.addEventListener('input', renderStreakManageTable);
+
+document.getElementById('streak-manage-body')?.addEventListener('change', (e) => {
+  if (e.target.matches('.streak-override-status')) {
+    const row = e.target.closest('tr');
+    const weekInput = row?.querySelector('.streak-override-week');
+    if (weekInput) weekInput.disabled = e.target.value !== 'eliminated';
+  }
+});
+
+document.getElementById('streak-manage-body')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.streak-override-save');
+  if (!btn) return;
+  const userId = btn.dataset.userId;
+  const compId = document.getElementById('lb-comp-select')?.value;
+  if (!userId || !compId) return;
+
+  const row = btn.closest('tr');
+  const status = row.querySelector('.streak-override-status').value;
+  const eliminatedWeek = status === 'eliminated' ? (row.querySelector('.streak-override-week').value || null) : null;
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  try {
+    const { error } = await supabase.from('streak_status').upsert({
+      id: `${userId}_${compId}`,
+      user_id: userId,
+      comp_id: compId,
+      status,
+      eliminated_week: eliminatedWeek,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,comp_id' });
+    if (error) throw error;
+
+    const entry = streakManageRows.find(r => r.userId === userId);
+    if (entry) { entry.status = status; entry.eliminatedWeek = eliminatedWeek; }
+    renderStreakManageTable();
+    await refreshStreakControls(compId);
+    showNotification('Streak status updated.', 'success', 'lb-notifications');
+  } catch (error) {
+    console.error('Error saving streak override:', error);
+    showNotification('Error saving streak status: ' + error.message, 'error', 'lb-notifications');
+    btn.disabled = false;
+    btn.textContent = 'Save';
+  }
+});
 
 // ============ TIPS DISPLAY ============
 async function loadRaceTips(race) {
@@ -3334,31 +3500,39 @@ window.handleLeaderboardCompChange = async function() {
 async function refreshStreakControls(compId) {
   const statusText = document.getElementById('streak-status-text');
   const startBtn = document.getElementById('streak-start-btn');
+  const recalcBtn = document.getElementById('streak-recalc-btn');
   const resetBtn = document.getElementById('streak-reset-btn');
+  const manageWrap = document.getElementById('streak-manage-wrap');
   if (!statusText || !startBtn || !resetBtn) return;
 
   if (!compId) {
     statusText.textContent = 'Select a competition above to manage its streak leaderboard.';
     startBtn.classList.add('hidden');
+    recalcBtn?.classList.add('hidden');
     resetBtn.classList.add('hidden');
+    manageWrap?.classList.add('hidden');
     return;
   }
 
   const { data: comp } = await supabase.from('comps').select('id,streak_start_date,streak_locked_at').eq('id', compId).maybeSingle();
   if (comp?.streak_start_date) {
-    const { data: rows } = await supabase.from('streak_status').select('status').eq('comp_id', compId);
-    const alive = (rows || []).filter(r => r.status === 'alive').length;
-    const winner = (rows || []).find(r => r.status === 'winner');
+    const rows = await fetchAllRows((from, to) => supabase.from('streak_status').select('status').eq('comp_id', compId).range(from, to));
+    const alive = rows.filter(r => r.status === 'alive').length;
+    const winner = rows.find(r => r.status === 'winner');
     const entriesNote = comp.streak_locked_at ? '' : ' — entries still open until the first race is resulted';
     statusText.textContent = winner
       ? 'Streak complete — a winner has been decided.'
       : `Streak active since ${new Date(comp.streak_start_date).toLocaleDateString()} — ${alive} still alive${entriesNote}.`;
     startBtn.classList.add('hidden');
+    recalcBtn?.classList.remove('hidden');
     resetBtn.classList.remove('hidden');
+    await loadStreakManageTable(compId);
   } else {
     statusText.textContent = 'Streak not started for this competition yet.';
     startBtn.classList.remove('hidden');
+    recalcBtn?.classList.add('hidden');
     resetBtn.classList.add('hidden');
+    manageWrap?.classList.add('hidden');
   }
 }
 window.refreshStreakControls = refreshStreakControls;
