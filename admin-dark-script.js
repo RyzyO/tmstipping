@@ -13,6 +13,24 @@ import {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Supabase/PostgREST caps a single select at 1000 rows by default, silently truncating
+// instead of erroring. Tables like tips grow one row per user per race, so any
+// comp-wide or all-time query over them needs paging or rows quietly go missing
+// (this is what falsely eliminated streak entrants whose tip fell past row 1000).
+async function fetchAllRows(build) {
+  const pageSize = 1000;
+  let from = 0;
+  let rows = [];
+  while (true) {
+    const { data, error } = await build(from, from + pageSize - 1);
+    if (error) throw error;
+    rows = rows.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return rows;
+}
+
 // Global State
 let currentRaceId = null;
 let allRaces = [];
@@ -2125,11 +2143,11 @@ async function calculateAndSaveStreak(compId) {
     const raceById = {};
     races.forEach(r => { raceById[r.id] = r; });
 
-    const { data: results } = await supabase.from('results').select('*').in('race_id', races.map(r => r.id));
+    const results = await fetchAllRows((from, to) => supabase.from('results').select('*').in('race_id', races.map(r => r.id)).range(from, to));
     const resultByRaceId = {};
     (results || []).forEach(r => { resultByRaceId[r.race_id || r.id] = r; });
 
-    const { data: tips } = await supabase.from('tips').select('*').eq('comp_id', compId).in('race_id', races.map(r => r.id));
+    const tips = await fetchAllRows((from, to) => supabase.from('tips').select('*').eq('comp_id', compId).in('race_id', races.map(r => r.id)).range(from, to));
 
     const weekAllRaces = {};
     races.forEach(race => {
@@ -3392,10 +3410,9 @@ async function loadLeaderboardData() {
   const userIdToJokers = {};
   (joiningsData || []).forEach(j => { userIdToJokers[j.user_id] = j.jokers_remaining; });
 
-  const { data: tipsData } = await supabase.from('tips').select('*').eq('comp_id', lbSelectedCompId);
-  const tips = tipsData || [];
+  const tips = await fetchAllRows((from, to) => supabase.from('tips').select('*').eq('comp_id', lbSelectedCompId).range(from, to));
 
-  const { data: resultsData } = await supabase.from('results').select('*');
+  const resultsData = await fetchAllRows((from, to) => supabase.from('results').select('*').range(from, to));
   const results = {};
   (resultsData || []).forEach(r => { results[r.race_id || r.id] = r; });
 
