@@ -380,6 +380,24 @@
     let raceDataCompId = null;
     let currentStateFilter = 'all';
 
+    // Supabase/PostgREST caps a single select at 1000 rows by default, so any table
+    // that can grow past that (tips especially, with one row per user per race) needs
+    // paging or rows silently go missing with no error — which is what hid this comp's
+    // 1057th+ tip from the per-team results modal.
+    async function fetchAllRows(build) {
+      const pageSize = 1000;
+      let from = 0;
+      let rows = [];
+      while (true) {
+        const { data, error } = await build(from, from + pageSize - 1);
+        if (error) throw error;
+        rows = rows.concat(data || []);
+        if (!data || data.length < pageSize) break;
+        from += pageSize;
+      }
+      return rows;
+    }
+
     function getRaceState(raceName) {
       const n = (raceName || '').toLowerCase();
       if (n.includes('randwick') || n.includes('rosehill')) return 'nsw';
@@ -740,16 +758,16 @@
           return;
         }
 
-        const [joiningsRes, usersRes] = await Promise.all([
-          supabase.from('user_comp_joinings').select('user_id,points,jokers_remaining').eq('comp_id', selectedCompId).eq('payment_status', 'completed'),
-          supabase.from('users').select('id,team_name,email,silk')
+        const [joinings, users] = await Promise.all([
+          fetchAllRows((from, to) => supabase.from('user_comp_joinings').select('user_id,points,jokers_remaining').eq('comp_id', selectedCompId).eq('payment_status', 'completed').range(from, to)),
+          fetchAllRows((from, to) => supabase.from('users').select('id,team_name,email,silk').range(from, to))
         ]);
 
         const usersMap = {};
-        (usersRes.data||[]).forEach(u => { usersMap[u.id] = u; });
+        users.forEach(u => { usersMap[u.id] = u; });
 
         cachedLeaderboard = [];
-        (joiningsRes.data||[]).forEach(d => {
+        joinings.forEach(d => {
           const userId = d.user_id;
           const userData = usersMap[userId] || {};
           cachedLeaderboard.push({
@@ -777,20 +795,29 @@
     async function ensureRaceDataLoaded() {
       if (raceDataCompId === selectedCompId && Object.keys(cachedRaces).length > 0) return;
 
-      const [tipsRes, resultsRes, racesRes] = await Promise.all([
-        supabase.from('tips').select('*').eq('comp_id', selectedCompId),
-        supabase.from('results').select('*'),
-        supabase.from('races').select('*').eq('comp_id', selectedCompId)
+      const [results, races] = await Promise.all([
+        fetchAllRows((from, to) => supabase.from('results').select('*').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('races').select('*').eq('comp_id', selectedCompId).range(from, to))
       ]);
 
       cachedRaces = {};
       cachedResults = {};
       cachedTips = {};
-      (racesRes.data||[]).forEach(r => { cachedRaces[r.id] = r; });
-      (resultsRes.data||[]).forEach(r => {
+      races.forEach(r => { cachedRaces[r.id] = r; });
+      results.forEach(r => {
         cachedResults[r.id] = { ...r, winningHorseId: r.winning_horse_id, place1HorseId: r.place1_horse_id, place1Points: r.place1_points, place2HorseId: r.place2_horse_id, place2Points: r.place2_points };
       });
-      (tipsRes.data||[]).forEach(t => {
+
+      // Tips are matched to this comp by their race's comp_id, not the tip's own
+      // comp_id column — some tip rows have a null/stale comp_id but still belong
+      // to a race in this comp (mirrors calculateAndSaveLeaderboard in admin-dark-script.js,
+      // which uses the same race-based fallback when totaling points). Paged because a
+      // comp's tips (one row per user per race) routinely exceed the 1000-row default cap.
+      const raceIds = Object.keys(cachedRaces);
+      const tips = raceIds.length
+        ? await fetchAllRows((from, to) => supabase.from('tips').select('*').in('race_id', raceIds).range(from, to))
+        : [];
+      tips.forEach(t => {
         if (!cachedTips[t.user_id]) cachedTips[t.user_id] = {};
         cachedTips[t.user_id][t.race_id] = { ...t, horseId: t.horse_id, raceId: t.race_id, userId: t.user_id };
       });
