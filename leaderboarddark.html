@@ -1121,7 +1121,11 @@
               </div>
               <div class="flex items-center justify-between pt-2.5 mt-1">
                 <span class="text-xs ${correct ? "text-gray-400" : "text-gray-500"}">
-                  ${correct ? `${tipName} finished ${positionLabel}` : (tipHorse ? `${tipName} didn't place` : "No tip placed")}
+                  ${correct
+                    ? (scoredHorseId !== tip.horseId
+                      ? `${race.horses?.[scoredHorseId]?.name || "Substitute"} (sub for scratched ${tipName}) finished ${positionLabel}`
+                      : `${tipName} finished ${positionLabel}`)
+                    : (tipHorse ? `${tipName} didn't place` : "No tip placed")}
                 </span>
                 <span class="text-base font-bold ${correct ? "text-green-400" : "text-gray-600"} flex-shrink-0">${correct ? "+" + pts.toFixed(2) : "0.00"}</span>
               </div>
