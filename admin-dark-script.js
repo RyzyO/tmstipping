@@ -3485,6 +3485,8 @@ async function saveUserAdminTip(raceId) {
   const jokerCheckbox = row.querySelector(`.joker-checkbox[data-race-id="${raceId}"]`);
   const status = row.querySelector(`[data-status-for="${raceId}"]`);
   const chosenHorseId = select ? select.value : '';
+  // A joker only makes sense on a real tip; clearing the tip also hands the joker back.
+  if (!chosenHorseId && jokerCheckbox && jokerCheckbox.checked) jokerCheckbox.checked = false;
   const joker = jokerCheckbox ? jokerCheckbox.checked : false;
 
   const existing = uaTipsByRace[raceId];

@@ -492,7 +492,7 @@
       const { data: tips } = await supabase.from('tips').select('*').eq('user_id', state.user.uid).eq('comp_id', state.selectedCompId);
       (tips||[]).forEach(tip=>{
         if(tip.race_id){
-          state.tipsMap[tip.race_id]=true;
+          if(tip.horse_id) state.tipsMap[tip.race_id]=true;
           state.userTipsCache[tip.race_id]={ ...tip, raceId: tip.race_id, horseId: tip.horse_id, userId: tip.user_id };
         }
       });
@@ -537,7 +537,8 @@
       const tipsMap = new Set();
       for (const tip of (tipsRes.data || [])) {
         if (tip.race_id) {
-          tipsMap.add(tip.race_id);
+          // An admin clearing a tip leaves a blank horse_id row - that is not a tip.
+          if (tip.horse_id) tipsMap.add(tip.race_id);
           tipByRace[tip.race_id] = { ...tip, raceId: tip.race_id, horseId: tip.horse_id, userId: tip.user_id, compId: tip.comp_id };
         }
       }
@@ -672,7 +673,7 @@
       const cachePayload = readTipRacesCache(state.user?.uid, state.selectedCompId);
       if (cachePayload?.races?.length) {
         const cachedTips = cachePayload.tipByRace || {};
-        renderTipRacesGrid(cachePayload.races, new Set(Object.keys(cachedTips)), cachedTips);
+        renderTipRacesGrid(cachePayload.races, new Set(Object.keys(cachedTips).filter(id => cachedTips[id]?.horseId || cachedTips[id]?.horse_id)), cachedTips);
       }
 
       const fresh = await fetchTipRacesAndTips(state.selectedCompId);
