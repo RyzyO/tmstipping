@@ -2898,10 +2898,12 @@ function bindUserAdminForm() {
     statusEl.className = 'text-sm text-yellow-400';
 
     try {
-      const { error: userUpdateError } = await supabase.from('users').update({
+      const { data: updatedUsers, error: userUpdateError } = await supabase.from('users').update({
         email, first_name: firstName, last_name: lastName, team_name: teamName
-      }).eq('id', uaSelectedUserId);
+      }).eq('id', uaSelectedUserId).select('id');
       if (userUpdateError) throw userUpdateError;
+      // An update blocked by row-level security returns no error but touches 0 rows.
+      if (!updatedUsers || !updatedUsers.length) throw new Error('Update was blocked - no user row changed (check admin permissions).');
 
       if (uaSelectedCompId) {
         const { error: joiningError } = await supabase.from('user_comp_joinings').upsert({
@@ -3270,8 +3272,122 @@ function calculateUaPoints(race, horseId, jokerUsed) {
   return points;
 }
 
+let uaTipsCompRaces = [];
+
+// Same silk sources the tipping page uses (RA silk id, stored URL, then TAB by venue/number).
+function getUaSilkUrl(horse, raceName) {
+  if (!horse) return '';
+  const id = horse.silksId || horse.silkId || horse.silk;
+  if (id) return `https://www.racingaustralia.horse/JockeySilks/${id}.png`;
+  if (horse.silkUrl) return horse.silkUrl;
+  const venue = (raceName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  return horse.number && venue ? `https://content.tab.com.au/content/dam/tab-corp/silks/${venue}/${horse.number}.png` : '';
+}
+
+// Show the silk of whichever horse is currently picked in the row's dropdown.
+function refreshUaSilk(raceId) {
+  const race = uaTipsCompRaces.find(r => r.id === raceId);
+  const row = document.querySelector(`#user-admin-tips-list [data-race-row="${raceId}"]`);
+  const img = row && row.querySelector('.ua-silk');
+  const select = row && row.querySelector('select[data-race-id]');
+  if (!race || !img || !select) return;
+  const url = select.value ? getUaSilkUrl((race.horses || {})[select.value], race.name) : '';
+  if (url) {
+    img.onerror = () => { img.style.visibility = 'hidden'; };
+    img.onload = () => { img.style.visibility = 'visible'; };
+    img.src = url;
+    img.style.visibility = 'visible';
+  } else {
+    img.removeAttribute('src');
+    img.style.visibility = 'hidden';
+  }
+}
+let uaTipsFilter = 'all';
+
+// Derived state for one race row: has a tip, tip horse scratched, result in, points.
+function getUaRaceState(race) {
+  const tip = uaTipsByRace[race.id];
+  const horseId = tip ? (tip.horse_id || '') : '';
+  const joker = tip ? tip.joker === true : false;
+  const horse = race.horses ? race.horses[horseId] : null;
+  const subEntry = race.horses ? Object.entries(race.horses).find(([, h]) => h.substitute) : null;
+  const points = calculateUaPoints(race, horseId, joker);
+  return {
+    tipped: !!horseId,
+    joker,
+    scratched: !!(horse && horse.scratched),
+    subName: subEntry ? subEntry[1].name : null,
+    hasResult: !!uaResultsCache[race.id],
+    points
+  };
+}
+
+function updateUaRowState(raceId) {
+  const race = uaTipsCompRaces.find(r => r.id === raceId);
+  const row = document.querySelector(`#user-admin-tips-list [data-race-row="${raceId}"]`);
+  if (!race || !row) return;
+  const st = getUaRaceState(race);
+  const badge = (text, cls) => `<span class="text-xs px-2 py-0.5 rounded-full ${cls}">${text}</span>`;
+  const badges = [];
+  if (!st.tipped) badges.push(badge('No tip', 'bg-red-900/40 text-red-300'));
+  if (st.joker) badges.push(badge('Joker', 'bg-yellow-900/40 text-yellow-300'));
+  if (st.scratched) badges.push(badge(st.subName ? `Scratched &rarr; ${escapeHtml(st.subName)}` : 'Scratched', 'bg-orange-900/40 text-orange-300'));
+  if (st.hasResult) badges.push(st.points > 0 ? badge(`+${st.points.toFixed(2)} pts`, 'bg-green-900/40 text-green-300') : badge('0 pts', 'bg-gray-700 text-gray-400'));
+  else badges.push(badge('Awaiting result', 'bg-gray-700 text-gray-400'));
+  row.querySelector(`[data-badges-for="${raceId}"]`).innerHTML = badges.join('');
+  row.style.borderLeftColor = !st.tipped ? '#ef4444' : st.scratched ? '#f97316' : (st.hasResult && st.points > 0) ? '#22c55e' : '#4b5563';
+  row.dataset.tipped = st.tipped ? '1' : '0';
+  row.dataset.result = st.hasResult ? '1' : '0';
+  applyUaTipsFilter();
+}
+
+function applyUaTipsFilter() {
+  document.querySelectorAll('#user-admin-tips-list .ua-tip-row').forEach(row => {
+    const show = uaTipsFilter === 'all'
+      || (uaTipsFilter === 'missing' && row.dataset.tipped === '0')
+      || (uaTipsFilter === 'results' && row.dataset.result === '1')
+      || (uaTipsFilter === 'upcoming' && row.dataset.result === '0');
+    row.classList.toggle('hidden', !show);
+  });
+}
+
+function renderUaTipsToolbar() {
+  const states = uaTipsCompRaces.map(getUaRaceState);
+  const tipped = states.filter(s => s.tipped).length;
+  const missing = states.length - tipped;
+  const points = states.reduce((n, s) => n + s.points, 0);
+  const jokers = states.filter(s => s.joker).length;
+  const tile = (label, value, cls = 'text-gray-100') =>
+    `<div class="rounded-lg border border-gray-700 bg-gray-900/40 px-3 py-2"><div class="text-xs text-gray-500">${label}</div><div class="text-lg font-semibold ${cls}">${value}</div></div>`;
+  const summary = document.getElementById('user-admin-tips-summary');
+  if (summary) summary.innerHTML =
+    tile('Tips in', `${tipped} / ${states.length}`) +
+    tile('Missing', missing, missing ? 'text-red-300' : 'text-green-300') +
+    tile('Jokers used', jokers) +
+    tile('Points', points.toFixed(2), 'text-green-300');
+  const filters = document.getElementById('user-admin-tips-filters');
+  if (filters) {
+    filters.innerHTML = [['all', 'All'], ['missing', `Missing (${missing})`], ['results', 'Results in'], ['upcoming', 'Upcoming']]
+      .map(([k, l]) => `<button type="button" data-ua-filter="${k}" class="px-3 py-1 rounded-full border ${uaTipsFilter === k ? 'bg-blue-600 border-blue-500 text-white' : 'border-gray-600 text-gray-300 hover:bg-gray-700'}">${l}</button>`)
+      .join('');
+    filters.onclick = e => {
+      const b = e.target.closest('[data-ua-filter]');
+      if (!b) return;
+      uaTipsFilter = b.dataset.uaFilter;
+      renderUaTipsToolbar();
+      applyUaTipsFilter();
+    };
+  }
+}
+
+let uaTipsLoadToken = 0;
+let uaTipsRenderedFor = null; // { userId, compId } the tip rows on screen belong to
+
 async function loadUserAdminTips(userId, compId) {
   const tipsDiv = document.getElementById('user-admin-tips-list');
+  const token = ++uaTipsLoadToken;
+  uaTipsRenderedFor = null;
+  tipsDiv.onchange = null;
   if (!compId) {
     tipsDiv.innerHTML = '<div class="text-gray-400 text-sm">Select a competition to view tips.</div>';
     return;
@@ -3280,9 +3396,21 @@ async function loadUserAdminTips(userId, compId) {
   tipsDiv.innerHTML = '<div class="text-gray-400 text-sm">Loading tips...</div>';
   await loadUaResultsCache();
 
-  const { data: tipsData } = await supabase.from('tips').select('*').eq('user_id', userId).eq('comp_id', compId);
+  let tipsData = null;
+  try {
+    tipsData = await fetchAllRows((from, to) => supabase.from('tips').select('*').eq('user_id', userId).eq('comp_id', compId).range(from, to));
+  } catch (err) {
+    console.error('Error loading user tips:', err);
+  }
+  // A newer selection started while this one was loading - drop this result.
+  if (token !== uaTipsLoadToken) return;
+  if (!tipsData) {
+    // Never render an empty editor on a failed load: saving from it would blank real tips.
+    tipsDiv.innerHTML = '<div class="text-red-400 text-sm">Could not load this user\'s tips - reselect the user to retry. Editing is disabled to protect existing tips.</div>';
+    return;
+  }
   uaTipsByRace = {};
-  (tipsData || []).forEach(t => { uaTipsByRace[t.race_id] = t; });
+  tipsData.forEach(t => { uaTipsByRace[t.race_id] = t; });
 
   const compRaces = allRaces
     .filter(r => (r.compId || r.comp_id) === compId)
@@ -3297,53 +3425,58 @@ async function loadUserAdminTips(userId, compId) {
     const tip = uaTipsByRace[race.id];
     const horseId = tip ? (tip.horse_id || '') : '';
     const jokerUsed = tip ? tip.joker === true : false;
-    const points = calculateUaPoints(race, horseId, jokerUsed);
-    const horseOptions = Object.entries(race.horses || {})
-      .filter(([, h]) => !h.scratched)
+    const horses = race.horses || {};
+    // Scratched horses stay selectable (flagged) so an existing tip on one is not silently dropped.
+    const horseOptions = Object.entries(horses)
+      .filter(([hId, h]) => !h.scratched || hId === horseId)
       .sort((a, b) => (a[1].number || 0) - (b[1].number || 0))
-      .map(([hId, h]) => `<option value="${hId}" ${hId === horseId ? 'selected' : ''}>#${h.number} ${escapeHtml(h.name)}</option>`)
+      .map(([hId, h]) => `<option value="${escapeHtml(hId)}" ${hId === horseId ? 'selected' : ''}>#${h.number} ${escapeHtml(h.name)}${h.scratched ? ' (scratched)' : ''}</option>`)
       .join('');
+    const unknownOption = horseId && !horses[horseId]
+      ? `<option value="${escapeHtml(horseId)}" selected>Unknown horse (${escapeHtml(horseId)})</option>`
+      : '';
 
     return `
-      <div class="bg-gray-800 rounded-lg border border-gray-700 p-3" data-race-row="${race.id}">
+      <div class="ua-tip-row rounded-lg border border-gray-700 bg-gray-800 p-3" style="border-left-width:4px" data-race-row="${race.id}">
         <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
-          <div>
+          <div class="min-w-0">
             <strong class="text-gray-100">${escapeHtml(race.name)}</strong>
             <div class="text-xs text-gray-500">${race.date} ${race.time}</div>
           </div>
-          <span class="text-xs px-2 py-1 rounded-full ${points > 0 ? 'bg-green-900/40 text-green-300' : 'bg-gray-700 text-gray-400'}" data-points-for="${race.id}">
-            ${points > 0 ? `Points: ${points.toFixed(2)}` : 'No points'}
-          </span>
+          <div class="flex items-center gap-2 flex-wrap" data-badges-for="${race.id}"></div>
         </div>
-        <div class="flex items-center flex-wrap gap-2">
-          <select class="form-group !m-0 !w-auto" data-race-id="${race.id}">
+        <div class="flex items-center flex-wrap gap-3">
+          <img class="ua-silk" alt="" style="width:36px;height:36px;object-fit:contain;visibility:hidden;flex-shrink:0">
+          <select class="form-group !m-0 !w-auto min-w-[220px] flex-1 max-w-sm" data-race-id="${race.id}">
             <option value="">No Tip</option>
-            ${horseOptions}
+            ${unknownOption}${horseOptions}
           </select>
-          <label class="text-sm text-gray-300 flex items-center gap-1">
+          <label class="text-sm text-gray-300 flex items-center gap-1 cursor-pointer select-none">
             <input type="checkbox" class="joker-checkbox h-4 w-4" data-race-id="${race.id}" ${jokerUsed ? 'checked' : ''}>
             Joker
           </label>
-          <button class="btn-secondary save-tip-btn" data-race-id="${race.id}">Save</button>
           <span class="text-xs text-gray-400" data-status-for="${race.id}"></span>
         </div>
       </div>
     `;
   }).join('');
+  uaTipsRenderedFor = { userId, compId };
+  uaTipsCompRaces = compRaces;
+  compRaces.forEach(r => { updateUaRowState(r.id); refreshUaSilk(r.id); });
+  renderUaTipsToolbar();
 
   tipsDiv.onchange = async function(e) {
     if (e.target.matches('select[data-race-id], .joker-checkbox[data-race-id]')) {
+      refreshUaSilk(e.target.dataset.raceId);
       await saveUserAdminTip(e.target.dataset.raceId);
     }
-  };
-  tipsDiv.onclick = async function(e) {
-    const btn = e.target.closest('.save-tip-btn');
-    if (btn) await saveUserAdminTip(btn.dataset.raceId);
   };
 }
 
 async function saveUserAdminTip(raceId) {
-  if (!raceId || !uaSelectedUserId || !uaSelectedCompId) return;
+  // Always save against the user/comp the rows were rendered for, never the live selection.
+  const target = uaTipsRenderedFor;
+  if (!raceId || !target || target.userId !== uaSelectedUserId || target.compId !== uaSelectedCompId) return;
   const tipsDiv = document.getElementById('user-admin-tips-list');
   const row = tipsDiv.querySelector(`[data-race-row="${raceId}"]`);
   if (!row) return;
@@ -3351,37 +3484,52 @@ async function saveUserAdminTip(raceId) {
   const select = row.querySelector(`select[data-race-id="${raceId}"]`);
   const jokerCheckbox = row.querySelector(`.joker-checkbox[data-race-id="${raceId}"]`);
   const status = row.querySelector(`[data-status-for="${raceId}"]`);
-  const pointsEl = row.querySelector(`[data-points-for="${raceId}"]`);
-
   const chosenHorseId = select ? select.value : '';
   const joker = jokerCheckbox ? jokerCheckbox.checked : false;
 
+  const existing = uaTipsByRace[raceId];
+  if (existing && (existing.horse_id || '') === chosenHorseId && (existing.joker === true) === joker) {
+    return;
+  }
+  if (!existing && !chosenHorseId && !joker) return;
+
+  status.className = 'text-xs text-gray-400';
   status.textContent = 'Saving...';
 
   try {
-    await supabase.from('tips').upsert({
-      id: `${uaSelectedUserId}_${raceId}`,
-      user_id: uaSelectedUserId,
-      comp_id: uaSelectedCompId,
-      race_id: raceId,
-      horse_id: chosenHorseId || '',
-      timestamp: Date.now(),
-      joker
-    }, { onConflict: 'user_id,race_id' });
+    // Same RPC the tipping page uses, so joker balance and horse tip counters stay correct.
+    const { data, error } = await supabase.rpc('save_tip', {
+      p_user_id: target.userId,
+      p_race_id: raceId,
+      p_horse_id: chosenHorseId,
+      p_joker: joker,
+      p_comp_id: target.compId
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
 
-    uaTipsByRace[raceId] = { user_id: uaSelectedUserId, comp_id: uaSelectedCompId, race_id: raceId, horse_id: chosenHorseId || '', joker };
-    await recalculateUserAdminPoints(uaSelectedUserId, uaSelectedCompId);
+    uaTipsByRace[raceId] = { ...(existing || {}), user_id: target.userId, comp_id: target.compId, race_id: raceId, horse_id: chosenHorseId, joker };
+    await recalculateUserAdminPoints(target.userId, target.compId);
 
-    const points = calculateUaPoints(allRaces.find(r => r.id === raceId), chosenHorseId, joker);
-    if (pointsEl) {
-      pointsEl.textContent = points > 0 ? `Points: ${points.toFixed(2)}` : 'No points';
-      pointsEl.className = `text-xs px-2 py-1 rounded-full ${points > 0 ? 'bg-green-900/40 text-green-300' : 'bg-gray-700 text-gray-400'}`;
-    }
+    // save_tip may have changed jokers_remaining; refresh the field so the details form can't overwrite it with a stale value.
+    const { data: joining } = await supabase.from('user_comp_joinings')
+      .select('jokers_remaining').eq('user_id', target.userId).eq('comp_id', target.compId).maybeSingle();
+    const jokerInput = document.getElementById('user-admin-edit-joker');
+    if (joining && jokerInput && uaSelectedUserId === target.userId) jokerInput.value = joining.jokers_remaining ?? 0;
+
+    updateUaRowState(raceId);
+    renderUaTipsToolbar();
+    status.className = 'text-xs text-green-400';
     status.textContent = 'Saved';
-    setTimeout(() => { if (status.textContent === 'Saved') status.textContent = ''; }, 1500);
+    setTimeout(() => { if (status.textContent === 'Saved') { status.textContent = ''; status.className = 'text-xs text-gray-400'; } }, 1500);
   } catch (error) {
     console.error('Error saving tip:', error);
-    status.textContent = 'Error';
+    // Put the controls back to what is actually stored so the screen never shows an unsaved tip.
+    if (select) select.value = (uaTipsByRace[raceId]?.horse_id) || '';
+    if (jokerCheckbox) jokerCheckbox.checked = uaTipsByRace[raceId]?.joker === true;
+    refreshUaSilk(raceId);
+    status.className = 'text-xs text-red-400';
+    status.textContent = `Not saved: ${error?.message || 'unknown error'}`;
   }
 }
 
@@ -3402,13 +3550,14 @@ async function recalculateUserAdminPoints(userId, compId) {
     totalPoints += calculateUaPoints(race, horseId, !!tip.joker);
   }
 
-  await supabase.from('user_comp_joinings').upsert({
+  const { error } = await supabase.from('user_comp_joinings').upsert({
     id: `${userId}_${compId}`,
     user_id: userId,
     comp_id: compId,
     points: totalPoints,
     wins: totalWins
   }, { onConflict: 'user_id,comp_id' });
+  if (error) throw new Error(`Tip saved but points update failed: ${error.message}`);
 }
 
 window.exportUsersCsv = async function() {

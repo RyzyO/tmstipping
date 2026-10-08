@@ -712,11 +712,12 @@ async function loadUserTips(userId, compId) {
           <select class="form-select form-select-sm" style="width:auto;max-width:240px;" data-race-id="${raceId}">
             <option value="">No Tip</option>
             ${Object.entries(race.horses || {})
-              .filter(([_, h]) => !h.scratched)
+              .filter(([hId, h]) => !h.scratched || hId === horseId)
               .sort((a, b) => (a[1].number || 0) - (b[1].number || 0))
               .map(([hId, h]) =>
-                `<option value="${hId}" ${hId === horseId ? 'selected' : ''}>#${h.number} ${h.name}</option>`
+                `<option value="${hId}" ${hId === horseId ? 'selected' : ''}>#${h.number} ${h.name}${h.scratched ? ' (scratched)' : ''}</option>`
               ).join('')}
+            ${horseId && !(race.horses || {})[horseId] ? `<option value="${horseId}" selected>Unknown horse (${horseId})</option>` : ''}
           </select>
           <label>
             <input type="checkbox" class="form-check-input joker-checkbox" data-race-id="${raceId}" ${jokerUsed ? 'checked' : ''}>
@@ -783,17 +784,23 @@ async function saveTipForRace(raceId) {
   status.textContent = 'Saving...';
   status.className = 'save-status saving';
 
-  const tipDocId = `${selectedUserId}_${raceId}`;
+  const existing = tipsByRace[raceId];
+  if (existing && (existing.horse_id || '') === chosenHorseId && (existing.joker === true) === joker) {
+    status.textContent = '';
+    return;
+  }
+  if (!existing && !chosenHorseId && !joker) { status.textContent = ''; return; }
   try {
-    await supabase.from('tips').upsert({
-      id: tipDocId,
-      user_id: selectedUserId,
-      comp_id: selectedCompId,
-      race_id: raceId,
-      horse_id: chosenHorseId || "",
-      timestamp: Date.now(),
-      joker
-    }, { onConflict: 'user_id,race_id' });
+    // Same RPC the tipping page uses (keeps joker balance and horse counters correct).
+    const { data, error } = await supabase.rpc('save_tip', {
+      p_user_id: selectedUserId,
+      p_race_id: raceId,
+      p_horse_id: chosenHorseId,
+      p_joker: joker,
+      p_comp_id: selectedCompId
+    });
+    if (error) throw new Error(error.message);
+    if (data && data.error) throw new Error(data.error);
 
     tipsByRace[raceId] = { user_id: selectedUserId, comp_id: selectedCompId, race_id: raceId, horse_id: chosenHorseId || "", joker };
     await recalculateLeaderboardForUser(selectedUserId, selectedCompId, tipsByRace);
@@ -810,7 +817,9 @@ async function saveTipForRace(raceId) {
     }, 1500);
   } catch (err) {
     console.error(err);
-    status.textContent = 'Error';
+    if (select) select.value = existing ? (existing.horse_id || '') : '';
+    if (jokerCheckbox) jokerCheckbox.checked = existing ? existing.joker === true : false;
+    status.textContent = 'Not saved: ' + (err && err.message ? err.message : 'unknown error');
     status.className = 'save-status error';
   }
 }
