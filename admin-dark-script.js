@@ -3949,6 +3949,11 @@ async function loadRemoteImageForCanvas(url) {
   }
 }
 
+// Drop bracketed bits such as country suffixes: "Zahran (NZ)" -> "Zahran".
+function exportHorseName(h) {
+  return String(h.name || '').replace(/\s*\([^)]*\)/g, '').trim();
+}
+
 window.exportRaceFieldPng = async function() {
   const race = allRaces.find(r => r.id === currentRaceId);
   if (!race) { alert('Select a race first.'); return; }
@@ -4012,6 +4017,26 @@ window.exportRaceFieldPng = async function() {
     const rowH = Math.min(100, (BOTTOM - TOP - GAP * (perCol - 1)) / perCol);
     const k = rowH / 100;
 
+    const fitFont = (text, weight, basePx, minPx, maxW) => {
+      let px = Math.round(basePx * k);
+      const floor = Math.round(minPx * k);
+      for (; px > floor; px--) {
+        ctx.font = `${weight} ${px}px ${FONT}`;
+        if (ctx.measureText(text).width <= maxW) return px;
+      }
+      ctx.font = `${weight} ${floor}px ${FONT}`;
+      return floor;
+    };
+    const formW = 5 * 35 * k;
+    // Every name uses the size the longest one needs, so the grid looks uniform.
+    let namePx = Math.round(30 * k);
+    horses.forEach((h, i) => {
+      const bsz = rowH * 0.62, ssz = rowH - 14 * k;
+      const sw = silks[i] ? ssz * (silks[i].naturalWidth / silks[i].naturalHeight) : ssz;
+      const maxW = colW - (14 * k + bsz + 14 * k + sw + 16 * k) - formW - 24 * k;
+      namePx = Math.min(namePx, fitFont(`${exportHorseName(h)}${h.barrier ? ` (${h.barrier})` : ''}`, 700, 30, 16, maxW));
+    });
+
     horses.forEach((h, i) => {
       const col = Math.floor(i / perCol), row = i % perCol;
       const x = PAD + col * (colW + COL_GAP), y = TOP + row * (rowH + GAP);
@@ -4044,24 +4069,13 @@ window.exportRaceFieldPng = async function() {
       // Name + jockey/trainer. Text shrinks to fit the column instead of truncating; with
       // 2-3 columns the jockey and trainer get their own lines so nothing is cramped.
       ctx.textAlign = 'left';
-      const formW = 5 * 35 * k;
       const maxName = x + colW - formW - 24 * k - textStart;
       const maxFull = x + colW - 14 * k - textStart;
-      const fitFont = (text, weight, basePx, minPx, maxW) => {
-        let px = Math.round(basePx * k);
-        const floor = Math.round(minPx * k);
-        for (; px > floor; px--) {
-          ctx.font = `${weight} ${px}px ${FONT}`;
-          if (ctx.measureText(text).width <= maxW) return px;
-        }
-        ctx.font = `${weight} ${floor}px ${FONT}`;
-        return floor;
-      };
       const threeLine = cols > 1;
       const line1Y = y + rowH * (threeLine ? 0.27 : 0.34);
       const barrierTxt = h.barrier ? ` (${h.barrier})` : '';
-      const nm = h.name || '';
-      fitFont(nm + barrierTxt, 700, 30, 16, maxName);
+      const nm = exportHorseName(h);
+      ctx.font = `700 ${namePx}px ${FONT}`;
       const name = fitText(ctx, nm, maxName - ctx.measureText(barrierTxt).width);
       ctx.fillStyle = '#f8fafc';
       ctx.fillText(name, textStart, line1Y);
