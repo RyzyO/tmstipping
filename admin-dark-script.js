@@ -3923,6 +3923,189 @@ function fitText(ctx, text, maxWidth) {
   return out + '…';
 }
 
+// ── Race field PNG export (1920×1080) ──
+// Silks live on racingaustralia.horse, which sends no CORS headers, so a plain <img>
+// would taint the canvas. Try a CORS load first, then go through ra-proxy (which returns
+// the PNG bytes with CORS enabled). Anything that still fails falls back to a default silk.
+async function loadRemoteImageForCanvas(url) {
+  if (!url) return null;
+  const direct = await new Promise(resolve => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+  if (direct) return direct;
+  try {
+    const proxyUrl = buildSelfProxyUrl(url);
+    const resp = await fetchWithTimeout(proxyUrl, 15000, proxyRequestHeaders(proxyUrl));
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    if (!blob.type.startsWith('image/')) return null;
+    return await loadImageOrNull(URL.createObjectURL(blob));
+  } catch (e) {
+    return null;
+  }
+}
+
+window.exportRaceFieldPng = async function() {
+  const race = allRaces.find(r => r.id === currentRaceId);
+  if (!race) { alert('Select a race first.'); return; }
+  const horses = Object.values(race.horses || {}).sort((a, b) =>
+    Number(a.no ?? a.number ?? 0) - Number(b.no ?? b.number ?? 0));
+  if (!horses.length) { alert('This race has no horses to export.'); return; }
+
+  const btn = document.getElementById('export-race-png-btn');
+  const original = btn?.innerHTML;
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Rendering…'; }
+
+  try {
+    const [logo, defaultSilk] = await Promise.all([
+      loadImageOrNull('images/logo.png'),
+      loadImageOrNull(LB_DEFAULT_SILK_SRC),
+    ]);
+    const silks = await Promise.all(horses.map(async h =>
+      (await loadRemoteImageForCanvas(getUaSilkUrl(h, race.name))) || defaultSilk));
+
+    const W = 1920, H = 1080;
+    const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif';
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'middle';
+
+    const bg = ctx.createLinearGradient(0, 0, W, H);
+    bg.addColorStop(0, '#111827'); bg.addColorStop(1, '#0b1120');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    const glow = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, W * 0.6);
+    glow.addColorStop(0, 'rgba(251,191,36,0.16)'); glow.addColorStop(1, 'rgba(251,191,36,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+
+    // Header
+    const PAD = 60;
+    let textX = PAD;
+    if (logo) {
+      const lh = 90, lw = logo.naturalWidth * (lh / logo.naturalHeight);
+      ctx.drawImage(logo, PAD, 36, lw, lh);
+      textX = PAD + lw + 36;
+    }
+    const dist = race.distance ? `${race.distance}${/\D/.test(String(race.distance)) ? '' : 'm'}` : '';
+    const dm = String(race.date || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    const dateTxt = dm ? `${dm[3]}/${dm[2]}/${dm[1]}` : (race.date || '');
+    const tm = String(race.time || '').match(/^(\d{1,2}):(\d{2})/);
+    const timeTxt = tm ? `${(+tm[1] % 12) || 12}:${tm[2]}${+tm[1] >= 12 ? 'pm' : 'am'}` : '';
+    const when = [dateTxt, timeTxt, dist].filter(Boolean).join('  •  ');
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = `800 52px ${FONT}`;
+    ctx.fillText(fitText(ctx, race.name || 'Race', W - textX - PAD), textX, 66);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = `600 26px ${FONT}`;
+    ctx.fillText(when, textX, 110);
+
+    // Field grid — 1 column up to 8 runners, 2 up to 16, then 3
+    const TOP = 160, BOTTOM = H - 56, GAP = 10, COL_GAP = 28;
+    const cols = horses.length > 16 ? 3 : horses.length > 8 ? 2 : 1;
+    const perCol = Math.ceil(horses.length / cols);
+    const colW = (W - PAD * 2 - COL_GAP * (cols - 1)) / cols;
+    const rowH = Math.min(100, (BOTTOM - TOP - GAP * (perCol - 1)) / perCol);
+    const k = rowH / 100;
+
+    horses.forEach((h, i) => {
+      const col = Math.floor(i / perCol), row = i % perCol;
+      const x = PAD + col * (colW + COL_GAP), y = TOP + row * (rowH + GAP);
+      const scratched = !!h.scratched;
+      ctx.globalAlpha = scratched ? 0.45 : 1;
+
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      roundRectPath(ctx, x, y, colW, rowH, 14 * k); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = 1; ctx.stroke();
+
+      // Number badge
+      const bs = rowH * 0.62;
+      ctx.fillStyle = '#fbbf24';
+      roundRectPath(ctx, x + 14 * k, y + (rowH - bs) / 2, bs, bs, 10 * k); ctx.fill();
+      ctx.fillStyle = '#111827'; ctx.textAlign = 'center';
+      ctx.font = `800 ${Math.round(32 * k)}px ${FONT}`;
+      ctx.fillText(String(h.no ?? h.number ?? ''), x + 14 * k + bs / 2, y + rowH / 2 + 1);
+
+      // Silk
+      const silk = silks[i];
+      const sx = x + 14 * k + bs + 14 * k;
+      const ss = rowH - 14 * k;
+      let silkW = ss;
+      if (silk) {
+        silkW = ss * (silk.naturalWidth / silk.naturalHeight);
+        ctx.drawImage(silk, sx, y + (rowH - ss) / 2, silkW, ss);
+      }
+      const textStart = sx + silkW + 16 * k;
+
+      // Name + jockey/trainer
+      ctx.textAlign = 'left';
+      const maxText = x + colW - 190 * k - textStart - 10;
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = `700 ${Math.round(30 * k)}px ${FONT}`;
+      const barrierTxt = h.barrier ? ` (${h.barrier})` : '';
+      const name = fitText(ctx, h.name || '', maxText - ctx.measureText(barrierTxt).width);
+      ctx.fillText(name, textStart, y + rowH * 0.34);
+      const nameW = ctx.measureText(name).width;
+      if (scratched) {
+        ctx.fillStyle = '#f87171';
+        ctx.fillRect(textStart, y + rowH * 0.34, nameW, 2);
+      }
+      if (barrierTxt) {
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillText(barrierTxt, textStart + nameW, y + rowH * 0.34);
+      }
+      const wt = h.weight ? `${String(h.weight).replace(/kg$/i, '')}kg` : '';
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = `500 ${Math.round(20 * k)}px ${FONT}`;
+      ctx.fillText(fitText(ctx, `J: ${h.jockey || '—'}${wt ? ' ' + wt : ''}   T: ${h.trainer || '—'}`, maxText), textStart, y + rowH * 0.72);
+
+      // Last 5 starts (most recent on the right), same colours as the tipping page
+      const form = String(h.last10 || '').replace(/\s/g, '').slice(-5);
+      const bw = 30 * k, bgap = 5 * k;
+      const formRight = x + colW - 18 * k;
+      Array.from(form).forEach((c, ci) => {
+        const bx = formRight - (form.length - ci) * bw - (form.length - ci - 1) * bgap;
+        ctx.fillStyle = c === '1' ? '#22c55e' : (c === '2' || c === '3') ? '#3b82f6'
+          : c.toLowerCase() === 'x' ? '#ef4444' : '#4b5563';
+        roundRectPath(ctx, bx, y + rowH * 0.34 - bw / 2, bw, bw, 6 * k); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+        ctx.font = `700 ${Math.round(18 * k)}px ${FONT}`;
+        ctx.fillText(c, bx + bw / 2, y + rowH * 0.34 + 1);
+      });
+      ctx.textAlign = 'right';
+      ctx.globalAlpha = 1;
+      if (scratched) {
+        ctx.fillStyle = '#f87171';
+        ctx.font = `800 ${Math.round(18 * k)}px ${FONT}`;
+        ctx.fillText('SCRATCHED', x + colW - 18 * k - 90 * k, y + rowH * 0.72);
+      }
+    });
+
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'center'; ctx.fillStyle = '#64748b';
+    ctx.font = `500 20px ${FONT}`;
+    ctx.fillText('The Mock Sports', W / 2, H - 28);
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('Canvas could not produce a PNG (an image may have tainted it)');
+    const slug = `${race.name || 'race'}-${race.date || ''}`.replace(/[^\w\d]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.download = `${slug}-1920x1080.png`;
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    console.error('[race-export]', err);
+    alert('Error exporting PNG: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; if (window.feather) feather.replace(); }
+  }
+};
+
 window.exportLeaderboardPng = async function() {
   const btn = document.getElementById('lb-export-png-btn');
   const week = document.getElementById('lb-week-select')?.value;

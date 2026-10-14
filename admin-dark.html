@@ -989,6 +989,7 @@
                 <h3 class="text-base md:text-lg font-semibold">Manage Horses</h3>
                 <div class="flex flex-wrap gap-2">
                   <button onclick="backfillSilksForCurrentRace()" class="btn-secondary text-xs md:text-sm" id="backfill-silks-btn"><i data-feather="award" class="h-4 w-4"></i> Fetch Silks</button>
+                  <button onclick="exportRaceFieldPng()" class="btn-secondary text-xs md:text-sm" id="export-race-png-btn" title="Download a 1920x1080 PNG of this race's field"><i data-feather="image" class="h-4 w-4"></i> Export PNG</button>
                   <button onclick="recalculateRaceHorseTipCounts()" class="btn-secondary text-xs md:text-sm"><i data-feather="bar-chart-2" class="h-4 w-4"></i> Recalculate Tip %</button>
                   <button onclick="addHorseToRace()" class="btn-secondary text-xs md:text-sm"><i data-feather="plus" class="h-4 w-4"></i> Add</button>
                 </div>
@@ -1453,7 +1454,7 @@
     </div>
   </footer>
 
-  <script type="module" src="admin-dark-script.js?v=20260828h"></script>
+  <script type="module" src="admin-dark-script.js?v=20261014d"></script>
 
   <!-- RA Meeting Browser Modal -->
   <div id="ra-browser-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);overflow-y:auto;" onclick="if(event.target===this)closeRAMeetingBrowser()">

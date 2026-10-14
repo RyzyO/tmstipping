@@ -59,7 +59,8 @@ serve(async (req) => {
       },
     })
 
-    const body = await upstream.text()
+    // arrayBuffer, not text(): silk PNGs are proxied too and text() would corrupt them.
+    const body = await upstream.arrayBuffer()
     return new Response(body, {
       status: upstream.status,
       headers: {
