@@ -4041,27 +4041,53 @@ window.exportRaceFieldPng = async function() {
       }
       const textStart = sx + silkW + 16 * k;
 
-      // Name + jockey/trainer
+      // Name + jockey/trainer. Text shrinks to fit the column instead of truncating; with
+      // 2-3 columns the jockey and trainer get their own lines so nothing is cramped.
       ctx.textAlign = 'left';
-      const maxText = x + colW - 190 * k - textStart - 10;
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = `700 ${Math.round(30 * k)}px ${FONT}`;
+      const formW = 5 * 35 * k;
+      const maxName = x + colW - formW - 24 * k - textStart;
+      const maxFull = x + colW - 14 * k - textStart;
+      const fitFont = (text, weight, basePx, minPx, maxW) => {
+        let px = Math.round(basePx * k);
+        const floor = Math.round(minPx * k);
+        for (; px > floor; px--) {
+          ctx.font = `${weight} ${px}px ${FONT}`;
+          if (ctx.measureText(text).width <= maxW) return px;
+        }
+        ctx.font = `${weight} ${floor}px ${FONT}`;
+        return floor;
+      };
+      const threeLine = cols > 1;
+      const line1Y = y + rowH * (threeLine ? 0.27 : 0.34);
       const barrierTxt = h.barrier ? ` (${h.barrier})` : '';
-      const name = fitText(ctx, h.name || '', maxText - ctx.measureText(barrierTxt).width);
-      ctx.fillText(name, textStart, y + rowH * 0.34);
+      const nm = h.name || '';
+      fitFont(nm + barrierTxt, 700, 30, 16, maxName);
+      const name = fitText(ctx, nm, maxName - ctx.measureText(barrierTxt).width);
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(name, textStart, line1Y);
       const nameW = ctx.measureText(name).width;
       if (scratched) {
         ctx.fillStyle = '#f87171';
-        ctx.fillRect(textStart, y + rowH * 0.34, nameW, 2);
+        ctx.fillRect(textStart, line1Y, nameW, 2);
       }
       if (barrierTxt) {
         ctx.fillStyle = '#fbbf24';
-        ctx.fillText(barrierTxt, textStart + nameW, y + rowH * 0.34);
+        ctx.fillText(barrierTxt, textStart + nameW, line1Y);
       }
       const wt = h.weight ? `${String(h.weight).replace(/kg$/i, '')}kg` : '';
+      const jockeyTxt = `J: ${h.jockey || '—'}${wt ? ' ' + wt : ''}`;
+      const trainerTxt = `T: ${h.trainer || '—'}`;
       ctx.fillStyle = '#94a3b8';
-      ctx.font = `500 ${Math.round(20 * k)}px ${FONT}`;
-      ctx.fillText(fitText(ctx, `J: ${h.jockey || '—'}${wt ? ' ' + wt : ''}   T: ${h.trainer || '—'}`, maxText), textStart, y + rowH * 0.72);
+      if (threeLine) {
+        fitFont(jockeyTxt, 500, 20, 12, maxFull);
+        ctx.fillText(fitText(ctx, jockeyTxt, maxFull), textStart, y + rowH * 0.57);
+        fitFont(trainerTxt, 500, 20, 12, maxFull);
+        ctx.fillText(fitText(ctx, trainerTxt, maxFull), textStart, y + rowH * 0.82);
+      } else {
+        const both = `${jockeyTxt}   ${trainerTxt}`;
+        fitFont(both, 500, 20, 12, maxName);
+        ctx.fillText(fitText(ctx, both, maxName), textStart, y + rowH * 0.72);
+      }
 
       // Last 5 starts (most recent on the right), same colours as the tipping page
       const form = String(h.last10 || '').replace(/\s/g, '').slice(-5);
@@ -4071,17 +4097,17 @@ window.exportRaceFieldPng = async function() {
         const bx = formRight - (form.length - ci) * bw - (form.length - ci - 1) * bgap;
         ctx.fillStyle = c === '1' ? '#22c55e' : (c === '2' || c === '3') ? '#3b82f6'
           : c.toLowerCase() === 'x' ? '#ef4444' : '#4b5563';
-        roundRectPath(ctx, bx, y + rowH * 0.34 - bw / 2, bw, bw, 6 * k); ctx.fill();
+        roundRectPath(ctx, bx, line1Y - bw / 2, bw, bw, 6 * k); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
         ctx.font = `700 ${Math.round(18 * k)}px ${FONT}`;
-        ctx.fillText(c, bx + bw / 2, y + rowH * 0.34 + 1);
+        ctx.fillText(c, bx + bw / 2, line1Y + 1);
       });
       ctx.textAlign = 'right';
       ctx.globalAlpha = 1;
       if (scratched) {
         ctx.fillStyle = '#f87171';
         ctx.font = `800 ${Math.round(18 * k)}px ${FONT}`;
-        ctx.fillText('SCRATCHED', x + colW - 18 * k - 90 * k, y + rowH * 0.72);
+        ctx.fillText('SCRATCHED', x + colW - 18 * k, y + rowH * (threeLine ? 0.57 : 0.72));
       }
     });
 
