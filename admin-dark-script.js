@@ -4027,7 +4027,8 @@ window.exportRaceFieldPng = async function() {
       ctx.font = `${weight} ${floor}px ${FONT}`;
       return floor;
     };
-    const formW = 5 * 35 * k;
+    const fk = cols >= 3 ? 0.72 : 1;   // smaller form boxes when the columns are narrow
+    const formW = 5 * 35 * k * fk;
     // Every name uses the size the longest one needs, so the grid looks uniform.
     let namePx = Math.round(30 * k);
     horses.forEach((h, i) => {
@@ -4105,7 +4106,7 @@ window.exportRaceFieldPng = async function() {
 
       // Last 5 starts (most recent on the right), same colours as the tipping page
       const form = String(h.last10 || '').replace(/\s/g, '').slice(-5);
-      const bw = 30 * k, bgap = 5 * k;
+      const bw = 30 * k * fk, bgap = 5 * k * fk;
       const formRight = x + colW - 18 * k;
       Array.from(form).forEach((c, ci) => {
         const bx = formRight - (form.length - ci) * bw - (form.length - ci - 1) * bgap;
@@ -4113,7 +4114,7 @@ window.exportRaceFieldPng = async function() {
           : c.toLowerCase() === 'x' ? '#ef4444' : '#4b5563';
         roundRectPath(ctx, bx, line1Y - bw / 2, bw, bw, 6 * k); ctx.fill();
         ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
-        ctx.font = `700 ${Math.round(18 * k)}px ${FONT}`;
+        ctx.font = `700 ${Math.round(18 * k * fk)}px ${FONT}`;
         ctx.fillText(c, bx + bw / 2, line1Y + 1);
       });
       ctx.textAlign = 'right';
