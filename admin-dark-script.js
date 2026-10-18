@@ -401,6 +401,7 @@ function updateRaceSelection() {
 }
 
 async function selectRace(raceId) {
+  syncDrawerActive('races');
   currentRaceId = raceId;
   updateRaceSelection();
 
@@ -508,6 +509,7 @@ async function moveRaceToComp() {
 // ============ RACE FORM ============
 function showNewRaceForm() {
   currentRaceId = null;
+  syncDrawerActive('races');
   document.getElementById('no-selection').classList.add('hidden');
   document.getElementById('race-details-panel').classList.add('hidden');
   document.getElementById('new-race-panel').classList.remove('hidden');
@@ -2550,11 +2552,45 @@ async function handleLogout() {
 }
 
 // ============ MOBILE NAVIGATION ============
-function toggleMobileNav() {
-  const mobileNav = document.getElementById('mobile-nav');
-  mobileNav.classList.toggle('hidden');
+function toggleMobileNav(force) {
+  const open = typeof force === 'boolean' ? force : !document.body.classList.contains('nav-open');
+  document.body.classList.toggle('nav-open', open);
+  document.getElementById('nav-drawer')?.setAttribute('aria-hidden', String(!open));
+  document.getElementById('nav-open-btn')?.setAttribute('aria-expanded', String(open));
   feather.replace();
 }
+
+function drawerNav(tab) {
+  toggleMobileNav(false);
+  switchMainTab(tab);
+}
+window.drawerNav = drawerNav;
+
+function syncDrawerActive(tab) {
+  document.body.dataset.mainTab = tab || 'races';   // mobile CSS hides the stat cards off the races page
+  document.querySelectorAll('#nav-drawer .nav-item[data-nav]').forEach(el => {
+    el.classList.toggle('active', el.dataset.nav === (tab || 'races'));
+  });
+}
+
+// One competition <select> serves both layouts: it lives in the header bar on desktop
+// and moves into the drawer on mobile, so its id and change handler never get duplicated.
+function placeCompFilter() {
+  const select = document.getElementById('admin-comp-select');
+  const bar = document.getElementById('comp-filter-bar');
+  const slot = document.getElementById('drawer-comp-slot');
+  if (!select || !bar || !slot) return;
+  const mobile = window.matchMedia('(max-width: 767px)').matches;
+  const target = mobile ? slot : bar;
+  if (select.parentElement !== target) target.appendChild(select);
+}
+placeCompFilter();
+window.matchMedia('(max-width: 767px)').addEventListener('change', (e) => {
+  placeCompFilter();
+  if (!e.matches) toggleMobileNav(false);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleMobileNav(false); });
+syncDrawerActive('races');
 
 function toggleMobileSidebar() {
   const overlay = document.getElementById('mobile-sidebar-overlay');
@@ -2762,6 +2798,7 @@ window.handleCompSelectionChange = async function() {
 
 // ============ COMPETITIONS MANAGEMENT ============
 window.switchMainTab = function(tab) {
+  syncDrawerActive(tab);
   const racePanel = document.getElementById('race-details-panel');
   const noSelectionPanel = document.getElementById('no-selection');
   const newRacePanel = document.getElementById('new-race-panel');

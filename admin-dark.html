@@ -544,6 +544,22 @@
         font-size: 16px; /* Prevents zoom on iOS */
       }
     }
+
+      .nav-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60; }
+      .nav-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 86vw); background: #0f172a; border-left: 1px solid #1f2937; transform: translateX(100%); transition: transform .22s ease; z-index: 70; display: flex; flex-direction: column; overflow-y: auto; visibility: hidden; }
+      body.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+      body.nav-open .nav-drawer { transform: none; visibility: visible; }
+      body.nav-open { overflow: hidden; }
+      .nav-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; }
+      .nav-sec { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; padding: 14px 16px 4px; }
+      .nav-item { display: flex; align-items: center; gap: 12px; width: calc(100% - 16px); margin: 2px 8px; padding: 12px; border-radius: 10px; color: #d1d5db; font-size: 15px; text-align: left; transition: background .15s; }
+      .nav-item:hover, .nav-item:active { background: #1f2937; }
+      .nav-item svg { width: 19px; height: 19px; flex-shrink: 0; }
+      .nav-item.active { background: rgba(251,191,36,.12); color: #fbbf24; }
+      #drawer-comp-slot select { width: 100%; }
+      .nav-foot { margin-top: auto; border-top: 1px solid #1f2937; padding: 8px 0 12px; }
+      @media (max-width: 767px) { body:not([data-main-tab="races"]) #dashboard-stats { display: none; } }
+      @media (min-width: 768px) { .nav-scrim, .nav-drawer { display: none; } }
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
@@ -555,7 +571,7 @@
           <img src="images/logo.png" alt="Logo" class="h-8 w-auto mr-2" style="object-fit: contain;" />
           <h1 class="text-xl sm:text-xl font-bold gradient-text">Admin</h1>
         </div>
-        <button onclick="toggleMobileNav()" class="md:hidden text-gray-300">
+        <button onclick="toggleMobileNav()" class="md:hidden text-gray-300" aria-label="Open menu" aria-controls="nav-drawer" aria-expanded="false" id="nav-open-btn">
           <i data-feather="menu" class="h-6 w-6"></i>
         </button>
         <div id="desktop-nav" class="hidden md:flex items-center gap-4">
@@ -587,7 +603,7 @@
         </div>
       </div>
       <!-- Competition filter (header) -->
-      <div class="border-t border-gray-800/70 py-3 flex items-center gap-2 sm:gap-3">
+      <div id="comp-filter-bar" class="border-t border-gray-800/70 py-3 hidden md:flex items-center gap-2 sm:gap-3">
         <label for="admin-comp-select" class="flex items-center gap-2 text-sm font-semibold text-gray-300 whitespace-nowrap">
           <i data-feather="filter" class="h-4 w-4 text-yellow-400"></i>
           <span class="hidden sm:inline">Filter by Competition:</span>
@@ -597,40 +613,39 @@
           <option value="">All Competitions</option>
         </select>
       </div>
-      <!-- Mobile Nav Menu -->
-      <div id="mobile-nav" class="hidden md:hidden pb-4 space-y-2">
-        <button onclick="switchMainTab('users')" class="w-full text-left text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
-          <i data-feather="users" class="h-4 w-4 inline mr-2"></i>
-          Users
-        </button>
-        <button onclick="switchMainTab('leaderboard')" class="w-full text-left text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
-          <i data-feather="bar-chart-2" class="h-4 w-4 inline mr-2"></i>
-          Leaderboard
-        </button>
-        <button onclick="switchMainTab('comps')" class="w-full text-left text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
-          <i data-feather="award" class="h-4 w-4 inline mr-2"></i>
-          Competitions
-        </button>
-        <button onclick="switchMainTab('notifications')" class="w-full text-left text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
-          <i data-feather="bell" class="h-4 w-4 inline mr-2"></i>
-          Notifications
-        </button>
-        <button onclick="removeUnpaidFromLeaderboard()" class="w-full text-left text-gray-300 hover:text-red-400 transition text-sm py-2 px-3 rounded bg-gray-800">
-          <i data-feather="trash-2" class="h-4 w-4 inline mr-2"></i>
-          Clean Leaderboard
-        </button>
-        <button onclick="handleLogout()" class="w-full text-left text-gray-300 hover:text-yellow-400 transition text-sm py-2 px-3 rounded bg-gray-800">
-          <i data-feather="log-out" class="h-4 w-4 inline mr-2"></i>
-          Logout
-        </button>
-      </div>
     </div>
   </nav>
+
+
+  <!-- Mobile nav drawer -->
+  <div id="nav-scrim" class="nav-scrim" onclick="toggleMobileNav(false)"></div>
+  <aside id="nav-drawer" class="nav-drawer" aria-hidden="true" aria-label="Main menu">
+    <div class="nav-drawer-head">
+      <div class="flex items-center gap-2">
+        <img src="images/logo.png" alt="" class="h-7 w-auto" style="object-fit: contain;" />
+        <span class="font-semibold gradient-text">Admin</span>
+      </div>
+      <button onclick="toggleMobileNav(false)" class="text-gray-300 p-1" aria-label="Close menu"><i data-feather="x" class="h-5 w-5"></i></button>
+    </div>
+    <div class="nav-sec">Competition</div>
+    <div id="drawer-comp-slot" class="px-4 pb-2"></div>
+    <div class="nav-sec">Manage</div>
+    <button class="nav-item" data-nav="races" onclick="drawerNav('races')"><i data-feather="flag"></i>Races</button>
+    <button class="nav-item" data-nav="users" onclick="drawerNav('users')"><i data-feather="users"></i>Users</button>
+    <button class="nav-item" data-nav="leaderboard" onclick="drawerNav('leaderboard')"><i data-feather="bar-chart-2"></i>Leaderboard</button>
+    <button class="nav-item" data-nav="comps" onclick="drawerNav('comps')"><i data-feather="award"></i>Competitions</button>
+    <button class="nav-item" data-nav="notifications" onclick="drawerNav('notifications')"><i data-feather="bell"></i>Notifications</button>
+    <div class="nav-sec">Tools</div>
+    <button class="nav-item" onclick="toggleMobileNav(false); removeUnpaidFromLeaderboard()"><i data-feather="trash-2"></i>Clean leaderboard</button>
+    <div class="nav-foot">
+      <button class="nav-item" onclick="handleLogout()"><i data-feather="log-out"></i>Log out</button>
+    </div>
+  </aside>
 
   <!-- Main Content -->
   <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Dashboard Stats -->
-    <div class="grid grid-cols-2 lg:grid-cols-7 gap-3 lg:gap-4 mb-6 lg:mb-8" data-aos="fade-up">
+    <div id="dashboard-stats" class="grid grid-cols-2 lg:grid-cols-7 gap-3 lg:gap-4 mb-6 lg:mb-8" data-aos="fade-up">
       <div class="stat-card rounded-lg p-6 hover:scale-105 transition">
         <div class="flex items-center justify-between">
           <div>
@@ -1454,7 +1469,7 @@
     </div>
   </footer>
 
-  <script type="module" src="admin-dark-script.js?v=20261014h"></script>
+  <script type="module" src="admin-dark-script.js?v=20261018b"></script>
 
   <!-- RA Meeting Browser Modal -->
   <div id="ra-browser-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.75);overflow-y:auto;" onclick="if(event.target===this)closeRAMeetingBrowser()">
