@@ -281,6 +281,18 @@
       </div>
     </section>
 
+    <!-- Roughest Win skeleton: shown while the banner below is being worked out -->
+    <section id="roughest-win-skeleton" class="hidden mb-8" aria-hidden="true">
+      <div class="card rounded-2xl shadow-2xl p-4 md:p-8 flex items-center gap-3 md:gap-5">
+        <div class="skeleton rounded-full flex-shrink-0" style="width: 2.75rem; height: 2.75rem;"></div>
+        <div class="flex-1 min-w-0">
+          <div class="skeleton h-3 w-36 rounded mb-3"></div>
+          <div class="skeleton h-4 w-2/3 max-w-xs rounded"></div>
+        </div>
+        <div class="skeleton h-8 w-24 rounded-xl flex-shrink-0"></div>
+      </div>
+    </section>
+
     <!-- Roughest Win Banner -->
     <section id="roughest-win-banner" class="hidden mb-8" data-aos="fade-up">
       <div class="card rounded-2xl shadow-2xl relative overflow-hidden">
@@ -769,6 +781,7 @@
         const cached = readCachedLeaderboard();
         if (cached) {
           cachedLeaderboard = cached;
+          paintCachedRoughestWin();
           renderLeaderboard(cachedLeaderboard);
         }
 
@@ -788,6 +801,7 @@
     }
 
     async function loadLeaderboard() {
+      paintCachedRoughestWin();
       showLoading();
       try {
         if (!selectedCompId) {
@@ -821,9 +835,15 @@
         cachedLeaderboard.sort((a, b) => b.points - a.points);
 
         writeCachedLeaderboard(cachedLeaderboard);
-        await computeAndRenderRoughestWin();
+        // The leaderboard itself is all the full-screen loader waits for. The roughest win
+        // needs every race, result and tip, so it loads afterwards behind a skeleton and
+        // the rocket badges are added once it lands.
         await applyStateFilter();
         hideLoading();
+
+        const before = [...roughestWinUserIds].sort().join(',');
+        await computeAndRenderRoughestWin();
+        if ([...roughestWinUserIds].sort().join(',') !== before) await applyStateFilter();
       } catch (error) {
         console.error('Error loading leaderboard:', error);
         hideLoading();
@@ -921,9 +941,56 @@
       `;
     }
 
+    // The roughest win only changes when a result is entered, but working it out means
+    // pulling every race, result and tip. So the last answer is kept per comp: it paints
+    // straight away on the next visit and the fresh calculation just corrects it if needed.
+    function roughestWinCacheKey() { return `tmstipping:roughestWin:${selectedCompId}`; }
+
+    function readCachedRoughestWin() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(roughestWinCacheKey()) || 'null');
+        return parsed && Array.isArray(parsed.winners) ? { maxPoints: parsed.maxPoints, winners: parsed.winners } : null;
+      } catch (error) { return null; }
+    }
+
+    function writeCachedRoughestWin(data) {
+      try { localStorage.setItem(roughestWinCacheKey(), JSON.stringify({ ...data, updatedAt: Date.now() })); }
+      catch (error) { /* storage full or unavailable — the live calculation still works */ }
+    }
+
+    function applyRoughestWin(data) {
+      const banner = document.getElementById('roughest-win-banner');
+      const content = document.getElementById('roughest-win-content');
+      roughestWinUserIds = new Set((data?.winners || []).map(w => w.userId));
+      if (!data || !data.winners.length || !banner || !content) {
+        banner?.classList.add('hidden');
+        return;
+      }
+      const sameHorse = data.winners.every(w => w.horseName === data.winners[0].horseName);
+      document.getElementById('roughest-win-summary-horse').textContent = sameHorse
+        ? data.winners[0].horseName
+        : [...new Set(data.winners.map(w => w.horseName))].join(', ');
+      content.innerHTML = data.winners.map(w => renderRoughestWinChip(w, !sameHorse)).join('') +
+        `<div class="font-bold gradient-text pl-1">${Number(data.maxPoints).toFixed(2)} pts</div>`;
+      banner.classList.remove('hidden');
+      if (window.feather) feather.replace();
+    }
+
+    // Paints whatever was cached for the selected comp (or clears the banner). Returns true on a hit.
+    function paintCachedRoughestWin() {
+      const cached = readCachedRoughestWin();
+      applyRoughestWin(cached);
+      return !!cached;
+    }
+
     async function computeAndRenderRoughestWin() {
       const banner = document.getElementById('roughest-win-banner');
       const content = document.getElementById('roughest-win-content');
+      const skeleton = document.getElementById('roughest-win-skeleton');
+      if (!readCachedRoughestWin()) {
+        banner?.classList.add('hidden');
+        skeleton?.classList.remove('hidden');
+      }
       try {
         await ensureRaceDataLoaded();
 
@@ -973,33 +1040,23 @@
         // Multiple races can tie at the same points, and the same user can appear
         // more than once — collapse to one chip per user.
         const seenUsers = new Set();
-        const uniqueWinners = [];
+        const winners = [];
         for (const w of ties) {
           if (seenUsers.has(w.userId)) continue;
           seenUsers.add(w.userId);
-          uniqueWinners.push(w);
+          winners.push({ userId: w.userId, horseName: w.horseName, joker: w.joker });
         }
 
-        roughestWinUserIds = seenUsers;
-
-        if (uniqueWinners.length === 0 || !banner || !content) {
-          banner?.classList.add('hidden');
-          return;
-        }
-
-        const sameHorse = uniqueWinners.every(w => w.horseName === uniqueWinners[0].horseName);
-        const summaryHorseText = sameHorse
-          ? uniqueWinners[0].horseName
-          : [...new Set(uniqueWinners.map(w => w.horseName))].join(', ');
-
-        document.getElementById('roughest-win-summary-horse').textContent = summaryHorseText;
-
-        content.innerHTML = uniqueWinners.map(w => renderRoughestWinChip(w, !sameHorse)).join('') +
-          `<div class="font-bold gradient-text pl-1">${maxPoints.toFixed(2)} pts</div>`;
-        banner.classList.remove('hidden');
+        // Only touch the page when the answer differs from what the cache already showed.
+        const data = { maxPoints, winners };
+        const previous = readCachedRoughestWin();
+        writeCachedRoughestWin(data);
+        if (!previous || JSON.stringify(previous) !== JSON.stringify(data)) applyRoughestWin(data);
       } catch (error) {
         console.error('Error computing roughest win:', error);
-        banner?.classList.add('hidden');
+        if (!readCachedRoughestWin()) banner?.classList.add('hidden');   // keep a cached answer on screen if the refresh fails
+      } finally {
+        skeleton?.classList.add('hidden');
       }
     }
 
