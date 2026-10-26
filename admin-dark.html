@@ -546,9 +546,9 @@
     }
 
       .nav-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60; }
-      .nav-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 86vw); background: #0f172a; border-left: 1px solid #1f2937; transform: translateX(100%); transition: transform .22s ease; z-index: 70; display: flex; flex-direction: column; overflow-y: auto; visibility: hidden; }
+      .nav-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 86vw); background: #0f172a; border-left: 1px solid #1f2937; transform: translateX(100%); transition: transform .22s ease, visibility 0s linear .22s; z-index: 70; display: flex; flex-direction: column; overflow-y: auto; visibility: hidden; }
       body.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
-      body.nav-open .nav-drawer { transform: none; visibility: visible; }
+      body.nav-open .nav-drawer { transform: none; visibility: visible; transition: transform .22s ease, visibility 0s; }
       body.nav-open { overflow: hidden; }
       .nav-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; }
       .nav-sec { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; padding: 14px 16px 4px; }

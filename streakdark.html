@@ -23,6 +23,22 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
+    .nav-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60; }
+    .nav-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 86vw); background: #0f172a; border-left: 1px solid #1f2937; transform: translateX(100%); transition: transform .22s ease, visibility 0s linear .22s; z-index: 70; display: flex; flex-direction: column; overflow-y: auto; visibility: hidden; }
+    body.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+    body.nav-open .nav-drawer { transform: none; visibility: visible; transition: transform .22s ease, visibility 0s; }
+    body.nav-open { overflow: hidden; }
+    .nav-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
+    .nav-cta { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 6px 16px 4px; padding: 12px; border-radius: 12px; background: #fbbf24; color: #111827; font-weight: 600; }
+    .nav-cta svg { width: 18px; height: 18px; }
+    .nav-sec { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; padding: 14px 16px 4px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; width: calc(100% - 16px); margin: 2px 8px; padding: 12px; border-radius: 10px; color: #d1d5db; font-size: 15px; text-align: left; transition: background .15s; }
+    .nav-item:hover, .nav-item:active { background: #1f2937; }
+    .nav-item svg { width: 19px; height: 19px; flex-shrink: 0; }
+    .nav-item.active { background: rgba(251,191,36,.12); color: #fbbf24; }
+    .nav-danger { color: #f87171; }
+    .nav-foot { margin-top: auto; border-top: 1px solid #1f2937; padding: 8px 0 12px; }
+    @media (min-width: 768px) { .nav-scrim, .nav-drawer { display: none; } }
     .glass-effect {
       background: rgba(17, 24, 39, 0.95);
       backdrop-filter: blur(12px);
@@ -204,7 +220,7 @@
           <img src="images/logo.png" alt="Logo" class="h-14 w-auto" style="object-fit: contain;" />
         </div>
         <div class="flex items-center space-x-4">
-          <button class="md:hidden" onclick="toggleMenu()">
+          <button class="md:hidden" onclick="toggleMenu()" id="navOpenBtn" aria-label="Open menu" aria-controls="navDrawer" aria-expanded="false">
             <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
           </button>
           <div class="hidden md:flex space-x-6">
@@ -222,19 +238,33 @@
         </div>
       </div>
     </div>
-    <div id="mobileMenu" class="hidden md:hidden glass-effect px-4 py-2 space-y-2">
-      <a href="dark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Home</a>
-      <a href="tipdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
-      <a href="leaderboarddark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
-      <a href="streakdark.html" class="block py-2 text-yellow-400 transition font-semibold">Streak</a>
-      <a href="resultsdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Results</a>
-      <a href="podcastdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Podcast</a>
-      <a href="faqdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">FAQ</a>
-      <a href="prizesdark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Prizes</a>
-      <a href="profiledark.html" class="block py-2 text-gray-300 hover:text-yellow-400 transition">Profile</a>
-      <button onclick="signOut()" class="block w-full text-left py-2 text-red-400 hover:text-red-300 transition font-semibold">Sign Out</button>
-    </div>
   </nav>
+
+  <!-- Mobile nav drawer -->
+  <div id="navScrim" class="nav-scrim" onclick="toggleMenu(false)"></div>
+  <aside id="navDrawer" class="nav-drawer" aria-hidden="true" aria-label="Main menu">
+    <div class="nav-drawer-head">
+      <img src="images/logo.png" alt="Logo" class="h-10 w-auto" style="object-fit: contain;" />
+      <button onclick="toggleMenu(false)" class="text-gray-300 p-1" aria-label="Close menu"><i data-feather="x" class="h-5 w-5"></i></button>
+    </div>
+    <a href="tipdark.html" class="nav-cta"><i data-feather="edit-3"></i>Tip now</a>
+    <div class="nav-sec">Play</div>
+    <a href="dark.html" class="nav-item" data-href="dark.html"><i data-feather="home"></i>Home</a>
+    <a href="comps.html" class="nav-item" data-href="comps.html"><i data-feather="award"></i>Competitions</a>
+    <a href="leaderboarddark.html" class="nav-item" data-href="leaderboarddark.html"><i data-feather="bar-chart-2"></i>Leaderboard</a>
+    <a href="streakdark.html" class="nav-item" data-href="streakdark.html"><i data-feather="zap"></i>Streak</a>
+    <a href="resultsdark.html" class="nav-item" data-href="resultsdark.html"><i data-feather="flag"></i>Results</a>
+    <div class="nav-sec">Explore</div>
+    <a href="notificationsdark.html" class="nav-item" data-href="notificationsdark.html"><i data-feather="bell"></i>Notifications</a>
+    <a href="prizesdark.html" class="nav-item" data-href="prizesdark.html"><i data-feather="gift"></i>Prizes</a>
+    <a href="podcastdark.html" class="nav-item" data-href="podcastdark.html"><i data-feather="mic"></i>Podcast</a>
+    <a href="faqdark.html" class="nav-item" data-href="faqdark.html"><i data-feather="help-circle"></i>FAQ</a>
+    <div class="nav-foot">
+    <a href="profiledark.html" class="nav-item" data-href="profiledark.html"><i data-feather="user"></i>Profile</a>
+      <button onclick="signOut()" class="nav-item nav-danger"><i data-feather="log-out"></i>Sign out</button>
+    </div>
+  </aside>
+
 
   <!-- Main -->
   <main class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-10 flex-grow">
@@ -328,11 +358,20 @@
   </div>
 
   <script>
-    function toggleMenu() {
-      const menu = document.getElementById("mobileMenu");
-      menu.classList.toggle("hidden");
+    function toggleMenu(force) {
+      const open = typeof force === 'boolean' ? force : !document.body.classList.contains('nav-open');
+      document.body.classList.toggle('nav-open', open);
+      document.getElementById('navDrawer')?.setAttribute('aria-hidden', String(!open));
+      document.getElementById('navOpenBtn')?.setAttribute('aria-expanded', String(open));
     }
     window.toggleMenu = toggleMenu;
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleMenu(false); });
+    window.matchMedia('(min-width: 768px)').addEventListener('change', (e) => { if (e.matches) toggleMenu(false); });
+    document.addEventListener('DOMContentLoaded', () => {
+      const here = location.pathname.split('/').pop() || 'dark.html';
+      document.querySelectorAll('#navDrawer .nav-item[data-href]').forEach(a => a.classList.toggle('active', a.dataset.href === here));
+      if (window.feather) feather.replace();
+    });
   </script>
 
   <script type="module">
