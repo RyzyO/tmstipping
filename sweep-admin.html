@@ -41,6 +41,7 @@
         <select id="sweep-select"></select>
       </div>
       <button id="new-sweep-btn" class="btn btn-primary">New sweep</button>
+      <button id="dup-sweep-btn" class="btn btn-ghost">Duplicate sweep</button>
     </div>
   </section>
 
@@ -61,7 +62,7 @@
             <option value="completed">Completed</option>
           </select>
         </div>
-        <label class="flex items-center gap-2 sm:mt-6"><input id="f-active" type="checkbox" class="!w-auto"> Show on public Sweep page</label>
+        <label class="flex items-center gap-2 sm:mt-6"><input id="f-active" type="checkbox" class="!w-auto"> Live: show on the Sweep page (turn on several to run multiple entry levels)</label>
       </div>
       <div class="flex gap-2 mt-4">
         <button id="save-details-btn" class="btn btn-primary">Save details</button>
@@ -215,7 +216,7 @@ async function loadSweeps(selectId) {
   sweeps = data || [];
   const keep = selectId || sweep?.id || sweeps.find(s => s.is_active)?.id || sweeps[0]?.id;
   $('sweep-select').innerHTML = sweeps.length
-    ? sweeps.map(s => `<option value="${s.id}">${esc(s.name)}${s.is_active ? ' (live)' : ''}</option>`).join('')
+    ? sweeps.map(s => `<option value="${s.id}">${esc(s.name)} ($${Number(s.entry_fee) || 0})${s.is_active ? ' (live)' : ''}</option>`).join('')
     : '<option value="">No sweeps yet</option>';
   if (keep) $('sweep-select').value = keep;
   await selectSweep($('sweep-select').value);
@@ -293,16 +294,34 @@ $('new-sweep-btn').addEventListener('click', () => {
   const name = prompt('Sweep name', 'Melbourne Cup Sweep 2026');
   if (!name) return;
   run('Creating sweep', async () => {
-    const { data, error } = await supabase.from('sweeps').insert({ name }).select().single();
+    const fee = parseFloat(prompt('Entry fee ($)', '30')) || 0;
+    const { data, error } = await supabase.from('sweeps').insert({ name, entry_fee: fee }).select().single();
     if (error) throw error;
+    await loadSweeps(data.id);
+  });
+});
+
+$('dup-sweep-btn').addEventListener('click', () => {
+  if (!sweep) return;
+  const fee = parseFloat(prompt(`Entry fee ($) for the copy of "${sweep.name}"`, sweep.entry_fee));
+  if (Number.isNaN(fee)) return;
+  const name = prompt('Name for the new sweep', `${sweep.name.replace(/\s*\(\$?\d+\)$/, '')} ($${fee})`);
+  if (!name) return;
+  run('Duplicating sweep', async () => {
+    const { id, created_at, ...rest } = sweep;
+    const { data, error } = await supabase.from('sweeps').insert({ ...rest, name, entry_fee: fee, status: 'open', is_active: false }).select().single();
+    if (error) throw error;
+    if (horses.length) {
+      // Same field, fresh sweep: no placings, nobody drawn.
+      const copy = horses.map(({ id, sweep_id, position, ...h }) => ({ ...h, sweep_id: data.id, position: null }));
+      check(await supabase.from('sweep_horses').insert(copy));
+    }
     await loadSweeps(data.id);
   });
 });
 
 $('save-details-btn').addEventListener('click', () => run('Saving', async () => {
   const is_active = $('f-active').checked;
-  // Only one live sweep at a time: the public page shows the single active one.
-  if (is_active) check(await supabase.from('sweeps').update({ is_active: false }).neq('id', sweep.id));
   check(await supabase.from('sweeps').update({
     name: $('f-name').value.trim() || sweep.name,
     entry_fee: parseFloat($('f-fee').value) || 0,

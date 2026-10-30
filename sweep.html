@@ -157,6 +157,9 @@
 
   <div id="banner" class="hidden rounded-2xl px-4 py-3 text-sm mb-6" role="status"></div>
 
+  <!-- One tab per live sweep (e.g. $30 / $50 / $100 entry) -->
+  <div id="sweep-tabs" class="hidden flex flex-wrap gap-2 mb-6" role="tablist" aria-label="Choose a sweep"></div>
+
   <!-- Hero: message left, the actual field right -->
   <section id="hero" class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
     <div class="card rounded-2xl shadow-2xl p-6 sm:p-10 lg:col-span-3 relative overflow-hidden flex flex-col justify-center" data-aos="fade-up">
@@ -271,6 +274,9 @@ let sweep = null;
 let horses = [];
 let entries = [];
 let started = false;
+let sweepList = [];
+let enteredIds = new Set();
+let selectedId = new URLSearchParams(window.location.search).get('sweep');
 const paymentParam = new URLSearchParams(window.location.search).get('payment');
 
 function toggleMenu(force) {
@@ -313,6 +319,26 @@ function banner(msg, tone) {
 
 const myEntry = () => entries.find(e => e.user_id === user?.id);
 
+function renderTabs() {
+  const el = $('sweep-tabs');
+  el.classList.toggle('hidden', sweepList.length < 2);
+  el.innerHTML = sweepList.map(s => {
+    const fee = Number(s.entry_fee) || 0;
+    const on = s.id === sweep.id;
+    return `<button role="tab" aria-selected="${on}" data-sweep="${s.id}" class="text-left rounded-xl px-5 py-3 border transition ${on ? 'border-yellow-400 bg-yellow-400/10 text-white' : 'border-gray-700 bg-gray-800/60 text-gray-300 hover:border-gray-500'}">
+      <span class="block text-xl font-bold ${on ? 'text-yellow-400' : ''}">${fee > 0 ? money(fee) : 'Free'}${enteredIds.has(s.id) ? ' <span class="text-green-400 text-sm font-semibold">&#10003; entered</span>' : ''}</span>
+      <span class="block text-xs text-gray-400">${esc(s.name)}</span>
+    </button>`;
+  }).join('');
+}
+$('sweep-tabs').addEventListener('click', e => {
+  const id = e.target.closest('[data-sweep]')?.dataset.sweep;
+  if (!id || id === sweep?.id) return;
+  selectedId = id;
+  history.replaceState({}, '', 'sweep.html?sweep=' + id);
+  load();
+});
+
 async function init() {
   await load();
   if (!paymentParam) return;
@@ -332,19 +358,25 @@ async function init() {
 }
 
 async function load() {
-  const { data: sweeps, error } = await supabase.from('sweeps').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1);
+  const { data: sweeps, error } = await supabase.from('sweeps').select('*').eq('is_active', true).order('entry_fee').order('created_at');
   if (error) { console.error(error); $('sweep-sub').textContent = 'Could not load the sweep. Try refreshing.'; $('sweep-actions').innerHTML = ''; return; }
-  sweep = sweeps?.[0] || null;
+  sweepList = sweeps || [];
+  sweep = sweepList.find(s => s.id === selectedId) || sweepList[0] || null;
+  if (sweep) selectedId = sweep.id;
+  $('sweep-tabs').classList.toggle('hidden', sweepList.length < 2);
   if (!sweep) {
     $('sweep-sub').textContent = 'No sweep is running right now. Check back closer to the Cup.';
     $('sweep-actions').innerHTML = '';
     ['silk-wall', 'facts', 'field', 'entrants'].forEach(id => $(id).classList.add('hidden'));
     return;
   }
-  const [h, e] = await Promise.all([
+  const [h, e, mine] = await Promise.all([
     supabase.from('sweep_horses').select('*').eq('sweep_id', sweep.id).order('number'),
-    supabase.from('sweep_entries').select('*').eq('sweep_id', sweep.id).order('created_at')
+    supabase.from('sweep_entries').select('*').eq('sweep_id', sweep.id).order('created_at'),
+    supabase.from('sweep_entries').select('sweep_id').eq('user_id', user.id).in('sweep_id', sweepList.map(s => s.id))
   ]);
+  enteredIds = new Set((mine.data || []).map(r => r.sweep_id));
+  renderTabs();
   horses = h.data || [];
   entries = e.data || [];
   render();

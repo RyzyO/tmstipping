@@ -124,8 +124,8 @@ async function sweepCheckout(supabase: any, user: any, sweep_id: string, req: Re
       quantity: 1,
     }],
     mode: 'payment',
-    success_url: `${origin}/sweep.html?payment=success`,
-    cancel_url: `${origin}/sweep.html?payment=cancelled`,
+    success_url: `${origin}/sweep.html?payment=success&sweep=${sweep_id}`,
+    cancel_url: `${origin}/sweep.html?payment=cancelled&sweep=${sweep_id}`,
     metadata: { user_id: user.id, sweep_id },
     customer_email: user.email ?? undefined,
   })
