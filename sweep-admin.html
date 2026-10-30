@@ -2,162 +2,294 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Sweep Admin</title>
   <link rel="icon" type="image/x-icon" href="icon.png">
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    body { background: linear-gradient(180deg, #0b0f14, #0f172a); min-height: 100vh; }
-    .panel { background: rgba(17, 24, 39, 0.92); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 16px; padding: 1.25rem; }
-    input, select, textarea {
-      background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(148, 163, 184, 0.25);
-      color: #e2e8f0; border-radius: 10px; padding: 0.5rem 0.75rem; width: 100%;
+    :root {
+      --bg: #111827; --surface: #1a2332; --raised: #1f2937; --line: #2b3648;
+      --text: #f3f4f6; --muted: #9ca3af; --accent: #d9b24c; --accent-ink: #1a1405;
+      --danger: #e0786f; --ok: #6cc096;
     }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(251, 191, 36, 0.6); }
-    .btn { padding: 0.5rem 1rem; border-radius: 10px; font-weight: 600; font-size: 0.875rem; transition: opacity .15s; }
-    .btn:hover { opacity: 0.85; }
-    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .btn-primary { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #111827; }
-    .btn-ghost { background: rgba(51, 65, 85, 0.7); color: #e2e8f0; }
-    .btn-danger { background: rgba(185, 28, 28, 0.8); color: #fff; }
-    .label { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.25rem; display: block; }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { background: var(--bg); color: var(--text); font-family: 'Geist', system-ui, sans-serif; min-height: 100dvh; }
+    .mono { font-family: 'Geist Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .surface { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+    .muted { color: var(--muted); }
+    input, select, textarea {
+      background: var(--bg); border: 1px solid var(--line); color: var(--text);
+      border-radius: 8px; padding: 0.55rem 0.75rem; width: 100%; font-size: 0.875rem; transition: border-color .15s, box-shadow .15s;
+    }
+    input::placeholder, textarea::placeholder { color: #667085; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(217,178,76,.18); }
+    input[type=checkbox] { width: 1rem; height: 1rem; padding: 0; accent-color: var(--accent); }
+    label.field { display: block; font-size: 0.8rem; font-weight: 500; color: var(--muted); margin-bottom: 0.35rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: 0.55rem 1rem; border-radius: 8px; font-weight: 600; font-size: 0.875rem; line-height: 1.2; white-space: nowrap; border: 1px solid transparent; cursor: pointer; transition: background .15s, border-color .15s, transform .1s, opacity .15s; }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn:focus-visible, .tab:focus-visible, .sweep-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); }
+    .btn-primary:hover:not(:disabled) { background: #e3bf5e; }
+    .btn-ghost { background: transparent; border-color: var(--line); color: var(--text); }
+    .btn-ghost:hover:not(:disabled) { background: var(--raised); border-color: #364055; }
+    .btn-danger { background: transparent; border-color: rgba(224,120,111,.35); color: var(--danger); }
+    .btn-danger:hover:not(:disabled) { background: rgba(224,120,111,.1); }
+    .btn-sm { padding: 0.3rem 0.65rem; font-size: 0.8rem; }
+    .chip { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+    .chip-live { color: var(--accent); border-color: rgba(217,178,76,.4); background: rgba(217,178,76,.08); }
+    .chip-ok { color: var(--ok); border-color: rgba(108,192,150,.35); }
+    .sweep-row { display: block; width: 100%; text-align: left; padding: .7rem .8rem; border-radius: 10px; border: 1px solid transparent; transition: background .15s, border-color .15s; cursor: pointer; }
+    .sweep-row:hover { background: var(--raised); }
+    .sweep-row.on { background: var(--raised); border-color: #364055; }
+    .tab { padding: .7rem 1rem; font-size: .9rem; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color .15s; white-space: nowrap; }
+    .tab:hover { color: var(--text); }
+    .tab[aria-selected=true] { color: var(--text); border-bottom-color: var(--accent); }
+    table.data { width: 100%; border-collapse: collapse; font-size: .875rem; }
+    table.data th { text-align: left; font-weight: 500; font-size: .78rem; color: var(--muted); padding: .55rem .75rem; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    table.data td { padding: .6rem .75rem; border-bottom: 1px solid rgba(37,45,59,.6); vertical-align: middle; }
+    table.data tbody tr:hover { background: rgba(23,29,40,.6); }
+    table.data tr:last-child td { border-bottom: 0; }
+    dialog { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 1.5rem; width: min(26rem, calc(100vw - 2rem)); margin: auto; }
+    dialog::backdrop { background: rgba(5,7,10,.75); }
+    #status { position: fixed; left: 50%; bottom: 1.25rem; transform: translate(-50%, 8px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: calc(100vw - 2rem); }
+    #status.show { opacity: 1; transform: translate(-50%, 0); }
+    .stats { display: flex; flex-wrap: wrap; gap: 1.25rem 2.5rem; padding: 1rem 0; margin: 1rem 0 1.5rem; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .stats dt { font-size: .78rem; color: var(--muted); }
+    .stats dd { font-size: 1.5rem; font-weight: 500; line-height: 1.2; margin-top: .15rem; }
+    .stats span { display: block; font-size: .75rem; color: var(--muted); margin-top: .1rem; }
+    .live-text { color: var(--accent); font-weight: 600; }
+    .sweep-scroll { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .25rem; scroll-snap-type: x proximity; }
+    .sweep-scroll .sweep-row { flex: 0 0 auto; width: 11.5rem; scroll-snap-align: start; border-color: var(--line); }
+    @media (min-width: 1024px) {
+      .sweep-scroll { display: block; overflow: visible; }
+      .sweep-scroll .sweep-row { width: 100%; border-color: transparent; margin-bottom: .25rem; }
+      .sweep-scroll .sweep-row.on { border-color: var(--line); }
+    }
+    @media (max-width: 639px) {
+      input, select, textarea { font-size: 16px; padding: .7rem .8rem; }
+      input[type=checkbox] { width: 1.4rem; height: 1.4rem; }
+      .btn { min-height: 44px; }
+      .btn-sm { min-height: 40px; padding: .4rem .85rem; }
+      .tab { padding: .85rem 1rem; }
+      .stack-btns .btn { width: 100%; }
+      .stack-btns { flex-direction: column; }
+      #status { bottom: calc(1rem + env(safe-area-inset-bottom)); }
+      .stats { gap: 1rem 1.5rem; }
+      .stats dd { font-size: 1.35rem; }
+      /* tables become stacked rows */
+      table.data thead { display: none; }
+      table.data, table.data tbody { display: block; }
+      table.data tr { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem 1rem; padding: .9rem 1rem; border-bottom: 1px solid var(--line); }
+      table.data tr:last-child { border-bottom: 0; }
+      table.data td { display: block; padding: 0; border: 0; }
+      table.data td[data-label]::before { content: attr(data-label); display: block; font-size: .72rem; color: var(--muted); margin-bottom: .2rem; }
+      table.data td.span2 { grid-column: 1 / -1; }
+      table.data td.actions { display: flex; gap: .5rem; }
+      table.data td.actions .btn { flex: 1; }
+      table.data select { width: 100% !important; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
-<body class="text-slate-200">
-<div class="max-w-5xl mx-auto px-4 py-8 space-y-6">
-  <header>
-    <a href="admin-dark.html" class="text-sm text-slate-400 hover:text-yellow-400">&larr; Back to Admin</a>
-    <h1 class="text-3xl font-bold mt-2">Sweep Admin</h1>
-    <p class="text-slate-400 text-sm">Melbourne Cup sweep. Separate from the tipping comps.</p>
-  </header>
-
-  <div id="status" class="text-sm text-slate-400 h-5"></div>
-
-  <!-- Sweep selection -->
-  <section class="panel">
-    <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
-      <div class="flex-1">
-        <label class="label" for="sweep-select">Sweep</label>
-        <select id="sweep-select"></select>
-      </div>
-      <button id="new-sweep-btn" class="btn btn-primary">New sweep</button>
-      <button id="dup-sweep-btn" class="btn btn-ghost">Duplicate sweep</button>
+<body>
+<header class="border-b border-[var(--line)] bg-[var(--surface)]/80 backdrop-blur sticky top-0 z-40">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <a href="admin-dark.html" class="text-sm muted hover:text-[var(--text)] transition">&larr; Admin</a>
+      <span class="h-4 w-px bg-[var(--line)]"></span>
+      <h1 class="text-base font-semibold tracking-tight">Sweeps</h1>
     </div>
-  </section>
+    <a href="sweep.html" class="btn btn-ghost btn-sm">View live page</a>
+  </div>
+</header>
 
-  <div id="sweep-body" class="space-y-6 hidden">
+<div id="status" role="status" aria-live="polite" class="rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg bg-[var(--raised)] border border-[var(--line)]"></div>
 
-    <!-- Details -->
-    <section class="panel">
-      <h2 class="text-lg font-semibold mb-3">Details</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div><label class="label" for="f-name">Name</label><input id="f-name"></div>
-        <div><label class="label" for="f-fee">Entry fee ($)</label><input id="f-fee" type="number" min="0" step="0.01"></div>
-        <div class="sm:col-span-2"><label class="label" for="f-prize">Prize info (shown to users)</label><input id="f-prize" placeholder="e.g. Winner takes 70%, 2nd 20%, 3rd 10%"></div>
-        <div>
-          <label class="label" for="f-status">Status</label>
-          <select id="f-status">
-            <option value="open">Open (entries allowed)</option>
-            <option value="drawn">Drawn (entries closed)</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
-        <label class="flex items-center gap-2 sm:mt-6"><input id="f-active" type="checkbox" class="!w-auto"> Live: show on the Sweep page (turn on several to run multiple entry levels)</label>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-[18rem_minmax(0,1fr)] gap-8 items-start">
+
+  <!-- Sweep list -->
+  <aside class="lg:sticky lg:top-20">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold">All sweeps</h2>
+      <div class="flex gap-2">
+        <button id="dup-sweep-btn" class="btn btn-ghost btn-sm" title="Copy the selected sweep and its field at a new entry fee">Duplicate</button>
+        <button id="new-sweep-btn" class="btn btn-primary btn-sm">New sweep</button>
       </div>
-      <div class="flex gap-2 mt-4">
-        <button id="save-details-btn" class="btn btn-primary">Save details</button>
-        <button id="delete-sweep-btn" class="btn btn-danger">Delete sweep</button>
+    </div>
+    <div id="sweep-list" class="sweep-scroll" role="listbox" aria-label="Sweeps"></div>
+  </aside>
+
+  <main class="min-w-0">
+    <div id="empty-state" class="hidden surface p-10 text-center">
+      <h2 class="text-lg font-semibold">No sweeps yet</h2>
+      <p class="muted text-sm mt-1 max-w-sm mx-auto">Create a sweep, import the field from Racing Australia, then add entrants and run the draw. Make several at different entry fees if you like.</p>
+    </div>
+
+    <div id="sweep-body" class="hidden">
+      <!-- Header + key numbers -->
+      <div class="flex flex-wrap items-center gap-3 mb-2">
+        <h2 id="sweep-title" class="text-2xl font-semibold tracking-tight"></h2>
+        <span id="sweep-chips" class="flex flex-wrap gap-2"></span>
       </div>
-    </section>
+      <p id="race-line" class="muted text-sm mb-5 hidden"></p>
 
-    <!-- Horses -->
-    <section class="panel">
-      <h2 class="text-lg font-semibold mb-1">Field</h2>
-      <p class="text-xs text-slate-400 mb-3">Tick scratched for withdrawn horses. Set 1st&ndash;3rd once the race is run.</p>
-      <div id="horse-list" class="space-y-2 mb-4"></div>
-      <div class="mb-4 p-3 rounded-xl bg-slate-800/40 border border-slate-700/60">
-        <div class="flex flex-wrap items-center gap-2">
-          <button id="ra-import-btn" class="btn btn-primary">Import field from Racing Australia</button>
-          <span id="ra-source" class="text-xs text-slate-400"></span>
-        </div>
-        <div id="ra-progress" class="hidden mt-3">
-          <div class="text-sm text-yellow-400 mb-1" id="ra-progress-msg"></div>
-          <div class="h-1 bg-slate-700 rounded-full"><div id="ra-progress-bar" class="h-full bg-yellow-400 rounded-full transition-all" style="width:0%"></div></div>
-        </div>
+      <dl class="stats">
+        <div><dt>Entrants</dt><dd id="stat-entrants" class="mono">0</dd></div>
+        <div><dt>Collected</dt><dd id="stat-collected" class="mono">$0</dd><span id="stat-paid"></span></div>
+        <div><dt>Runners</dt><dd id="stat-runners" class="mono">0</dd><span id="stat-scratched"></span></div>
+        <div><dt>Drawn</dt><dd id="stat-drawn" class="mono">0</dd><span>have a horse</span></div>
+      </dl>
+
+      <div class="border-b border-[var(--line)] flex gap-1 overflow-x-auto sticky top-14 z-30 bg-[var(--bg)]" role="tablist" aria-label="Sweep sections">
+        <button class="tab" role="tab" data-tab="field" aria-selected="true">Field</button>
+        <button class="tab" role="tab" data-tab="entrants" aria-selected="false">Entrants</button>
+        <button class="tab" role="tab" data-tab="draw" aria-selected="false">Draw</button>
+        <button class="tab" role="tab" data-tab="details" aria-selected="false">Settings</button>
       </div>
-      <form id="horse-form" class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 mb-4">
-        <h3 id="horse-form-title" class="text-sm font-semibold mb-2">Add a horse</h3>
-        <div class="grid grid-cols-2 sm:grid-cols-6 gap-3">
-          <div><label class="label" for="hf-number">No.</label><input id="hf-number" type="number" min="1" inputmode="numeric" placeholder="auto"></div>
-          <div class="col-span-2 sm:col-span-3"><label class="label" for="hf-name">Horse name *</label><input id="hf-name" required placeholder="e.g. Without A Fight"></div>
-          <div><label class="label" for="hf-barrier">Barrier</label><input id="hf-barrier" type="number" min="1" inputmode="numeric"></div>
-          <div><label class="label" for="hf-weight">Weight (kg)</label><input id="hf-weight" inputmode="decimal" placeholder="56.5"></div>
-          <div class="col-span-2 sm:col-span-3"><label class="label" for="hf-jockey">Jockey</label><input id="hf-jockey"></div>
-          <div class="col-span-2 sm:col-span-3"><label class="label" for="hf-trainer">Trainer</label><input id="hf-trainer"></div>
-        </div>
-        <div class="flex gap-2 mt-3">
-          <button type="submit" id="hf-save" class="btn btn-primary">Add horse</button>
-          <button type="button" id="hf-cancel" class="btn btn-ghost hidden">Cancel edit</button>
-        </div>
-      </form>
-      <details>
-        <summary class="text-xs text-slate-400 cursor-pointer">Bulk add (paste a list)</summary>
-        <label class="label mt-2" for="bulk-horses">One per line: "number name", or just names to auto-number</label>
-        <textarea id="bulk-horses" rows="4" placeholder="1 Without A Fight&#10;2 Almandin"></textarea>
-        <button id="add-horses-btn" class="btn btn-ghost mt-2">Add horses</button>
-      </details>
-    </section>
 
-    <!-- Entrants -->
-    <section class="panel">
-      <h2 class="text-lg font-semibold mb-1">Entrants <span id="entrant-count" class="text-slate-500 text-sm font-normal"></span></h2>
-      <p id="fees-line" class="text-xs text-slate-400 mb-3"></p>
-      <div id="entrant-list" class="space-y-2 mb-4"></div>
-
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-700/60">
-        <div>
-          <label class="label" for="user-search">Add a registered user</label>
-          <input id="user-search" placeholder="Search name or email&hellip;" autocomplete="off">
-          <div id="user-results" class="mt-2 space-y-1 max-h-48 overflow-y-auto"></div>
+      <!-- Field -->
+      <section id="panel-field" data-panel="field" class="pt-6 space-y-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <button id="ra-import-btn" class="btn btn-primary">Import from Racing Australia</button>
+          <span id="ra-source" class="text-sm muted"></span>
         </div>
-        <div>
-          <label class="label" for="manual-name">Add by name (no account)</label>
-          <div class="flex gap-2">
-            <input id="manual-name" placeholder="e.g. Dave from accounts">
-            <button id="add-manual-btn" class="btn btn-ghost whitespace-nowrap">Add</button>
+        <div id="ra-progress" class="hidden">
+          <div class="text-sm mb-1.5" style="color:var(--accent)" id="ra-progress-msg"></div>
+          <div class="h-1 bg-[var(--line)] rounded-full overflow-hidden"><div id="ra-progress-bar" class="h-full rounded-full transition-all" style="width:0%;background:var(--accent)"></div></div>
+        </div>
+
+        <div class="surface overflow-x-auto"><div id="horse-list"></div></div>
+
+        <form id="horse-form" class="surface p-5">
+          <h3 id="horse-form-title" class="text-sm font-semibold mb-4">Add a horse</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-6 gap-4">
+            <div><label class="field" for="hf-number">Number</label><input id="hf-number" type="number" min="1" inputmode="numeric" placeholder="Auto"></div>
+            <div class="col-span-2 sm:col-span-3"><label class="field" for="hf-name">Horse name</label><input id="hf-name" required placeholder="Without A Fight"></div>
+            <div><label class="field" for="hf-barrier">Barrier</label><input id="hf-barrier" type="number" min="1" inputmode="numeric"></div>
+            <div><label class="field" for="hf-weight">Weight (kg)</label><input id="hf-weight" inputmode="decimal" placeholder="56.5"></div>
+            <div class="col-span-2 sm:col-span-3"><label class="field" for="hf-jockey">Jockey</label><input id="hf-jockey"></div>
+            <div class="col-span-2 sm:col-span-3"><label class="field" for="hf-trainer">Trainer</label><input id="hf-trainer"></div>
+          </div>
+          <div class="flex gap-2 mt-5">
+            <button type="submit" id="hf-save" class="btn btn-primary">Add horse</button>
+            <button type="button" id="hf-cancel" class="btn btn-ghost hidden">Cancel edit</button>
+          </div>
+        </form>
+
+        <details class="surface p-5">
+          <summary class="text-sm font-semibold cursor-pointer">Paste a list of horses</summary>
+          <label class="field mt-4" for="bulk-horses">One per line, as "number name" or just names to number automatically</label>
+          <textarea id="bulk-horses" rows="5" placeholder="1 Without A Fight&#10;2 Almandin"></textarea>
+          <button id="add-horses-btn" class="btn btn-ghost mt-3">Add horses</button>
+        </details>
+      </section>
+
+      <!-- Entrants -->
+      <section id="panel-entrants" data-panel="entrants" class="pt-6 space-y-6 hidden">
+        <p id="fees-line" class="text-sm muted"></p>
+        <div class="surface overflow-x-auto"><div id="entrant-list"></div></div>
+        <div class="surface p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="field" for="user-search">Add a registered user</label>
+            <input id="user-search" placeholder="Search by team name or email" autocomplete="off">
+            <div id="user-results" class="mt-2 space-y-1 max-h-48 overflow-y-auto"></div>
+          </div>
+          <div>
+            <label class="field" for="manual-name">Add by name (no account)</label>
+            <div class="flex gap-2">
+              <input id="manual-name" placeholder="Name to show on the page">
+              <button id="add-manual-btn" class="btn btn-ghost">Add</button>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Draw -->
-    <section class="panel">
-      <h2 class="text-lg font-semibold mb-1">Draw</h2>
-      <p id="draw-info" class="text-xs text-slate-400 mb-3"></p>
-      <div class="flex flex-wrap gap-2">
-        <button id="draw-btn" class="btn btn-primary">Run draw</button>
-        <button id="redraw-btn" class="btn btn-ghost">Redraw scratched horses</button>
-        <button id="clear-draw-btn" class="btn btn-danger">Clear draw</button>
-      </div>
-      <p class="text-xs text-slate-500 mt-3">Run draw clears all current assignments, shuffles the non-scratched horses and deals one per entrant, then sets status to Drawn. Redraw only replaces entrants holding a scratched horse.</p>
-    </section>
-  </div>
+      <!-- Draw -->
+      <section id="panel-draw" data-panel="draw" class="pt-6 hidden">
+        <div class="surface p-6 max-w-2xl">
+          <h3 class="font-semibold">Run the draw</h3>
+          <p id="draw-info" class="text-sm muted mt-1"></p>
+          <div class="flex flex-wrap gap-3 mt-5 stack-btns">
+            <button id="draw-btn" class="btn btn-primary">Run draw</button>
+            <button id="redraw-btn" class="btn btn-ghost">Redraw scratched horses</button>
+            <button id="clear-draw-btn" class="btn btn-danger">Clear draw</button>
+          </div>
+          <dl class="mt-6 pt-5 border-t border-[var(--line)] grid gap-3 text-sm">
+            <div><dt class="font-medium">Run draw</dt><dd class="muted">Shuffles the running horses and deals one to each entrant, replacing any existing draw. Entries close.</dd></div>
+            <div><dt class="font-medium">Redraw scratched horses</dt><dd class="muted">Gives a new horse only to entrants whose horse was scratched. Everyone else keeps theirs.</dd></div>
+            <div><dt class="font-medium">Clear draw</dt><dd class="muted">Removes every assignment and reopens entries.</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section id="panel-details" data-panel="details" class="pt-6 hidden">
+        <div class="surface p-6 max-w-2xl">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div><label class="field" for="f-name">Name</label><input id="f-name"></div>
+            <div><label class="field" for="f-fee">Entry fee ($)</label><input id="f-fee" type="number" min="0" step="0.01" class="mono"></div>
+            <div class="sm:col-span-2"><label class="field" for="f-prize">Prize info shown to users</label><input id="f-prize" placeholder="Winner takes 70%, 2nd 20%, 3rd 10%"></div>
+            <div>
+              <label class="field" for="f-status">Status</label>
+              <select id="f-status">
+                <option value="open">Open, entries allowed</option>
+                <option value="drawn">Drawn, entries closed</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+            <div class="flex items-end">
+              <label class="flex items-start gap-3 cursor-pointer text-sm">
+                <input id="f-active" type="checkbox" class="mt-0.5">
+                <span><span class="font-medium">Live</span><span class="block muted text-xs">Shown on the Sweep page. Turn on several sweeps to offer different entry fees.</span></span>
+              </label>
+            </div>
+          </div>
+          <div class="mt-6 stack-btns">
+            <button id="save-details-btn" class="btn btn-primary">Save settings</button>
+          </div>
+        </div>
+        <div class="surface p-6 max-w-2xl mt-6" style="border-color: rgba(224,120,111,.3)">
+          <h3 class="font-semibold">Delete this sweep</h3>
+          <p class="text-sm muted mt-1">Removes the sweep with all of its horses and entrants. This cannot be undone.</p>
+          <button id="delete-sweep-btn" class="btn btn-danger mt-4">Delete sweep</button>
+        </div>
+      </section>
+    </div>
+  </main>
 </div>
 
+<!-- New / duplicate sweep -->
+<dialog id="sweep-dialog">
+  <form id="sweep-dialog-form" method="dialog">
+    <h2 id="sweep-dialog-title" class="text-lg font-semibold mb-4"></h2>
+    <div class="space-y-4">
+      <div><label class="field" for="sd-name">Name</label><input id="sd-name" required></div>
+      <div><label class="field" for="sd-fee">Entry fee ($)</label><input id="sd-fee" type="number" min="0" step="0.01" class="mono" required></div>
+    </div>
+    <div class="flex justify-end gap-2 mt-6">
+      <button type="button" id="sd-cancel" class="btn btn-ghost">Cancel</button>
+      <button type="submit" id="sd-ok" class="btn btn-primary">Create</button>
+    </div>
+  </form>
+</dialog>
 
 <!-- Racing Australia import modal -->
 <div id="ra-modal" class="hidden fixed inset-0 z-50 bg-black/75 overflow-y-auto" onclick="if(event.target===this)this.classList.add('hidden')">
-  <div class="max-w-3xl mx-auto my-10 panel">
-    <div class="flex items-center justify-between mb-3">
+  <div class="max-w-3xl mx-auto sm:my-10 surface p-4 sm:p-6 min-h-[100dvh] sm:min-h-0 rounded-none sm:rounded-xl">
+    <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-semibold">Import from Racing Australia</h2>
-      <button id="ra-close" class="text-slate-400 text-xl leading-none">&times;</button>
+      <button id="ra-close" class="btn btn-ghost btn-sm" aria-label="Close">Close</button>
     </div>
-    <div class="flex flex-col sm:flex-row gap-2 mb-4">
-      <input id="ra-url" type="url" placeholder="Paste a Form.aspx URL, e.g. https://racingaustralia.horse/FreeFields/Form.aspx?Key=2026Nov03%2CVIC%2CFlemington">
-      <button id="ra-url-go" class="btn btn-ghost whitespace-nowrap">Load races</button>
+    <div class="flex flex-col sm:flex-row gap-2 mb-3">
+      <input id="ra-url" type="url" placeholder="Paste a Form.aspx URL for a later meeting, like the Cup">
+      <button id="ra-url-go" class="btn btn-ghost">Load races</button>
     </div>
-    <p class="text-xs text-slate-500 mb-3">Browse lists the next 7 days only. For a later meeting (like the Cup), paste its URL.</p>
-    <div id="ra-status" class="text-sm text-slate-400 mb-3"></div>
+    <p class="text-xs muted mb-4">Browsing lists the next 7 days only.</p>
+    <div id="ra-status" class="text-sm muted mb-3"></div>
     <div id="ra-content"></div>
   </div>
 </div>
@@ -177,15 +309,53 @@ let entries = [];
 let allUsers = null;
 let booted = false;
 
+let toastTimer;
 function say(msg, isError) {
   const el = $('status');
   el.textContent = msg || '';
-  el.className = 'text-sm h-5 ' + (isError ? 'text-red-400' : 'text-slate-400');
+  el.style.color = isError ? 'var(--danger)' : 'var(--text)';
+  el.style.borderColor = isError ? 'rgba(224,120,111,.45)' : 'var(--line)';
+  el.classList.toggle('show', !!msg);
+  clearTimeout(toastTimer);
+  if (msg && !/\.\.\.$|…$/.test(msg)) toastTimer = setTimeout(() => el.classList.remove('show'), isError ? 7000 : 3500);
 }
 async function run(label, fn) {
   say(label + '…');
-  try { await fn(); say(label + ' — done'); }
+  try { await fn(); say(`${label}: done`); }
   catch (err) { console.error(err); say(err.message || String(err), true); }
+}
+const money = n => `$${(Number(n) || 0).toLocaleString('en-AU', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
+const STATUS_LABEL = { open: 'Open', drawn: 'Drawn', completed: 'Completed' };
+let activeTab = 'field';
+function showTab(name) {
+  activeTab = name;
+  document.querySelectorAll('[data-tab]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+  document.querySelectorAll('[data-panel]').forEach(pn => pn.classList.toggle('hidden', pn.dataset.panel !== name));
+}
+document.querySelector('[role=tablist]').addEventListener('click', e => {
+  const t = e.target.closest('[data-tab]');
+  if (t) showTab(t.dataset.tab);
+});
+
+// Native dialog used for New sweep and Duplicate; resolves { name, fee } or null.
+function askSweep({ title, name, fee, cta }) {
+  return new Promise(resolve => {
+    const dlg = $('sweep-dialog');
+    $('sweep-dialog-title').textContent = title;
+    $('sd-name').value = name;
+    $('sd-fee').value = fee;
+    $('sd-ok').textContent = cta;
+    let result = null;
+    $('sweep-dialog-form').onsubmit = e => {
+      e.preventDefault();
+      result = { name: $('sd-name').value.trim(), fee: parseFloat($('sd-fee').value) || 0 };
+      dlg.close();
+    };
+    $('sd-cancel').onclick = () => dlg.close();
+    dlg.onclose = () => resolve(result && result.name ? result : null);
+    dlg.showModal();
+    $('sd-name').select();
+  });
 }
 const check = ({ error }) => { if (error) throw error; };
 
@@ -211,26 +381,46 @@ supabase.auth.onAuthStateChange((event, session) => {
 });
 
 async function loadSweeps(selectId) {
-  const { data, error } = await supabase.from('sweeps').select('*').order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('sweeps').select('*').order('entry_fee').order('created_at');
   if (error) { say(error.message, true); return; }
   sweeps = data || [];
   const keep = selectId || sweep?.id || sweeps.find(s => s.is_active)?.id || sweeps[0]?.id;
-  $('sweep-select').innerHTML = sweeps.length
-    ? sweeps.map(s => `<option value="${s.id}">${esc(s.name)} ($${Number(s.entry_fee) || 0})${s.is_active ? ' (live)' : ''}</option>`).join('')
-    : '<option value="">No sweeps yet</option>';
-  if (keep) $('sweep-select').value = keep;
-  await selectSweep($('sweep-select').value);
+  $('sweep-list').innerHTML = sweeps.map(s => `
+    <button class="sweep-row ${s.id === keep ? 'on' : ''}" role="option" aria-selected="${s.id === keep}" data-sweep="${s.id}">
+      <span class="flex items-baseline justify-between gap-3">
+        <span class="font-medium truncate">${esc(s.name)}</span>
+        <span class="mono text-sm muted">${money(s.entry_fee)}</span>
+      </span>
+      <span class="block text-xs mt-1 muted"><span class="${s.is_active ? 'live-text' : ''}">${s.is_active ? 'Live' : 'Hidden'}</span>, ${(STATUS_LABEL[s.status] || s.status).toLowerCase()}</span>
+    </button>`).join('') || '<p class="text-sm muted px-1">Nothing here yet.</p>';
+  $('dup-sweep-btn').disabled = !sweeps.length;
+  await selectSweep(keep);
 }
+$('sweep-list').addEventListener('click', e => {
+  const id = e.target.closest('[data-sweep]')?.dataset.sweep;
+  if (id && id !== sweep?.id) selectSweep(id).then(() => {
+    document.querySelectorAll('.sweep-row').forEach(r => { const on = r.dataset.sweep === id; r.classList.toggle('on', on); r.setAttribute('aria-selected', String(on)); });
+  });
+});
 
 async function selectSweep(id) {
   sweep = sweeps.find(s => s.id === id) || null;
   $('sweep-body').classList.toggle('hidden', !sweep);
+  $('empty-state').classList.toggle('hidden', !!sweep);
   if (!sweep) return;
+  $('sweep-title').textContent = sweep.name;
+  $('sweep-chips').innerHTML =
+    `<span class="text-sm muted"><span class="${sweep.is_active ? 'live-text' : ''}">${sweep.is_active ? 'Live' : 'Hidden'}</span>, ${(STATUS_LABEL[sweep.status] || sweep.status).toLowerCase()}, <span class="mono">${money(sweep.entry_fee)}</span> entry</span>`;
+  const raceLine = [sweep.race_name, sweep.venue, sweep.race_date, sweep.race_time].filter(Boolean).join(', ');
+  $('race-line').textContent = raceLine;
+  $('race-line').classList.toggle('hidden', !raceLine);
   $('f-name').value = sweep.name;
   $('f-fee').value = sweep.entry_fee;
   $('f-prize').value = sweep.prize_info || '';
   $('f-status').value = sweep.status;
   $('f-active').checked = sweep.is_active;
+  resetHorseForm();
+  showTab(activeTab);
   await loadChildren();
 }
 
@@ -246,70 +436,99 @@ async function loadChildren() {
   renderEntries();
 }
 
+const PLACE = { 1: '1st', 2: '2nd', 3: '3rd' };
+
 function renderHorses() {
-  $('horse-list').innerHTML = horses.map(h => `
-    <div class="flex flex-wrap items-center gap-3 py-2 px-3 rounded-lg bg-slate-800/50" data-horse="${h.id}">
-      <span class="w-10 text-slate-400">#${h.number}</span>
-      ${h.silks_id ? `<img src="https://www.racingaustralia.horse/JockeySilks/${esc(h.silks_id)}.png" alt="" class="h-8 w-8 object-contain">` : '<span class="w-8"></span>'}
-      <span class="flex-1 min-w-[8rem] ${h.scratched ? 'line-through text-slate-500' : ''}">${esc(h.name)}${h.jockey ? `<span class="block text-xs text-slate-500">${esc(h.jockey)}${h.trainer ? ' · ' + esc(h.trainer) : ''}</span>` : ''}</span>
-      <label class="flex items-center gap-1 text-sm"><input type="checkbox" class="!w-auto" data-act="scratch" ${h.scratched ? 'checked' : ''}> Scratched</label>
-      <select class="!w-28" data-act="position">
-        <option value="">No place</option>
-        <option value="1" ${h.position === 1 ? 'selected' : ''}>1st</option>
-        <option value="2" ${h.position === 2 ? 'selected' : ''}>2nd</option>
-        <option value="3" ${h.position === 3 ? 'selected' : ''}>3rd</option>
-      </select>
-      <button class="btn btn-ghost !py-1" data-act="edit">Edit</button>
-      <button class="btn btn-danger !py-1" data-act="delete">&times;</button>
-    </div>`).join('') || '<p class="text-sm text-slate-500">No horses yet.</p>';
+  if (!horses.length) {
+    $('horse-list').innerHTML = `<div class="p-8 text-center">
+      <p class="font-medium">No horses yet</p>
+      <p class="muted text-sm mt-1">Import the field from Racing Australia, or add runners below.</p></div>`;
+    return;
+  }
+  $('horse-list').innerHTML = `<table class="data">
+    <thead><tr><th class="w-14">No.</th><th>Horse</th><th>Barrier</th><th>Weight</th><th>Result</th><th>Scratched</th><th></th></tr></thead>
+    <tbody>${horses.map(h => `
+      <tr data-horse="${h.id}" class="${h.scratched ? 'opacity-60' : ''}">
+        <td class="mono muted" data-label="No.">${h.number}</td>
+        <td class="span2">
+          <div class="flex items-center gap-3 sm:min-w-[12rem]">
+            ${h.silks_id ? `<img src="https://www.racingaustralia.horse/JockeySilks/${esc(h.silks_id)}.png" alt="" class="h-8 w-8 object-contain shrink-0">` : '<span class="w-8 shrink-0"></span>'}
+            <div class="min-w-0">
+              <div class="font-medium ${h.scratched ? 'line-through muted' : ''}">${esc(h.name)}</div>
+              ${h.jockey || h.trainer ? `<div class="text-xs muted truncate">${[h.jockey && 'J: ' + esc(h.jockey), h.trainer && 'T: ' + esc(h.trainer)].filter(Boolean).join('  ')}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td class="mono muted" data-label="Barrier">${h.barrier ?? ''}</td>
+        <td class="mono muted" data-label="Weight">${h.weight ? esc(h.weight) + 'kg' : ''}</td>
+        <td data-label="Result">
+          <select class="!w-24 !py-1.5" data-act="position" aria-label="Result for ${esc(h.name)}">
+            <option value="">None</option>
+            ${[1, 2, 3].map(n => `<option value="${n}" ${h.position === n ? 'selected' : ''}>${PLACE[n]}</option>`).join('')}
+          </select>
+        </td>
+        <td data-label="Scratched"><input type="checkbox" data-act="scratch" ${h.scratched ? 'checked' : ''} aria-label="${esc(h.name)} scratched"></td>
+        <td class="text-right whitespace-nowrap span2 actions">
+          <button class="btn btn-ghost btn-sm" data-act="edit">Edit</button>
+          <button class="btn btn-danger btn-sm" data-act="delete">Remove</button>
+        </td>
+      </tr>`).join('')}</tbody></table>`;
 }
 
 function renderEntries() {
   const horseById = Object.fromEntries(horses.map(h => [h.id, h]));
   const paid = entries.filter(e => e.paid).length;
   const fee = Number(sweep.entry_fee) || 0;
-  $('entrant-count').textContent = `(${entries.length})`;
-  $('fees-line').textContent = fee > 0
-    ? `${paid} of ${entries.length} paid · $${(paid * fee).toFixed(2)} collected of $${(entries.length * fee).toFixed(2)}`
-    : 'Free sweep.';
-  $('entrant-list').innerHTML = entries.map(e => {
-    const h = e.horse_id ? horseById[e.horse_id] : null;
-    return `<div class="flex flex-wrap items-center gap-3 py-2 px-3 rounded-lg bg-slate-800/50" data-entry="${e.id}">
-      <span class="flex-1 min-w-[8rem]">${esc(e.display_name)}${e.user_id ? '' : ' <span class="text-xs text-slate-500">(manual)</span>'}</span>
-      <span class="text-sm ${h ? (h.scratched ? 'text-red-400' : 'text-yellow-300') : 'text-slate-600'}">${h ? `#${h.number} ${esc(h.name)}${h.scratched ? ' (SCR)' : ''}` : 'no horse'}</span>
-      <label class="flex items-center gap-1 text-sm"><input type="checkbox" class="!w-auto" data-act="paid" ${e.paid ? 'checked' : ''}> Paid</label>
-      <button class="btn btn-danger !py-1" data-act="remove">&times;</button>
-    </div>`;
-  }).join('') || '<p class="text-sm text-slate-500">No entrants yet.</p>';
-
   const live = horses.filter(h => !h.scratched).length;
-  $('draw-info').textContent = `${entries.length} entrants, ${live} running horses.` +
-    (entries.length > live ? ` ${entries.length - live} entrant(s) will miss out — add more horses or remove entrants.` : '');
+  const scratched = horses.length - live;
+  const drawn = entries.filter(e => e.horse_id).length;
+
+  $('stat-entrants').textContent = entries.length;
+  $('stat-collected').textContent = money(paid * fee);
+  $('stat-paid').textContent = fee > 0 ? `${paid} of ${entries.length} paid` : 'Free sweep';
+  $('stat-runners').textContent = live;
+  $('stat-scratched').textContent = scratched ? `${scratched} scratched` : 'none scratched';
+  $('stat-drawn').textContent = drawn;
+  $('fees-line').textContent = fee > 0
+    ? `${paid} of ${entries.length} paid. ${money(paid * fee)} collected of ${money(entries.length * fee)} expected.`
+    : 'Free sweep, no payments to track.';
+
+  $('entrant-list').innerHTML = entries.length ? `<table class="data">
+    <thead><tr><th>Entrant</th><th>Horse</th><th>Paid</th><th></th></tr></thead>
+    <tbody>${entries.map(e => {
+      const h = e.horse_id ? horseById[e.horse_id] : null;
+      return `<tr data-entry="${e.id}">
+        <td class="span2"><span class="font-medium">${esc(e.display_name)}</span>${e.user_id ? '' : ' <span class="chip ml-1">Manual</span>'}</td>
+        <td data-label="Horse" class="${h ? '' : 'muted'}" ${h && h.scratched ? 'style="color:var(--danger)"' : ''}>${h ? `<span class="mono">#${h.number}</span> ${esc(h.name)}${h.scratched ? ' (scratched)' : ''}` : 'Not drawn'}</td>
+        <td data-label="Paid"><input type="checkbox" data-act="paid" ${e.paid ? 'checked' : ''} aria-label="${esc(e.display_name)} paid"></td>
+        <td class="text-right span2 actions"><button class="btn btn-danger btn-sm" data-act="remove">Remove</button></td>
+      </tr>`;
+    }).join('')}</tbody></table>`
+    : `<div class="p-8 text-center"><p class="font-medium">No entrants yet</p><p class="muted text-sm mt-1">Users enter from the Sweep page, or add people below.</p></div>`;
+
+  $('draw-info').textContent = `${entries.length} ${entries.length === 1 ? 'entrant' : 'entrants'} and ${live} running ${live === 1 ? 'horse' : 'horses'}.` +
+    (entries.length > live ? ` ${entries.length - live} will miss out. Add more horses or remove entrants first.` : '');
 }
 
 /* ---------- events ---------- */
-$('sweep-select').addEventListener('change', e => selectSweep(e.target.value));
-
-$('new-sweep-btn').addEventListener('click', () => {
-  const name = prompt('Sweep name', 'Melbourne Cup Sweep 2026');
-  if (!name) return;
+$('new-sweep-btn').addEventListener('click', async () => {
+  const v = await askSweep({ title: 'New sweep', name: 'Melbourne Cup Sweep 2026', fee: 30, cta: 'Create sweep' });
+  if (!v) return;
   run('Creating sweep', async () => {
-    const fee = parseFloat(prompt('Entry fee ($)', '30')) || 0;
-    const { data, error } = await supabase.from('sweeps').insert({ name, entry_fee: fee }).select().single();
+    const { data, error } = await supabase.from('sweeps').insert({ name: v.name, entry_fee: v.fee }).select().single();
     if (error) throw error;
     await loadSweeps(data.id);
   });
 });
 
-$('dup-sweep-btn').addEventListener('click', () => {
+$('dup-sweep-btn').addEventListener('click', async () => {
   if (!sweep) return;
-  const fee = parseFloat(prompt(`Entry fee ($) for the copy of "${sweep.name}"`, sweep.entry_fee));
-  if (Number.isNaN(fee)) return;
-  const name = prompt('Name for the new sweep', `${sweep.name.replace(/\s*\(\$?\d+\)$/, '')} ($${fee})`);
-  if (!name) return;
+  const base = sweep.name.replace(/\s*\(\$?\d+\)$/, '');
+  const v = await askSweep({ title: `Duplicate "${sweep.name}"`, name: `${base} ($${sweep.entry_fee})`, fee: sweep.entry_fee, cta: 'Duplicate' });
+  if (!v) return;
   run('Duplicating sweep', async () => {
     const { id, created_at, ...rest } = sweep;
-    const { data, error } = await supabase.from('sweeps').insert({ ...rest, name, entry_fee: fee, status: 'open', is_active: false }).select().single();
+    const { data, error } = await supabase.from('sweeps').insert({ ...rest, name: v.name, entry_fee: v.fee, status: 'open', is_active: false }).select().single();
     if (error) throw error;
     if (horses.length) {
       // Same field, fresh sweep: no placings, nobody drawn.
@@ -379,6 +598,7 @@ function resetHorseForm() {
   $('horse-form-title').textContent = 'Add a horse';
   $('hf-save').textContent = 'Add horse';
   $('hf-cancel').classList.add('hidden');
+  $('horse-form').classList.remove('ring-1', 'ring-[var(--accent)]');
 }
 $('hf-cancel').addEventListener('click', resetHorseForm);
 $('horse-form').addEventListener('submit', e => {
@@ -414,6 +634,7 @@ $('horse-list').addEventListener('click', e => {
     $('hf-save').textContent = 'Save changes';
     $('hf-cancel').classList.remove('hidden');
     $('horse-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('horse-form').classList.add('ring-1', 'ring-[var(--accent)]');
     $('hf-name').focus();
     return;
   }
@@ -458,7 +679,7 @@ $('user-search').addEventListener('input', async e => {
   const q = e.target.value.trim().toLowerCase();
   if (q.length < 2) { $('user-results').innerHTML = ''; return; }
   if (!allUsers) {
-    // Page through users — Supabase caps a single select at 1000 rows.
+    // Page through users - Supabase caps a single select at 1000 rows.
     allUsers = [];
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase.from('users').select('id,team_name,email').range(from, from + 999);
@@ -472,8 +693,8 @@ $('user-search').addEventListener('input', async e => {
     .filter(u => !taken.has(u.id) && `${u.team_name || ''} ${u.email || ''}`.toLowerCase().includes(q))
     .slice(0, 20);
   $('user-results').innerHTML = hits.map(u =>
-    `<button class="w-full text-left px-3 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-sm" data-uid="${esc(u.id)}">${esc(u.team_name || u.email)} <span class="text-slate-500">${esc(u.email || '')}</span></button>`
-  ).join('') || '<p class="text-xs text-slate-500">No matches.</p>';
+    `<button class="w-full text-left px-3 py-2 rounded-lg border border-[var(--line)] hover:bg-[var(--raised)] text-sm transition" data-uid="${esc(u.id)}">${esc(u.team_name || u.email)} <span class="muted">${esc(u.email || '')}</span></button>`
+  ).join('') || '<p class="text-xs muted">No matches.</p>';
 });
 $('user-results').addEventListener('click', e => {
   const uid = e.target.closest('[data-uid]')?.dataset.uid;
@@ -551,10 +772,10 @@ function renderMeetings() {
   (raMeetings || []).forEach(m => { if (!byDate.has(m.date)) byDate.set(m.date, []); byDate.get(m.date).push(m); });
   raContent.innerHTML = [...byDate].map(([date, ms]) => `
     <div class="mb-4">
-      <div class="text-xs font-bold uppercase tracking-wider text-yellow-400 border-b border-slate-700 pb-1 mb-2">${esc(date)}</div>
+      <div class="text-sm font-semibold border-b border-[var(--line)] pb-1 mb-2" style="color:var(--accent)">${esc(date)}</div>
       <div class="flex flex-wrap gap-2">${ms.map(m => `
         <button class="btn btn-ghost !font-normal ${m.postponed ? 'opacity-40' : ''}" data-m="${raMeetings.indexOf(m)}" ${m.postponed ? 'disabled' : ''}>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-600 mr-1">${esc(m.state)}</span>${esc(m.venue)}
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--line)] mr-1">${esc(m.state)}</span>${esc(m.venue)}
         </button>`).join('')}
       </div>
     </div>`).join('');
@@ -566,12 +787,12 @@ async function showRaces(meeting) {
   try {
     const races = await loadRAMeetingRaces(meeting);
     if (!races.length) { raStatus.textContent = 'No races found for this meeting.'; return; }
-    raStatus.innerHTML = `<button id="ra-back" class="underline text-slate-300">&larr; Back</button> &nbsp; Pick the race for the sweep:`;
+    raStatus.innerHTML = `<button id="ra-back" class="underline">&larr; Back</button> &nbsp; Pick the race for the sweep:`;
     $('ra-back').onclick = () => { raStatus.textContent = ''; renderMeetings(); };
     raContent.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${races.map((r, i) => `
-      <button class="text-left p-3 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-yellow-400" data-r="${i}">
+      <button class="text-left p-3 rounded-xl bg-[var(--bg)] border border-[var(--line)] hover:border-[var(--accent)] transition" data-r="${i}">
         <div class="font-semibold">R${r.raceNum} · ${esc(r.name)}</div>
-        <div class="text-xs text-slate-400">${[r.time, r.distance, r.prize, `${r.horses.length} runners`].filter(Boolean).map(esc).join(' · ')}</div>
+        <div class="text-xs muted">${[r.time, r.distance, r.prize, `${r.horses.length} runners`].filter(Boolean).map(esc).join(' · ')}</div>
       </button>`).join('')}</div>`;
     raContent.onclick = e => {
       const i = e.target.closest('[data-r]')?.dataset.r;
@@ -623,15 +844,15 @@ async function importRace(race, meeting) {
     }).eq('id', sweep.id));
     await loadSweeps(sweep.id);
 
-    say(`Field saved (${race.horses.length} runners) — fetching silks and form…`);
+    say(`Field saved (${race.horses.length} runners) - fetching silks and form…`);
     const result = await enrichRAHorses(race.horses, race.sourceUrl, race.raceNum, onProgress);
     check(await supabase.from('sweep_horses').upsert(race.horses.map(toRow), { onConflict: 'sweep_id,number' }));
     await loadChildren();
 
     const missing = race.horses.filter(h => !h.silksId).map(h => h.name);
-    $('ra-source').textContent = `Imported R${race.raceNum} ${race.name} — silks ${result.silks}/${result.total}` +
+    $('ra-source').textContent = `Imported R${race.raceNum} ${race.name} - silks ${result.silks}/${result.total}` +
       (missing.length ? `. Missing: ${missing.join(', ')}` : '');
-    $('ra-progress-msg').textContent = missing.length ? 'Done — some silks missing.' : 'Done — silks and form loaded.';
+    $('ra-progress-msg').textContent = missing.length ? 'Done - some silks missing.' : 'Done - silks and form loaded.';
     $('ra-progress-bar').style.width = '100%';
   });
   setTimeout(() => prog.classList.add('hidden'), 4000);
