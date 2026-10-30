@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sweep Admin</title>
+  <link rel="icon" type="image/x-icon" href="icon.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: linear-gradient(180deg, #0b0f14, #0f172a); min-height: 100vh; }
+    .panel { background: rgba(17, 24, 39, 0.92); border: 1px solid rgba(148, 163, 184, 0.18); border-radius: 16px; padding: 1.25rem; }
+    input, select, textarea {
+      background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(148, 163, 184, 0.25);
+      color: #e2e8f0; border-radius: 10px; padding: 0.5rem 0.75rem; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: rgba(251, 191, 36, 0.6); }
+    .btn { padding: 0.5rem 1rem; border-radius: 10px; font-weight: 600; font-size: 0.875rem; transition: opacity .15s; }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #111827; }
+    .btn-ghost { background: rgba(51, 65, 85, 0.7); color: #e2e8f0; }
+    .btn-danger { background: rgba(185, 28, 28, 0.8); color: #fff; }
+    .label { font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.25rem; display: block; }
+  </style>
+</head>
+<body class="text-slate-200">
+<div class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+  <header>
+    <a href="admin-dark.html" class="text-sm text-slate-400 hover:text-yellow-400">&larr; Back to Admin</a>
+    <h1 class="text-3xl font-bold mt-2">Sweep Admin</h1>
+    <p class="text-slate-400 text-sm">Melbourne Cup sweep. Separate from the tipping comps.</p>
+  </header>
+
+  <div id="status" class="text-sm text-slate-400 h-5"></div>
+
+  <!-- Sweep selection -->
+  <section class="panel">
+    <div class="flex flex-col sm:flex-row gap-3 sm:items-end">
+      <div class="flex-1">
+        <label class="label" for="sweep-select">Sweep</label>
+        <select id="sweep-select"></select>
+      </div>
+      <button id="new-sweep-btn" class="btn btn-primary">New sweep</button>
+    </div>
+  </section>
+
+  <div id="sweep-body" class="space-y-6 hidden">
+
+    <!-- Details -->
+    <section class="panel">
+      <h2 class="text-lg font-semibold mb-3">Details</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div><label class="label" for="f-name">Name</label><input id="f-name"></div>
+        <div><label class="label" for="f-fee">Entry fee ($)</label><input id="f-fee" type="number" min="0" step="0.01"></div>
+        <div class="sm:col-span-2"><label class="label" for="f-prize">Prize info (shown to users)</label><input id="f-prize" placeholder="e.g. Winner takes 70%, 2nd 20%, 3rd 10%"></div>
+        <div>
+          <label class="label" for="f-status">Status</label>
+          <select id="f-status">
+            <option value="open">Open (entries allowed)</option>
+            <option value="drawn">Drawn (entries closed)</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+        <label class="flex items-center gap-2 sm:mt-6"><input id="f-active" type="checkbox" class="!w-auto"> Show on public Sweep page</label>
+      </div>
+      <div class="flex gap-2 mt-4">
+        <button id="save-details-btn" class="btn btn-primary">Save details</button>
+        <button id="delete-sweep-btn" class="btn btn-danger">Delete sweep</button>
+      </div>
+    </section>
+
+    <!-- Horses -->
+    <section class="panel">
+      <h2 class="text-lg font-semibold mb-1">Field</h2>
+      <p class="text-xs text-slate-400 mb-3">Tick scratched for withdrawn horses. Set 1st&ndash;3rd once the race is run.</p>
+      <div id="horse-list" class="space-y-2 mb-4"></div>
+      <div class="mb-4 p-3 rounded-xl bg-slate-800/40 border border-slate-700/60">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="ra-import-btn" class="btn btn-primary">Import field from Racing Australia</button>
+          <span id="ra-source" class="text-xs text-slate-400"></span>
+        </div>
+        <div id="ra-progress" class="hidden mt-3">
+          <div class="text-sm text-yellow-400 mb-1" id="ra-progress-msg"></div>
+          <div class="h-1 bg-slate-700 rounded-full"><div id="ra-progress-bar" class="h-full bg-yellow-400 rounded-full transition-all" style="width:0%"></div></div>
+        </div>
+      </div>
+      <form id="horse-form" class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 mb-4">
+        <h3 id="horse-form-title" class="text-sm font-semibold mb-2">Add a horse</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-6 gap-3">
+          <div><label class="label" for="hf-number">No.</label><input id="hf-number" type="number" min="1" inputmode="numeric" placeholder="auto"></div>
+          <div class="col-span-2 sm:col-span-3"><label class="label" for="hf-name">Horse name *</label><input id="hf-name" required placeholder="e.g. Without A Fight"></div>
+          <div><label class="label" for="hf-barrier">Barrier</label><input id="hf-barrier" type="number" min="1" inputmode="numeric"></div>
+          <div><label class="label" for="hf-weight">Weight (kg)</label><input id="hf-weight" inputmode="decimal" placeholder="56.5"></div>
+          <div class="col-span-2 sm:col-span-3"><label class="label" for="hf-jockey">Jockey</label><input id="hf-jockey"></div>
+          <div class="col-span-2 sm:col-span-3"><label class="label" for="hf-trainer">Trainer</label><input id="hf-trainer"></div>
+        </div>
+        <div class="flex gap-2 mt-3">
+          <button type="submit" id="hf-save" class="btn btn-primary">Add horse</button>
+          <button type="button" id="hf-cancel" class="btn btn-ghost hidden">Cancel edit</button>
+        </div>
+      </form>
+      <details>
+        <summary class="text-xs text-slate-400 cursor-pointer">Bulk add (paste a list)</summary>
+        <label class="label mt-2" for="bulk-horses">One per line: "number name", or just names to auto-number</label>
+        <textarea id="bulk-horses" rows="4" placeholder="1 Without A Fight&#10;2 Almandin"></textarea>
+        <button id="add-horses-btn" class="btn btn-ghost mt-2">Add horses</button>
+      </details>
+    </section>
+
+    <!-- Entrants -->
+    <section class="panel">
+      <h2 class="text-lg font-semibold mb-1">Entrants <span id="entrant-count" class="text-slate-500 text-sm font-normal"></span></h2>
+      <p id="fees-line" class="text-xs text-slate-400 mb-3"></p>
+      <div id="entrant-list" class="space-y-2 mb-4"></div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-700/60">
+        <div>
+          <label class="label" for="user-search">Add a registered user</label>
+          <input id="user-search" placeholder="Search name or email&hellip;" autocomplete="off">
+          <div id="user-results" class="mt-2 space-y-1 max-h-48 overflow-y-auto"></div>
+        </div>
+        <div>
+          <label class="label" for="manual-name">Add by name (no account)</label>
+          <div class="flex gap-2">
+            <input id="manual-name" placeholder="e.g. Dave from accounts">
+            <button id="add-manual-btn" class="btn btn-ghost whitespace-nowrap">Add</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Draw -->
+    <section class="panel">
+      <h2 class="text-lg font-semibold mb-1">Draw</h2>
+      <p id="draw-info" class="text-xs text-slate-400 mb-3"></p>
+      <div class="flex flex-wrap gap-2">
+        <button id="draw-btn" class="btn btn-primary">Run draw</button>
+        <button id="redraw-btn" class="btn btn-ghost">Redraw scratched horses</button>
+        <button id="clear-draw-btn" class="btn btn-danger">Clear draw</button>
+      </div>
+      <p class="text-xs text-slate-500 mt-3">Run draw clears all current assignments, shuffles the non-scratched horses and deals one per entrant, then sets status to Drawn. Redraw only replaces entrants holding a scratched horse.</p>
+    </section>
+  </div>
+</div>
+
+
+<!-- Racing Australia import modal -->
+<div id="ra-modal" class="hidden fixed inset-0 z-50 bg-black/75 overflow-y-auto" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="max-w-3xl mx-auto my-10 panel">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-lg font-semibold">Import from Racing Australia</h2>
+      <button id="ra-close" class="text-slate-400 text-xl leading-none">&times;</button>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-2 mb-4">
+      <input id="ra-url" type="url" placeholder="Paste a Form.aspx URL, e.g. https://racingaustralia.horse/FreeFields/Form.aspx?Key=2026Nov03%2CVIC%2CFlemington">
+      <button id="ra-url-go" class="btn btn-ghost whitespace-nowrap">Load races</button>
+    </div>
+    <p class="text-xs text-slate-500 mb-3">Browse lists the next 7 days only. For a later meeting (like the Cup), paste its URL.</p>
+    <div id="ra-status" class="text-sm text-slate-400 mb-3"></div>
+    <div id="ra-content"></div>
+  </div>
+</div>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+import { listRAMeetings, loadRAMeetingRaces, enrichRAHorses } from './ra-import.js';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let sweeps = [];
+let sweep = null;
+let horses = [];
+let entries = [];
+let allUsers = null;
+let booted = false;
+
+function say(msg, isError) {
+  const el = $('status');
+  el.textContent = msg || '';
+  el.className = 'text-sm h-5 ' + (isError ? 'text-red-400' : 'text-slate-400');
+}
+async function run(label, fn) {
+  say(label + '…');
+  try { await fn(); say(label + ' — done'); }
+  catch (err) { console.error(err); say(err.message || String(err), true); }
+}
+const check = ({ error }) => { if (error) throw error; };
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+supabase.auth.onAuthStateChange((event, session) => {
+  const user = session?.user || null;
+  if (!user) { alert('You must be logged in.'); window.location.href = 'index.html'; return; }
+  if (booted) return;
+  booted = true;
+  setTimeout(async () => {
+    const { data } = await supabase.from('users').select('admin').eq('id', user.id).single();
+    if (!data?.admin) { alert('You are not authorized to access this page.'); window.location.href = 'index.html'; return; }
+    await loadSweeps();
+  }, 0);
+});
+
+async function loadSweeps(selectId) {
+  const { data, error } = await supabase.from('sweeps').select('*').order('created_at', { ascending: false });
+  if (error) { say(error.message, true); return; }
+  sweeps = data || [];
+  const keep = selectId || sweep?.id || sweeps.find(s => s.is_active)?.id || sweeps[0]?.id;
+  $('sweep-select').innerHTML = sweeps.length
+    ? sweeps.map(s => `<option value="${s.id}">${esc(s.name)}${s.is_active ? ' (live)' : ''}</option>`).join('')
+    : '<option value="">No sweeps yet</option>';
+  if (keep) $('sweep-select').value = keep;
+  await selectSweep($('sweep-select').value);
+}
+
+async function selectSweep(id) {
+  sweep = sweeps.find(s => s.id === id) || null;
+  $('sweep-body').classList.toggle('hidden', !sweep);
+  if (!sweep) return;
+  $('f-name').value = sweep.name;
+  $('f-fee').value = sweep.entry_fee;
+  $('f-prize').value = sweep.prize_info || '';
+  $('f-status').value = sweep.status;
+  $('f-active').checked = sweep.is_active;
+  await loadChildren();
+}
+
+async function loadChildren() {
+  const [h, e] = await Promise.all([
+    supabase.from('sweep_horses').select('*').eq('sweep_id', sweep.id).order('number'),
+    supabase.from('sweep_entries').select('*').eq('sweep_id', sweep.id).order('created_at')
+  ]);
+  check(h); check(e);
+  horses = h.data || [];
+  entries = e.data || [];
+  renderHorses();
+  renderEntries();
+}
+
+function renderHorses() {
+  $('horse-list').innerHTML = horses.map(h => `
+    <div class="flex flex-wrap items-center gap-3 py-2 px-3 rounded-lg bg-slate-800/50" data-horse="${h.id}">
+      <span class="w-10 text-slate-400">#${h.number}</span>
+      ${h.silks_id ? `<img src="https://www.racingaustralia.horse/JockeySilks/${esc(h.silks_id)}.png" alt="" class="h-8 w-8 object-contain">` : '<span class="w-8"></span>'}
+      <span class="flex-1 min-w-[8rem] ${h.scratched ? 'line-through text-slate-500' : ''}">${esc(h.name)}${h.jockey ? `<span class="block text-xs text-slate-500">${esc(h.jockey)}${h.trainer ? ' · ' + esc(h.trainer) : ''}</span>` : ''}</span>
+      <label class="flex items-center gap-1 text-sm"><input type="checkbox" class="!w-auto" data-act="scratch" ${h.scratched ? 'checked' : ''}> Scratched</label>
+      <select class="!w-28" data-act="position">
+        <option value="">No place</option>
+        <option value="1" ${h.position === 1 ? 'selected' : ''}>1st</option>
+        <option value="2" ${h.position === 2 ? 'selected' : ''}>2nd</option>
+        <option value="3" ${h.position === 3 ? 'selected' : ''}>3rd</option>
+      </select>
+      <button class="btn btn-ghost !py-1" data-act="edit">Edit</button>
+      <button class="btn btn-danger !py-1" data-act="delete">&times;</button>
+    </div>`).join('') || '<p class="text-sm text-slate-500">No horses yet.</p>';
+}
+
+function renderEntries() {
+  const horseById = Object.fromEntries(horses.map(h => [h.id, h]));
+  const paid = entries.filter(e => e.paid).length;
+  const fee = Number(sweep.entry_fee) || 0;
+  $('entrant-count').textContent = `(${entries.length})`;
+  $('fees-line').textContent = fee > 0
+    ? `${paid} of ${entries.length} paid · $${(paid * fee).toFixed(2)} collected of $${(entries.length * fee).toFixed(2)}`
+    : 'Free sweep.';
+  $('entrant-list').innerHTML = entries.map(e => {
+    const h = e.horse_id ? horseById[e.horse_id] : null;
+    return `<div class="flex flex-wrap items-center gap-3 py-2 px-3 rounded-lg bg-slate-800/50" data-entry="${e.id}">
+      <span class="flex-1 min-w-[8rem]">${esc(e.display_name)}${e.user_id ? '' : ' <span class="text-xs text-slate-500">(manual)</span>'}</span>
+      <span class="text-sm ${h ? (h.scratched ? 'text-red-400' : 'text-yellow-300') : 'text-slate-600'}">${h ? `#${h.number} ${esc(h.name)}${h.scratched ? ' (SCR)' : ''}` : 'no horse'}</span>
+      <label class="flex items-center gap-1 text-sm"><input type="checkbox" class="!w-auto" data-act="paid" ${e.paid ? 'checked' : ''}> Paid</label>
+      <button class="btn btn-danger !py-1" data-act="remove">&times;</button>
+    </div>`;
+  }).join('') || '<p class="text-sm text-slate-500">No entrants yet.</p>';
+
+  const live = horses.filter(h => !h.scratched).length;
+  $('draw-info').textContent = `${entries.length} entrants, ${live} running horses.` +
+    (entries.length > live ? ` ${entries.length - live} entrant(s) will miss out — add more horses or remove entrants.` : '');
+}
+
+/* ---------- events ---------- */
+$('sweep-select').addEventListener('change', e => selectSweep(e.target.value));
+
+$('new-sweep-btn').addEventListener('click', () => {
+  const name = prompt('Sweep name', 'Melbourne Cup Sweep 2026');
+  if (!name) return;
+  run('Creating sweep', async () => {
+    const { data, error } = await supabase.from('sweeps').insert({ name }).select().single();
+    if (error) throw error;
+    await loadSweeps(data.id);
+  });
+});
+
+$('save-details-btn').addEventListener('click', () => run('Saving', async () => {
+  const is_active = $('f-active').checked;
+  // Only one live sweep at a time: the public page shows the single active one.
+  if (is_active) check(await supabase.from('sweeps').update({ is_active: false }).neq('id', sweep.id));
+  check(await supabase.from('sweeps').update({
+    name: $('f-name').value.trim() || sweep.name,
+    entry_fee: parseFloat($('f-fee').value) || 0,
+    prize_info: $('f-prize').value.trim() || null,
+    status: $('f-status').value,
+    is_active
+  }).eq('id', sweep.id));
+  await loadSweeps(sweep.id);
+}));
+
+$('delete-sweep-btn').addEventListener('click', () => {
+  if (!confirm(`Delete "${sweep.name}" and all its horses and entrants? This cannot be undone.`)) return;
+  run('Deleting', async () => {
+    check(await supabase.from('sweeps').delete().eq('id', sweep.id));
+    sweep = null;
+    await loadSweeps();
+  });
+});
+
+$('add-horses-btn').addEventListener('click', () => run('Adding horses', async () => {
+  const lines = $('bulk-horses').value.split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return;
+  let next = horses.reduce((m, h) => Math.max(m, h.number), 0) + 1;
+  const rows = lines.map(l => {
+    const m = l.match(/^(\d+)[.)\s-]+(.+)$/);
+    return m ? { sweep_id: sweep.id, number: parseInt(m[1], 10), name: m[2].trim() }
+             : { sweep_id: sweep.id, number: next++, name: l };
+  });
+  check(await supabase.from('sweep_horses').insert(rows));
+  $('bulk-horses').value = '';
+  await loadChildren();
+}));
+
+$('horse-list').addEventListener('change', e => {
+  const act = e.target.dataset.act;
+  const id = e.target.closest('[data-horse]')?.dataset.horse;
+  if (!id) return;
+  if (act === 'scratch') run('Updating horse', async () => {
+    check(await supabase.from('sweep_horses').update({ scratched: e.target.checked }).eq('id', id));
+    await loadChildren();
+  });
+  if (act === 'position') run('Updating result', async () => {
+    const position = e.target.value ? parseInt(e.target.value, 10) : null;
+    // Clear any other horse holding this placing so each of 1st-3rd is unique.
+    if (position) check(await supabase.from('sweep_horses').update({ position: null }).eq('sweep_id', sweep.id).eq('position', position));
+    check(await supabase.from('sweep_horses').update({ position }).eq('id', id));
+    await loadChildren();
+  });
+});
+let editingHorse = null;
+const hfFields = { number: 'hf-number', name: 'hf-name', barrier: 'hf-barrier', weight: 'hf-weight', jockey: 'hf-jockey', trainer: 'hf-trainer' };
+function resetHorseForm() {
+  editingHorse = null;
+  $('horse-form').reset();
+  $('horse-form-title').textContent = 'Add a horse';
+  $('hf-save').textContent = 'Add horse';
+  $('hf-cancel').classList.add('hidden');
+}
+$('hf-cancel').addEventListener('click', resetHorseForm);
+$('horse-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('hf-name').value.trim();
+  if (!name) { say('Horse name is required.', true); return; }
+  const num = parseInt($('hf-number').value, 10);
+  const barrier = parseInt($('hf-barrier').value, 10);
+  const fields = {
+    name,
+    barrier: Number.isFinite(barrier) ? barrier : null,
+    weight: $('hf-weight').value.trim() || null,
+    jockey: $('hf-jockey').value.trim() || null,
+    trainer: $('hf-trainer').value.trim() || null,
+  };
+  const number = Number.isFinite(num) ? num : (editingHorse ? editingHorse.number : horses.reduce((m, h) => Math.max(m, h.number), 0) + 1);
+  if (horses.some(h => h.number === number && h.id !== editingHorse?.id)) { say(`Number ${number} is already taken.`, true); return; }
+  run(editingHorse ? 'Saving horse' : 'Adding horse', async () => {
+    if (editingHorse) check(await supabase.from('sweep_horses').update({ ...fields, number }).eq('id', editingHorse.id));
+    else check(await supabase.from('sweep_horses').insert({ ...fields, number, sweep_id: sweep.id }));
+    resetHorseForm();
+    await loadChildren();
+    $('hf-name').focus();
+  });
+});
+$('horse-list').addEventListener('click', e => {
+  if (e.target.dataset.act === 'edit') {
+    const h = horses.find(x => x.id === e.target.closest('[data-horse]').dataset.horse);
+    if (!h) return;
+    editingHorse = h;
+    for (const [k, id] of Object.entries(hfFields)) $(id).value = h[k] ?? '';
+    $('horse-form-title').textContent = `Editing #${h.number} ${h.name}`;
+    $('hf-save').textContent = 'Save changes';
+    $('hf-cancel').classList.remove('hidden');
+    $('horse-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    $('hf-name').focus();
+    return;
+  }
+  if (e.target.dataset.act !== 'delete') return;
+  const id = e.target.closest('[data-horse]').dataset.horse;
+  if (!confirm('Remove this horse?')) return;
+  run('Removing horse', async () => {
+    check(await supabase.from('sweep_horses').delete().eq('id', id));
+    await loadChildren();
+  });
+});
+
+$('entrant-list').addEventListener('change', e => {
+  if (e.target.dataset.act !== 'paid') return;
+  const id = e.target.closest('[data-entry]').dataset.entry;
+  run('Updating entrant', async () => {
+    check(await supabase.from('sweep_entries').update({ paid: e.target.checked }).eq('id', id));
+    await loadChildren();
+  });
+});
+$('entrant-list').addEventListener('click', e => {
+  if (e.target.dataset.act !== 'remove') return;
+  const id = e.target.closest('[data-entry]').dataset.entry;
+  if (!confirm('Remove this entrant?')) return;
+  run('Removing entrant', async () => {
+    check(await supabase.from('sweep_entries').delete().eq('id', id));
+    await loadChildren();
+  });
+});
+
+$('add-manual-btn').addEventListener('click', () => {
+  const name = $('manual-name').value.trim();
+  if (!name) return;
+  run('Adding entrant', async () => {
+    check(await supabase.from('sweep_entries').insert({ sweep_id: sweep.id, display_name: name }));
+    $('manual-name').value = '';
+    await loadChildren();
+  });
+});
+
+$('user-search').addEventListener('input', async e => {
+  const q = e.target.value.trim().toLowerCase();
+  if (q.length < 2) { $('user-results').innerHTML = ''; return; }
+  if (!allUsers) {
+    // Page through users — Supabase caps a single select at 1000 rows.
+    allUsers = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase.from('users').select('id,team_name,email').range(from, from + 999);
+      if (error) { say(error.message, true); allUsers = null; return; }
+      allUsers.push(...data);
+      if (data.length < 1000) break;
+    }
+  }
+  const taken = new Set(entries.map(x => x.user_id));
+  const hits = allUsers
+    .filter(u => !taken.has(u.id) && `${u.team_name || ''} ${u.email || ''}`.toLowerCase().includes(q))
+    .slice(0, 20);
+  $('user-results').innerHTML = hits.map(u =>
+    `<button class="w-full text-left px-3 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-sm" data-uid="${esc(u.id)}">${esc(u.team_name || u.email)} <span class="text-slate-500">${esc(u.email || '')}</span></button>`
+  ).join('') || '<p class="text-xs text-slate-500">No matches.</p>';
+});
+$('user-results').addEventListener('click', e => {
+  const uid = e.target.closest('[data-uid]')?.dataset.uid;
+  const u = allUsers?.find(x => x.id === uid);
+  if (!u) return;
+  run('Adding entrant', async () => {
+    check(await supabase.from('sweep_entries').insert({ sweep_id: sweep.id, user_id: u.id, display_name: u.team_name || u.email }));
+    $('user-search').value = '';
+    $('user-results').innerHTML = '';
+    await loadChildren();
+  });
+});
+
+$('draw-btn').addEventListener('click', () => {
+  const live = horses.filter(h => !h.scratched);
+  if (!entries.length || !live.length) { say('Need at least one entrant and one running horse.', true); return; }
+  if (entries.some(e => e.horse_id) && !confirm('This clears existing assignments and redraws everyone. Continue?')) return;
+  run('Drawing', async () => {
+    const pool = shuffle(live);
+    const order = shuffle(entries);
+    check(await supabase.from('sweep_entries').update({ horse_id: null }).eq('sweep_id', sweep.id));
+    for (let i = 0; i < order.length; i++) {
+      check(await supabase.from('sweep_entries').update({ horse_id: pool[i]?.id ?? null }).eq('id', order[i].id));
+    }
+    check(await supabase.from('sweeps').update({ status: 'drawn' }).eq('id', sweep.id));
+    await loadSweeps(sweep.id);
+  });
+});
+
+$('clear-draw-btn').addEventListener('click', () => {
+  if (!entries.some(e => e.horse_id)) { say('No horses are assigned.', true); return; }
+  if (!confirm('Clear the draw? All horse assignments are removed and the sweep goes back to Open.')) return;
+  run('Clearing draw', async () => {
+    check(await supabase.from('sweep_entries').update({ horse_id: null }).eq('sweep_id', sweep.id));
+    check(await supabase.from('sweeps').update({ status: 'open' }).eq('id', sweep.id));
+    await loadSweeps(sweep.id);
+  });
+});
+
+$('redraw-btn').addEventListener('click', () => {
+  const scratchedIds = new Set(horses.filter(h => h.scratched).map(h => h.id));
+  const stuck = entries.filter(e => e.horse_id && scratchedIds.has(e.horse_id));
+  if (!stuck.length) { say('No entrant holds a scratched horse.', true); return; }
+  const held = new Set(entries.filter(e => e.horse_id && !scratchedIds.has(e.horse_id)).map(e => e.horse_id));
+  const free = shuffle(horses.filter(h => !h.scratched && !held.has(h.id)));
+  if (free.length < stuck.length && !confirm(`Only ${free.length} free horse(s) for ${stuck.length} entrants. The rest will have no horse. Continue?`)) return;
+  run('Redrawing', async () => {
+    for (let i = 0; i < stuck.length; i++) {
+      check(await supabase.from('sweep_entries').update({ horse_id: free[i]?.id ?? null }).eq('id', stuck[i].id));
+    }
+    await loadChildren();
+  });
+});
+
+/* ---------- Racing Australia import ---------- */
+const raModal = $('ra-modal');
+const raStatus = $('ra-status');
+const raContent = $('ra-content');
+let raMeetings = null;
+
+function raOpen() {
+  raModal.classList.remove('hidden');
+  if (raMeetings) { renderMeetings(); return; }
+  raContent.innerHTML = '';
+  raStatus.textContent = 'Fetching meetings from Racing Australia…';
+  listRAMeetings().then(m => {
+    raMeetings = m;
+    raStatus.textContent = m.length ? '' : 'No meetings found. Paste a URL instead.';
+    renderMeetings();
+  }).catch(err => { raStatus.textContent = 'Failed to load meetings: ' + err.message; });
+}
+
+function renderMeetings() {
+  const byDate = new Map();
+  (raMeetings || []).forEach(m => { if (!byDate.has(m.date)) byDate.set(m.date, []); byDate.get(m.date).push(m); });
+  raContent.innerHTML = [...byDate].map(([date, ms]) => `
+    <div class="mb-4">
+      <div class="text-xs font-bold uppercase tracking-wider text-yellow-400 border-b border-slate-700 pb-1 mb-2">${esc(date)}</div>
+      <div class="flex flex-wrap gap-2">${ms.map(m => `
+        <button class="btn btn-ghost !font-normal ${m.postponed ? 'opacity-40' : ''}" data-m="${raMeetings.indexOf(m)}" ${m.postponed ? 'disabled' : ''}>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-600 mr-1">${esc(m.state)}</span>${esc(m.venue)}
+        </button>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+async function showRaces(meeting) {
+  raContent.innerHTML = '';
+  raStatus.textContent = `Fetching races for ${meeting.venue || 'meeting'}…`;
+  try {
+    const races = await loadRAMeetingRaces(meeting);
+    if (!races.length) { raStatus.textContent = 'No races found for this meeting.'; return; }
+    raStatus.innerHTML = `<button id="ra-back" class="underline text-slate-300">&larr; Back</button> &nbsp; Pick the race for the sweep:`;
+    $('ra-back').onclick = () => { raStatus.textContent = ''; renderMeetings(); };
+    raContent.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${races.map((r, i) => `
+      <button class="text-left p-3 rounded-xl bg-slate-800/60 border border-slate-700 hover:border-yellow-400" data-r="${i}">
+        <div class="font-semibold">R${r.raceNum} · ${esc(r.name)}</div>
+        <div class="text-xs text-slate-400">${[r.time, r.distance, r.prize, `${r.horses.length} runners`].filter(Boolean).map(esc).join(' · ')}</div>
+      </button>`).join('')}</div>`;
+    raContent.onclick = e => {
+      const i = e.target.closest('[data-r]')?.dataset.r;
+      if (i != null) importRace(races[+i], meeting);
+    };
+  } catch (err) { raStatus.textContent = 'Error loading races: ' + err.message; }
+}
+
+async function importRace(race, meeting) {
+  if (!race.horses.length) { raStatus.textContent = 'That race has no runners yet.'; return; }
+  if (horses.length && !confirm(`Replace the current ${horses.length} horses with ${race.horses.length} from "${race.name}"? Drawn horses will be cleared.`)) return;
+  raModal.classList.add('hidden');
+
+  const prog = $('ra-progress');
+  prog.classList.remove('hidden');
+  const onProgress = (done, total, msg) => {
+    $('ra-progress-msg').textContent = msg;
+    $('ra-progress-bar').style.width = total ? `${Math.round(done / total * 100)}%` : '5%';
+  };
+  await run('Importing field', async () => {
+    // Same order as admin-dark: save the parsed field straight away, then enrich it
+    // (silks, form, prizemoney) in the background and write that on top. A slow or
+    // failed enrichment never loses the field.
+    const taken = new Set();
+    let next = race.horses.reduce((m, h) => Math.max(m, parseInt(h.number, 10) || 0), 0) + 1;
+    const numbers = race.horses.map(h => {
+      let number = parseInt(h.number, 10);
+      if (!number || taken.has(number)) number = next++;   // emergencies like "3a" would otherwise collide
+      taken.add(number);
+      return number;
+    });
+    const toRow = (h, i) => ({
+      sweep_id: sweep.id, number: numbers[i], name: h.name,
+      jockey: h.jockey || null, trainer: h.trainer || null,
+      barrier: parseInt(h.barrier, 10) || null, weight: h.weight || null,
+      silks_id: h.silksId || null, last10: h.last10 || null, prizemoney: h.prizemoney || null,
+      form_history: h.formHistory?.length ? h.formHistory : null
+    });
+
+    check(await supabase.from('sweep_horses').delete().eq('sweep_id', sweep.id));
+    check(await supabase.from('sweep_horses').insert(race.horses.map(toRow)));
+
+    const keyM = (race.sourceUrl || '').match(/Key=([^&#]+)/i);
+    const venue = meeting.venue || (keyM ? (decodeURIComponent(keyM[1]).split(',')[2] || '').trim() : '');
+    check(await supabase.from('sweeps').update({
+      race_name: `Race ${race.raceNum} - ${race.name}`, venue: venue || null,
+      race_date: race.date || null, race_time: race.time || null, distance: race.distance || null,
+      ra_source_url: race.sourceUrl || null
+    }).eq('id', sweep.id));
+    await loadSweeps(sweep.id);
+
+    say(`Field saved (${race.horses.length} runners) — fetching silks and form…`);
+    const result = await enrichRAHorses(race.horses, race.sourceUrl, race.raceNum, onProgress);
+    check(await supabase.from('sweep_horses').upsert(race.horses.map(toRow), { onConflict: 'sweep_id,number' }));
+    await loadChildren();
+
+    const missing = race.horses.filter(h => !h.silksId).map(h => h.name);
+    $('ra-source').textContent = `Imported R${race.raceNum} ${race.name} — silks ${result.silks}/${result.total}` +
+      (missing.length ? `. Missing: ${missing.join(', ')}` : '');
+    $('ra-progress-msg').textContent = missing.length ? 'Done — some silks missing.' : 'Done — silks and form loaded.';
+    $('ra-progress-bar').style.width = '100%';
+  });
+  setTimeout(() => prog.classList.add('hidden'), 4000);
+}
+
+$('ra-import-btn').addEventListener('click', raOpen);
+$('ra-close').addEventListener('click', () => raModal.classList.add('hidden'));
+raContent.addEventListener('click', e => {
+  const i = e.target.closest('[data-m]')?.dataset.m;
+  if (i != null) showRaces(raMeetings[+i]);
+});
+$('ra-url-go').addEventListener('click', () => {
+  const url = $('ra-url').value.trim().split('#')[0];
+  if (!url) return;
+  const keyM = url.match(/Key=([^&#]+)/i);
+  const venue = keyM ? (decodeURIComponent(keyM[1]).split(',')[2] || '').trim() : '';
+  showRaces({ url, venue, state: '', date: '' });
+});
+</script>
+</body>
+</html>

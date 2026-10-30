@@ -29,7 +29,11 @@ serve(async (req) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
-    const { user_id, comp_id } = session.metadata ?? {}
+    const { user_id, comp_id, sweep_id } = session.metadata ?? {}
+
+    if (user_id && sweep_id) {
+      return await handleSweepPayment(user_id, sweep_id)
+    }
 
     if (!user_id || !comp_id) {
       console.error('Missing metadata in session', session.id)
@@ -77,3 +81,30 @@ serve(async (req) => {
     headers: { 'Content-Type': 'application/json' },
   })
 })
+
+async function handleSweepPayment(user_id: string, sweep_id: string) {
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  )
+
+  const { data: u } = await supabase.from('users').select('team_name, email').eq('id', user_id).single()
+
+  // Upsert so a replayed webhook never duplicates the entry.
+  const { error } = await supabase.from('sweep_entries').upsert({
+    sweep_id,
+    user_id,
+    display_name: u?.team_name || u?.email || 'Entrant',
+    paid: true,
+  }, { onConflict: 'sweep_id,user_id' })
+
+  if (error) {
+    console.error('Failed to upsert sweep entry:', error)
+    return new Response('DB error', { status: 500 })
+  }
+
+  console.log(`Sweep payment confirmed: user=${user_id} sweep=${sweep_id}`)
+  return new Response(JSON.stringify({ received: true }), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+}

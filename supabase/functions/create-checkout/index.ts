@@ -29,9 +29,13 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
     }
 
-    const { comp_id } = await req.json()
-    if (!comp_id) {
-      return new Response(JSON.stringify({ error: 'comp_id required' }), { status: 400, headers: corsHeaders })
+    const { comp_id, sweep_id } = await req.json()
+    if (!comp_id && !sweep_id) {
+      return new Response(JSON.stringify({ error: 'comp_id or sweep_id required' }), { status: 400, headers: corsHeaders })
+    }
+
+    if (sweep_id) {
+      return await sweepCheckout(supabase, user, sweep_id, req)
     }
 
     const { data: comp } = await supabase.from('comps').select('*').eq('id', comp_id).single()
@@ -86,3 +90,45 @@ serve(async (req) => {
     })
   }
 })
+
+// Melbourne Cup sweep entry. Same Stripe account and webhook as comps; the webhook
+// tells them apart by metadata.sweep_id.
+async function sweepCheckout(supabase: any, user: any, sweep_id: string, req: Request) {
+  const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' }
+  const fail = (error: string, status: number) =>
+    new Response(JSON.stringify({ error }), { status, headers: jsonHeaders })
+
+  const { data: sweep } = await supabase.from('sweeps').select('*').eq('id', sweep_id).single()
+  if (!sweep) return fail('Sweep not found', 404)
+  if (sweep.status !== 'open') return fail('Sweep entries are closed', 400)
+  if (!(Number(sweep.entry_fee) > 0)) return fail('Sweep is free to join', 400)
+
+  const { data: existing } = await supabase.from('sweep_entries')
+    .select('paid').eq('sweep_id', sweep_id).eq('user_id', user.id).maybeSingle()
+  if (existing?.paid) return fail('Already entered', 400)
+
+  const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+    apiVersion: '2023-10-16',
+    httpClient: Stripe.createFetchHttpClient(),
+  })
+  const origin = req.headers.get('origin') || 'https://tmstipping.web.app'
+
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: [{
+      price_data: {
+        currency: 'aud',
+        product_data: { name: sweep.name, description: `Entry fee for ${sweep.name}` },
+        unit_amount: Math.round(Number(sweep.entry_fee) * 100),
+      },
+      quantity: 1,
+    }],
+    mode: 'payment',
+    success_url: `${origin}/sweep.html?payment=success`,
+    cancel_url: `${origin}/sweep.html?payment=cancelled`,
+    metadata: { user_id: user.id, sweep_id },
+    customer_email: user.email ?? undefined,
+  })
+
+  return new Response(JSON.stringify({ url: session.url }), { headers: jsonHeaders })
+}

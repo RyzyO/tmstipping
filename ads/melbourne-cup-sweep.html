@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Melbourne Cup Sweep Ad</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  /* 1080x1350 (4:5) social ad. Screenshot the .ad element to export. */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b1220; display: flex; justify-content: center; padding: 24px 0; }
+  .ad {
+    position: relative; width: 1080px; height: 1350px; overflow: hidden;
+    background: #0b1220 url('../images/flemington.jpg') 62% center / cover no-repeat;
+    font-family: 'Inter', sans-serif; color: #fff;
+  }
+  .ad::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, rgba(11,18,32,.80) 0%, rgba(11,18,32,.15) 34%, rgba(11,18,32,.10) 52%, rgba(11,18,32,.92) 80%, #0b1220 100%);
+  }
+  .inner { position: relative; height: 100%; padding: 64px 72px; display: flex; flex-direction: column; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 16px; font-weight: 800; font-size: 28px; letter-spacing: .02em; }
+  .brand img { height: 56px; width: auto; }
+  .tag { display: inline-block; background: #facc15; color: #0b1220; font-weight: 800; font-size: 26px; letter-spacing: .14em; text-transform: uppercase; padding: 10px 22px; border-radius: 999px; margin-bottom: 26px; }
+  h1 { font-family: 'Anton', sans-serif; font-weight: 400; font-size: 190px; line-height: .92; text-transform: uppercase; letter-spacing: .01em; }
+  h1 span { color: #facc15; display: block; }
+  .sub { margin-top: 28px; font-size: 38px; font-weight: 500; line-height: 1.3; max-width: 800px; color: #e2e8f0; }
+  .sub b { color: #fff; }
+  .cta-row { margin-top: 44px; display: flex; align-items: center; gap: 28px; }
+  .cta { background: #facc15; color: #0b1220; font-weight: 800; font-size: 46px; padding: 30px 56px; border-radius: 18px; box-shadow: 0 10px 40px rgba(250,204,21,.35); }
+  .url { font-size: 30px; font-weight: 700; color: #facc15; line-height: 1.25; }
+  .url small { display: block; font-size: 24px; font-weight: 500; color: #cbd5e1; }
+</style>
+</head>
+<body>
+<div class="ad">
+  <div class="inner">
+    <div class="brand"><img src="../images/logo.png" alt="" onerror="this.style.display='none'"> The Mock Sports</div>
+    <div>
+      <div class="tag">Melbourne Cup &middot; Tuesday 3 November</div>
+      <h1>Draw a horse.<span>Win the Cup.</span></h1>
+      <p class="sub">Join the <b>Melbourne Cup Sweep</b>. Get a randomly drawn runner and back it home at Flemington.</p>
+      <div class="cta-row">
+        <div class="cta">Join the sweep</div>
+        <div class="url">tipping.themocksports.com.au/sweep<small>Entries close before the draw</small></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

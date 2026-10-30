@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Melbourne Cup Sweep - The Mock Sports</title>
+  <link rel="icon" type="image/x-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="icon.png">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#fbbf24">
+
+  <style>
+    html, body { margin: 0; padding: 0; }
+    body { background-color: #111827; color: #f3f4f6; font-variant-numeric: tabular-nums; }
+    body::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .035;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    h1, h2, h3 { text-wrap: balance; }
+    p { text-wrap: pretty; }
+  </style>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+
+  <style>
+    .gradient-text {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .glass-effect {
+      background: rgba(17, 24, 39, 0.95); backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    }
+    .card {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.9), rgba(17, 24, 39, 0.9));
+      border: 1px solid rgba(75, 85, 99, 0.3);
+      box-shadow: 0 18px 40px -26px rgba(2, 6, 23, 0.9);
+    }
+    .card-gold {
+      background: linear-gradient(145deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98));
+      border: 1px solid rgba(251, 191, 36, 0.35);
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: #111827; font-weight: 700;
+      transition: transform .2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .2s ease, opacity .2s ease;
+    }
+    .btn-gold:hover { box-shadow: 0 10px 25px -8px rgba(251, 191, 36, 0.55); }
+    .btn-gold:active { transform: translateY(1px) scale(0.98); }
+    a:focus-visible, button:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
+    .runner:hover { border-color: rgba(251, 191, 36, 0.3); }
+    .btn-gold:disabled { opacity: .6; cursor: wait; box-shadow: none; }
+    .cloth {
+      min-width: 2.25rem; height: 2.25rem; padding: 0 .4rem;
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: .75rem; font-weight: 800; font-size: .95rem; color: #111827;
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    }
+    .cloth.dim { background: #374151; color: #9ca3af; }
+    .runner { transition: border-color .25s ease, background-color .25s ease; }
+    .runner.mine { border-color: rgba(251, 191, 36, 0.7); background: linear-gradient(145deg, rgba(251, 191, 36, 0.12), rgba(17, 24, 39, 0.95)); }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(55, 65, 81, 0.3) 25%, rgba(75, 85, 99, 0.3) 50%, rgba(55, 65, 81, 0.3) 75%);
+      background-size: 200% 100%; animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton { animation: none; }
+      .btn-gold, .runner { transition: none; }
+    }
+    .nav-scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 60; }
+    .nav-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(300px, 86vw); background: #0f172a; border-left: 1px solid #1f2937; transform: translateX(100%); transition: transform .22s ease, visibility 0s linear .22s; z-index: 70; display: flex; flex-direction: column; overflow-y: auto; visibility: hidden; }
+    body.nav-open .nav-scrim { opacity: 1; pointer-events: auto; }
+    body.nav-open .nav-drawer { transform: none; visibility: visible; transition: transform .22s ease, visibility 0s; }
+    body.nav-open { overflow: hidden; }
+    .nav-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
+    .nav-cta { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 6px 16px 4px; padding: 12px; border-radius: 12px; background: #fbbf24; color: #111827; font-weight: 600; }
+    .nav-cta svg { width: 18px; height: 18px; }
+    .nav-sec { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: #6b7280; padding: 14px 16px 4px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; width: calc(100% - 16px); margin: 2px 8px; padding: 12px; border-radius: 10px; color: #d1d5db; font-size: 15px; text-align: left; transition: background .15s; }
+    .nav-item:hover, .nav-item:active { background: #1f2937; }
+    .nav-item svg { width: 19px; height: 19px; flex-shrink: 0; }
+    .nav-item.active { background: rgba(251,191,36,.12); color: #fbbf24; }
+    .nav-danger { color: #f87171; }
+    .nav-foot { margin-top: auto; border-top: 1px solid #1f2937; padding: 8px 0 12px; }
+    @media (min-width: 768px) { .nav-scrim, .nav-drawer { display: none; } }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col min-h-screen">
+
+<!-- Navigation (identical to every other page) -->
+<nav class="sticky top-0 z-50 glass-effect">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex justify-between items-center py-4">
+      <div class="flex items-center">
+        <img src="images/logo.png" alt="Logo" class="h-14 w-auto" style="object-fit: contain;" />
+      </div>
+      <div class="flex items-center space-x-4">
+        <!-- Mobile menu button -->
+        <button class="md:hidden" onclick="toggleMenu()" id="navOpenBtn" aria-label="Open menu" aria-controls="navDrawer" aria-expanded="false">
+          <i data-feather="menu" class="h-6 w-6 text-gray-200"></i>
+        </button>
+        <!-- Desktop menu -->
+        <div class="hidden md:flex space-x-6">
+          <a href="dark.html" class="text-gray-300 hover:text-yellow-400 transition">Home</a>
+          <a href="comps.html" class="text-gray-300 hover:text-yellow-400 transition">Competitions</a>
+          <a href="tipdark.html" class="text-gray-300 hover:text-yellow-400 transition">Tip Now</a>
+          <a href="notificationsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Notifications</a>
+          <a href="leaderboarddark.html" class="text-gray-300 hover:text-yellow-400 transition">Leaderboard</a>
+          <a href="streakdark.html" class="text-gray-300 hover:text-yellow-400 transition">Streak</a>
+          <a href="resultsdark.html" class="text-gray-300 hover:text-yellow-400 transition">Results</a>
+          <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
+          <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
+          <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
+          <a href="sweep.html" class="text-yellow-400 font-semibold">Sweep</a>
+          <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
+          <button onclick="signOut()" class="text-gray-300 hover:text-red-400 transition font-semibold">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+  <!-- Mobile nav drawer -->
+  <div id="navScrim" class="nav-scrim" onclick="toggleMenu(false)"></div>
+  <aside id="navDrawer" class="nav-drawer" aria-hidden="true" aria-label="Main menu">
+    <div class="nav-drawer-head">
+      <img src="images/logo.png" alt="Logo" class="h-10 w-auto" style="object-fit: contain;" />
+      <button onclick="toggleMenu(false)" class="text-gray-300 p-1" aria-label="Close menu"><i data-feather="x" class="h-5 w-5"></i></button>
+    </div>
+    <a href="tipdark.html" class="nav-cta"><i data-feather="edit-3"></i>Tip now</a>
+    <div class="nav-sec">Play</div>
+    <a href="dark.html" class="nav-item" data-href="dark.html"><i data-feather="home"></i>Home</a>
+    <a href="comps.html" class="nav-item" data-href="comps.html"><i data-feather="award"></i>Competitions</a>
+    <a href="leaderboarddark.html" class="nav-item" data-href="leaderboarddark.html"><i data-feather="bar-chart-2"></i>Leaderboard</a>
+    <a href="streakdark.html" class="nav-item" data-href="streakdark.html"><i data-feather="zap"></i>Streak</a>
+    <a href="resultsdark.html" class="nav-item" data-href="resultsdark.html"><i data-feather="flag"></i>Results</a>
+    <a href="sweep.html" class="nav-item" data-href="sweep.html"><i data-feather="gift"></i>Sweep</a>
+    <div class="nav-sec">Explore</div>
+    <a href="notificationsdark.html" class="nav-item" data-href="notificationsdark.html"><i data-feather="bell"></i>Notifications</a>
+    <a href="prizesdark.html" class="nav-item" data-href="prizesdark.html"><i data-feather="gift"></i>Prizes</a>
+    <a href="podcastdark.html" class="nav-item" data-href="podcastdark.html"><i data-feather="mic"></i>Podcast</a>
+    <a href="faqdark.html" class="nav-item" data-href="faqdark.html"><i data-feather="help-circle"></i>FAQ</a>
+    <div class="nav-foot">
+    <a href="profiledark.html" class="nav-item" data-href="profiledark.html"><i data-feather="user"></i>Profile</a>
+      <button onclick="signOut()" class="nav-item nav-danger"><i data-feather="log-out"></i>Sign out</button>
+    </div>
+  </aside>
+
+<main class="relative z-10 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow">
+
+  <div id="banner" class="hidden rounded-2xl px-4 py-3 text-sm mb-6" role="status"></div>
+
+  <!-- Hero: message left, the actual field right -->
+  <section id="hero" class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+    <div class="card rounded-2xl shadow-2xl p-6 sm:p-10 lg:col-span-3 relative overflow-hidden flex flex-col justify-center" data-aos="fade-up">
+      <div class="relative z-10">
+        <p id="race-line" class="hidden text-sm font-semibold text-yellow-400 mb-3 pl-3 border-l-2 border-yellow-400"></p>
+        <h1 id="sweep-title" class="text-4xl md:text-6xl font-extrabold gradient-text tracking-[-0.03em] leading-[1.02] pb-1">Melbourne Cup Sweep</h1>
+        <p id="sweep-sub" class="text-gray-300 mt-4 max-w-md leading-relaxed">Enter, get a runner in the random draw, and cheer it home.</p>
+        <div id="sweep-actions" class="mt-8"><div class="skeleton h-12 w-56 rounded-xl"></div></div>
+      </div>
+    </div>
+
+    <div class="card rounded-2xl shadow-2xl p-5 sm:p-6 lg:col-span-2 flex flex-col" data-aos="fade-up" data-aos-delay="100">
+      <div id="silk-wall" class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 gap-2 mb-5"></div>
+      <dl id="facts" class="grid grid-cols-2 gap-x-4 gap-y-3 mt-auto"></dl>
+    </div>
+  </section>
+
+  <!-- Your horse -->
+  <section id="my-horse" class="hidden mb-8" data-aos="fade-up"></section>
+
+  <!-- Result -->
+  <section id="results" class="hidden mb-8" data-aos="fade-up">
+    <h2 class="text-xl sm:text-2xl font-bold text-white mb-4">Result</h2>
+    <div id="results-list" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- Field -->
+  <section id="field" class="mb-8" data-aos="fade-up">
+    <div class="flex items-end justify-between mb-4">
+      <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight">The field</h2>
+      <span id="field-count" class="text-sm text-gray-400"></span>
+    </div>
+    <p id="field-note" class="text-sm text-gray-400 mb-4 max-w-xl"></p>
+    <div id="field-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- Entrants -->
+  <section id="entrants" data-aos="fade-up">
+    <div class="flex items-end justify-between mb-4">
+      <h2 class="text-xl sm:text-2xl font-bold text-white">Entrants</h2>
+      <span id="entrant-count" class="text-sm text-gray-400"></span>
+    </div>
+    <div id="entrant-list" class="card rounded-2xl p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1"></div>
+  </section>
+</main>
+
+<!-- Footer (identical to every other page) -->
+<footer class="bg-gray-950 border-t border-gray-800 text-gray-400 py-10 mt-16">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="flex flex-col items-center md:items-start">
+        <div class="flex items-center mb-2">
+          <img src="images/logo.png" alt="Logo" class="h-6 w-auto mr-2" style="object-fit: contain;" />
+          <span class="font-semibold text-gray-300">The Mock Sports</span>
+        </div>
+        <p class="text-sm text-gray-500">&copy; 2026 All rights reserved.</p>
+        <a href="terms.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Terms &amp; Conditions</a>
+        <a href="privacy.html" class="text-sm text-gray-500 hover:text-yellow-400 transition-colors duration-200 underline">Privacy Policy</a>
+      </div>
+      <div class="flex space-x-6">
+        <a href="https://x.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on X">
+          <i data-feather="twitter" class="h-5 w-5"></i>
+        </a>
+        <a href="https://facebook.com/TheMockSports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Facebook">
+          <i data-feather="facebook" class="h-5 w-5"></i>
+        </a>
+        <a href="https://instagram.com/themocksports" target="_blank" rel="noopener noreferrer" class="hover:text-yellow-400 transition-colors duration-200" aria-label="Follow us on Instagram">
+          <i data-feather="instagram" class="h-5 w-5"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = n => `$${n % 1 ? n.toFixed(2) : n}`;
+const PLACE = { 1: '1st', 2: '2nd', 3: '3rd' };
+const PLACE_STYLE = {
+  1: 'border-yellow-400/60 bg-gradient-to-br from-yellow-400/20 to-gray-900 text-yellow-300',
+  2: 'border-gray-300/40 bg-gradient-to-br from-gray-300/15 to-gray-900 text-gray-200',
+  3: 'border-amber-600/50 bg-gradient-to-br from-amber-600/20 to-gray-900 text-amber-400'
+};
+
+const silkSrc = h => h.silks_id ? `https://www.racingaustralia.horse/JockeySilks/${h.silks_id}.png` : '';
+const silk = (h, size) => silkSrc(h)
+  ? `<img src="${silkSrc(h)}" alt="" loading="lazy" class="${size} object-contain flex-shrink-0" onerror="this.style.visibility='hidden'">`
+  : `<span class="${size} flex-shrink-0"></span>`;
+
+// Same form-badge scheme as the tipping page.
+function last10(str) {
+  const chars = (str || '').split('');
+  return chars.map((c, i) => {
+    const colour = c === '1' ? 'bg-green-500 text-white'
+      : c === '2' || c === '3' ? 'bg-blue-500 text-white'
+      : c.toLowerCase() === 'x' ? 'bg-red-500 text-white'
+      : 'bg-gray-600 text-gray-300';
+    const vis = i < chars.length - 5 ? 'hidden md:inline-flex' : 'inline-flex';
+    return `<span class="${vis} items-center justify-center w-5 h-5 rounded text-[10px] font-bold ${colour}">${esc(c)}</span>`;
+  }).join('');
+}
+
+let user = null;
+let sweep = null;
+let horses = [];
+let entries = [];
+let started = false;
+const paymentParam = new URLSearchParams(window.location.search).get('payment');
+
+function toggleMenu(force) {
+  const open = typeof force === 'boolean' ? force : !document.body.classList.contains('nav-open');
+  document.body.classList.toggle('nav-open', open);
+  $('navDrawer')?.setAttribute('aria-hidden', String(!open));
+  $('navOpenBtn')?.setAttribute('aria-expanded', String(open));
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMenu(false); });
+window.matchMedia('(min-width: 768px)').addEventListener('change', e => { if (e.matches) toggleMenu(false); });
+document.querySelectorAll('#navDrawer .nav-item[data-href]').forEach(a => a.classList.toggle('active', a.dataset.href === 'sweep.html'));
+async function signOut() {
+  await supabase.auth.signOut();
+  window.location.href = 'landing.html';
+}
+window.toggleMenu = toggleMenu;
+window.signOut = signOut;
+
+supabase.auth.onAuthStateChange((event, session) => {
+  user = session?.user || null;
+  if (!user) { window.location.href = 'login.html?redirect=sweep.html'; return; }
+  if (started) return;
+  started = true;
+  setTimeout(init, 0);
+});
+
+function banner(msg, tone) {
+  const el = $('banner');
+  const tones = {
+    good: 'bg-green-500/10 border border-green-500/30 text-green-300',
+    warn: 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300',
+    bad: 'bg-red-500/10 border border-red-500/30 text-red-300'
+  };
+  el.className = `rounded-2xl px-4 py-3 text-sm mb-6 ${tones[tone] || tones.warn}`;
+  el.textContent = msg;
+}
+
+const myEntry = () => entries.find(e => e.user_id === user?.id);
+
+async function init() {
+  await load();
+  if (!paymentParam) return;
+  history.replaceState({}, '', 'sweep.html');
+  if (paymentParam === 'cancelled') { banner('Payment cancelled. You have not been charged.', 'warn'); return; }
+  if (paymentParam === 'success') {
+    banner('Payment received. Confirming your entry...', 'good');
+    // The Stripe webhook adds the entry a moment after the redirect, so poll briefly.
+    for (let i = 0; i < 10 && !myEntry(); i++) {
+      await new Promise(r => setTimeout(r, 1500));
+      await load();
+    }
+    myEntry()
+      ? banner("You're in. Good luck!", 'good')
+      : banner('Payment received. Your entry can take a minute to appear, so refresh shortly.', 'warn');
+  }
+}
+
+async function load() {
+  const { data: sweeps, error } = await supabase.from('sweeps').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1);
+  if (error) { console.error(error); $('sweep-sub').textContent = 'Could not load the sweep. Try refreshing.'; $('sweep-actions').innerHTML = ''; return; }
+  sweep = sweeps?.[0] || null;
+  if (!sweep) {
+    $('sweep-sub').textContent = 'No sweep is running right now. Check back closer to the Cup.';
+    $('sweep-actions').innerHTML = '';
+    ['silk-wall', 'facts', 'field', 'entrants'].forEach(id => $(id).classList.add('hidden'));
+    return;
+  }
+  const [h, e] = await Promise.all([
+    supabase.from('sweep_horses').select('*').eq('sweep_id', sweep.id).order('number'),
+    supabase.from('sweep_entries').select('*').eq('sweep_id', sweep.id).order('created_at')
+  ]);
+  horses = h.data || [];
+  entries = e.data || [];
+  render();
+}
+
+function render() {
+  const mine = myEntry();
+  const fee = Number(sweep.entry_fee) || 0;
+  const drawn = sweep.status !== 'open';
+  const horseById = Object.fromEntries(horses.map(h => [h.id, h]));
+  const holderByHorse = {};
+  entries.forEach(e => { if (e.horse_id) holderByHorse[e.horse_id] = e; });
+  const isMine = h => holderByHorse[h.id]?.user_id === user.id;
+
+  // Hero copy
+  $('sweep-title').textContent = sweep.name;
+  const raceLine = [sweep.race_name, sweep.venue].filter(Boolean).join(', ');
+  $('race-line').textContent = raceLine;
+  $('race-line').classList.toggle('hidden', !raceLine);
+  $('sweep-sub').textContent = sweep.prize_info || 'Enter, get a runner in the random draw, and cheer it home.';
+
+  // Hero action
+  if (sweep.status === 'open') {
+    $('sweep-actions').innerHTML = mine
+      ? `<div class="inline-flex items-center gap-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 px-4 py-3 text-sm font-semibold">
+           <i data-feather="check-circle" class="h-4 w-4"></i> You're entered
+         </div>
+         <p class="text-sm text-gray-400 mt-3">Horses are drawn at random once entries close.</p>`
+      : `<button id="join-btn" class="btn-gold rounded-xl px-8 py-3.5 text-base">${fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep'}</button>
+         <p class="text-sm text-gray-400 mt-3">${fee > 0 ? 'Secure card payment. ' : ''}Horses are drawn at random once entries close.</p>`;
+    $('join-btn')?.addEventListener('click', join);
+  } else {
+    $('sweep-actions').innerHTML = `<p class="text-sm text-gray-400">${sweep.status === 'drawn' ? 'Entries are closed and the horses are drawn.' : 'This sweep has finished.'}</p>`;
+  }
+
+  // Silk wall: real silks from the field
+  const silks = horses.filter(h => h.silks_id && !h.scratched).slice(0, 12);
+  $('silk-wall').classList.remove('hidden');
+  $('silk-wall').innerHTML = silks.length
+    ? silks.map(h => `<div class="bg-gray-800/70 border border-gray-700/60 rounded-xl p-1.5 flex items-center justify-center aspect-square" title="${esc(h.name)}"><img src="${silkSrc(h)}" alt="${esc(h.name)} silks" loading="lazy" class="w-full h-full object-contain" onerror="this.style.visibility='hidden'"></div>`).join('')
+    : `<div class="col-span-full rounded-xl border border-dashed border-gray-700 py-8 flex flex-col items-center gap-2 text-gray-500">
+         <i data-feather="flag" class="h-6 w-6"></i><span class="text-sm">Silks appear when the field is announced</span>
+       </div>`;
+
+  // Facts
+  const facts = [
+    ['Entry', fee > 0 ? money(fee) : 'Free'],
+    ['Entrants', String(entries.length)],
+    ['Status', { open: 'Open', drawn: 'Drawn', completed: 'Finished' }[sweep.status]],
+    ['Race', [sweep.race_time, sweep.distance].filter(Boolean).join(' / ') || 'TBA']
+  ];
+  $('facts').classList.remove('hidden');
+  $('facts').innerHTML = facts.map(([k, v]) => `
+    <div class="border-t border-gray-700/60 pt-2">
+      <dt class="text-xs text-gray-400">${k}</dt>
+      <dd class="font-semibold text-white">${esc(v)}</dd>
+    </div>`).join('');
+
+  // Your horse
+  const myHorse = mine?.horse_id ? horseById[mine.horse_id] : null;
+  $('my-horse').classList.toggle('hidden', !mine);
+  if (mine && myHorse) {
+    const note = myHorse.scratched ? 'Scratched. You will be redrawn a new horse.'
+      : myHorse.position ? `Finished ${PLACE[myHorse.position]}`
+      : 'Running';
+    const people = [myHorse.jockey && `Jockey ${esc(myHorse.jockey)}`, myHorse.trainer && `Trainer ${esc(myHorse.trainer)}`].filter(Boolean);
+    const stats = [myHorse.barrier && `Barrier ${myHorse.barrier}`, myHorse.weight && `${esc(myHorse.weight)}kg`].filter(Boolean);
+    $('my-horse').innerHTML = `
+      <div class="card-gold rounded-2xl shadow-2xl p-5 sm:p-8 relative overflow-hidden">
+          <div class="relative z-10 flex flex-col sm:flex-row sm:items-center gap-5 sm:gap-8">
+          <div class="flex items-center gap-4">
+            <span class="cloth !min-w-[3.5rem] !h-14 !text-2xl">${myHorse.number}</span>
+            ${silk(myHorse, 'h-20 w-20')}
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-2xl sm:text-3xl font-bold text-white truncate">${esc(myHorse.name)}</h2>
+            <p class="text-sm mt-1 ${myHorse.scratched ? 'text-red-400' : myHorse.position ? 'text-yellow-400 font-semibold' : 'text-gray-400'}">${note}</p>
+            <div class="mt-3 text-sm text-gray-300 space-y-0.5">
+              ${people.map(p => `<div>${p}</div>`).join('')}
+              ${stats.length ? `<div class="text-gray-400">${stats.join(', ')}</div>` : ''}
+            </div>
+            ${myHorse.last10 || myHorse.prizemoney ? `<div class="flex flex-wrap items-center gap-2 mt-3">
+              ${myHorse.last10 ? `<span class="text-xs text-gray-500">Last 10</span><span class="flex items-center gap-1">${last10(myHorse.last10)}</span>` : ''}
+              ${myHorse.prizemoney ? `<span class="text-xs text-green-400 font-semibold">${esc(myHorse.prizemoney)}</span>` : ''}
+            </div>` : ''}
+          </div>
+        </div>
+      </div>`;
+  } else if (mine) {
+    $('my-horse').innerHTML = `
+      <div class="card rounded-2xl p-6 sm:p-8 text-center" style="border-style:dashed;border-color:rgba(251,191,36,0.35)">
+        <h2 class="text-xl font-bold text-white">${drawn ? 'No horse assigned yet' : 'Your horse is drawn at random'}</h2>
+        <p class="text-sm text-gray-400 mt-1">${drawn ? 'The admin will sort this out shortly.' : "You can't pick one. It's the luck of the draw once entries close."}</p>
+      </div>`;
+  }
+
+  // Result
+  const placed = horses.filter(h => h.position).sort((a, b) => a.position - b.position);
+  $('results').classList.toggle('hidden', placed.length === 0);
+  $('results-list').innerHTML = placed.map(h => {
+    const holder = holderByHorse[h.id];
+    return `<div class="rounded-2xl border p-4 ${PLACE_STYLE[h.position]} ${isMine(h) ? 'ring-2 ring-yellow-400' : ''}">
+      <div class="flex items-center gap-2 text-sm font-bold"><i data-feather="award" class="h-4 w-4"></i>${PLACE[h.position]}</div>
+      <div class="flex items-center gap-3 mt-3 min-w-0">
+        ${silk(h, 'h-12 w-12')}
+        <div class="min-w-0">
+          <div class="font-bold text-white truncate">${h.number}. ${esc(h.name)}</div>
+          <div class="text-sm text-gray-300 truncate">${esc(holder?.display_name || 'Unclaimed')}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Field: display only, nothing to select
+  $('field-count').textContent = horses.length ? `${horses.filter(h => !h.scratched).length} runners` : '';
+  $('field-note').textContent = drawn ? '' : 'Horses are allocated by random draw once entries close. This is who is in the race.';
+  $('field-list').innerHTML = horses.map(h => {
+    const holder = holderByHorse[h.id];
+    const meta = [h.jockey && `J: ${esc(h.jockey)}`, h.trainer && `T: ${esc(h.trainer)}`].filter(Boolean).join(', ');
+    const stats = [h.barrier && `Barrier ${h.barrier}`, h.weight && `${esc(h.weight)}kg`].filter(Boolean).join(', ');
+    return `<article class="runner card rounded-2xl p-4 ${isMine(h) ? 'mine' : ''} ${h.scratched ? 'opacity-60' : ''}">
+      <div class="flex items-center gap-3">
+        <span class="cloth ${h.scratched ? 'dim' : ''}">${h.number}</span>
+        ${silk(h, 'h-12 w-12')}
+        <div class="min-w-0 flex-1">
+          <h3 class="font-semibold truncate ${h.scratched ? 'line-through text-gray-500' : 'text-white'}">${esc(h.name)}</h3>
+          <p class="text-xs text-gray-400 truncate min-h-[1rem]">${meta}</p>
+          <p class="text-xs text-gray-500 truncate min-h-[1rem]">${stats}</p>
+        </div>
+        ${h.position ? `<span class="text-xs font-bold px-2 py-1 rounded-lg border ${PLACE_STYLE[h.position]}">${PLACE[h.position]}</span>` : ''}
+      </div>
+      ${h.last10 || h.prizemoney ? `<div class="flex flex-wrap items-center gap-2 mt-3">
+        ${h.last10 ? `<span class="flex items-center gap-1">${last10(h.last10)}</span>` : ''}
+        ${h.prizemoney ? `<span class="text-xs text-green-400 font-semibold">${esc(h.prizemoney)}</span>` : ''}
+      </div>` : ''}
+      <div class="mt-3 pt-3 border-t border-gray-700/50 text-sm truncate ${holder ? 'text-yellow-400 font-medium' : 'text-gray-500'}">${h.scratched ? 'Scratched' : drawn ? esc(holder?.display_name || 'Unclaimed') : 'Awaiting draw'}</div>
+    </article>`;
+  }).join('') || `<div class="card rounded-2xl p-8 text-center text-gray-400 col-span-full">
+      <i data-feather="flag" class="h-6 w-6 mx-auto mb-2 text-gray-500"></i>The field has not been announced yet.
+    </div>`;
+
+  // Entrants
+  $('entrant-count').textContent = entries.length ? `${entries.length} entered` : '';
+  $('entrant-list').innerHTML = entries.map(e =>
+    `<div class="py-2 text-sm truncate ${e.user_id === user.id ? 'text-yellow-400 font-semibold' : 'text-gray-300'}">${esc(e.display_name)}</div>`
+  ).join('') || '<p class="text-sm text-gray-400 py-2">Be the first to enter.</p>';
+
+  feather.replace();
+}
+
+async function join() {
+  const btn = $('join-btn');
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'One moment...';
+  try {
+    if (Number(sweep.entry_fee) > 0) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ sweep_id: sweep.id })
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || 'Failed to start checkout');
+      if (!payload?.url) throw new Error('No checkout URL returned');
+      window.location.href = payload.url;
+      return;
+    }
+    // Free sweep: no payment, enter directly.
+    const { data: u } = await supabase.from('users').select('team_name,email').eq('id', user.id).single();
+    const { error } = await supabase.from('sweep_entries').insert({
+      sweep_id: sweep.id, user_id: user.id, display_name: u?.team_name || u?.email || user.email
+    });
+    if (error) throw error;
+    await load();
+  } catch (err) {
+    console.error(err);
+    banner('Could not enter: ' + (err.message || err), 'bad');
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+AOS.init({ duration: 600, once: true, easing: 'ease-out-cubic', disable: window.matchMedia('(prefers-reduced-motion: reduce)').matches });
+feather.replace();
+</script>
+  <script type="module" src="nav-avatar.js"></script>
+</body>
+</html>
