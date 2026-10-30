@@ -158,7 +158,7 @@
   <div id="banner" class="hidden rounded-2xl px-4 py-3 text-sm mb-6" role="status"></div>
 
   <!-- One tab per live sweep (e.g. $30 / $50 / $100 entry) -->
-  <div id="sweep-tabs" class="hidden flex flex-wrap gap-2 mb-6" role="tablist" aria-label="Choose a sweep"></div>
+  <div id="sweep-tabs" class="hidden mb-6 p-1 rounded-2xl bg-gray-800/70 border border-gray-700/60 gap-1" role="tablist" aria-label="Choose a sweep"></div>
 
   <!-- Hero: message left, the actual field right -->
   <section id="hero" class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
@@ -322,12 +322,14 @@ const myEntry = () => entries.find(e => e.user_id === user?.id);
 function renderTabs() {
   const el = $('sweep-tabs');
   el.classList.toggle('hidden', sweepList.length < 2);
+  el.style.display = sweepList.length < 2 ? '' : 'grid';
+  el.style.gridTemplateColumns = `repeat(${sweepList.length}, minmax(0, 1fr))`;
   el.innerHTML = sweepList.map(s => {
     const fee = Number(s.entry_fee) || 0;
     const on = s.id === sweep.id;
-    return `<button role="tab" aria-selected="${on}" data-sweep="${s.id}" class="text-left rounded-xl px-5 py-3 border transition ${on ? 'border-yellow-400 bg-yellow-400/10 text-white' : 'border-gray-700 bg-gray-800/60 text-gray-300 hover:border-gray-500'}">
-      <span class="block text-xl font-bold ${on ? 'text-yellow-400' : ''}">${fee > 0 ? money(fee) : 'Free'}${enteredIds.has(s.id) ? ' <span class="text-green-400 text-sm font-semibold">&#10003; entered</span>' : ''}</span>
-      <span class="block text-xs text-gray-400">${esc(s.name)}</span>
+    return `<button role="tab" aria-selected="${on}" data-sweep="${s.id}" title="${esc(s.name)}" class="rounded-xl py-3 px-2 text-center transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400 ${on ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-900/30' : 'text-gray-300 hover:bg-gray-700/60'}">
+      <span class="block text-lg sm:text-2xl font-extrabold leading-tight">${fee > 0 ? money(fee) : 'Free'}</span>
+      <span class="block text-xs font-medium leading-tight mt-0.5 ${on ? 'text-gray-800' : 'text-gray-400'}">${enteredIds.has(s.id) ? '&#10003; Entered' : 'Entry'}</span>
     </button>`;
   }).join('');
 }
@@ -364,6 +366,7 @@ async function load() {
   sweep = sweepList.find(s => s.id === selectedId) || sweepList[0] || null;
   if (sweep) selectedId = sweep.id;
   $('sweep-tabs').classList.toggle('hidden', sweepList.length < 2);
+  if (sweepList.length < 2) $('sweep-tabs').style.display = '';
   if (!sweep) {
     $('sweep-sub').textContent = 'No sweep is running right now. Check back closer to the Cup.';
     $('sweep-actions').innerHTML = '';
@@ -405,7 +408,7 @@ function render() {
            <i data-feather="check-circle" class="h-4 w-4"></i> You're entered
          </div>
          <p class="text-sm text-gray-400 mt-3">Horses are drawn at random once entries close.</p>`
-      : `<button id="join-btn" class="btn-gold rounded-xl px-8 py-3.5 text-base">${fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep'}</button>
+      : `<button id="join-btn" class="btn-gold rounded-xl px-8 py-3.5 text-base w-full">${fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep'}</button>
          <p class="text-sm text-gray-400 mt-3">${fee > 0 ? 'Secure card payment. ' : ''}Horses are drawn at random once entries close.</p>`;
     $('join-btn')?.addEventListener('click', join);
   } else {
