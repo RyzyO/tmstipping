@@ -5,6 +5,11 @@
   if (Date.now() > EXPIRES) return;
   try { if (sessionStorage.getItem(SESSION_KEY)) return; } catch (e) {}
 
+  // Private: only users with sweep access see the promo.
+  import('./sweep-access.js').then(function (m) { return m.hasSweepAccess(); }).then(function (ok) { if (ok) start(); });
+
+  function start() {
+
   var font = document.createElement('link');
   font.rel = 'stylesheet';
   font.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Geist:wght@400;500;600&display=swap';
@@ -68,4 +73,5 @@
     requestAnimationFrame(function () { el.classList.add('show'); });
   }
   if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+  }
 })();

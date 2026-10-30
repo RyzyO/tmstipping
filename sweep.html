@@ -118,7 +118,7 @@
           <a href="podcastdark.html" class="text-gray-300 hover:text-yellow-400 transition">Podcast</a>
           <a href="faqdark.html" class="text-gray-300 hover:text-yellow-400 transition">FAQ</a>
           <a href="prizesdark.html" class="text-gray-300 hover:text-yellow-400 transition">Prizes</a>
-          <a href="sweep.html" class="text-yellow-400 font-semibold">Sweep</a>
+          <a href="sweep.html" class="text-yellow-400 font-semibold" data-sweep-nav style="display:none">Sweep</a>
           <a href="profiledark.html" class="text-gray-300 hover:text-yellow-400 transition">Profile</a>
           <button onclick="signOut()" class="text-gray-300 hover:text-red-400 transition font-semibold">Sign Out</button>
         </div>
@@ -141,7 +141,7 @@
     <a href="leaderboarddark.html" class="nav-item" data-href="leaderboarddark.html"><i data-feather="bar-chart-2"></i>Leaderboard</a>
     <a href="streakdark.html" class="nav-item" data-href="streakdark.html"><i data-feather="zap"></i>Streak</a>
     <a href="resultsdark.html" class="nav-item" data-href="resultsdark.html"><i data-feather="flag"></i>Results</a>
-    <a href="sweep.html" class="nav-item" data-href="sweep.html"><i data-feather="gift"></i>Sweep</a>
+    <a href="sweep.html" class="nav-item" data-sweep-nav style="display:none" data-href="sweep.html"><i data-feather="gift"></i>Sweep</a>
     <div class="nav-sec">Explore</div>
     <a href="notificationsdark.html" class="nav-item" data-href="notificationsdark.html"><i data-feather="bell"></i>Notifications</a>
     <a href="prizesdark.html" class="nav-item" data-href="prizesdark.html"><i data-feather="gift"></i>Prizes</a>
@@ -234,6 +234,7 @@
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+import { hasSweepAccess } from './sweep-access.js';
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = id => document.getElementById(id);
@@ -292,7 +293,10 @@ supabase.auth.onAuthStateChange((event, session) => {
   if (!user) { window.location.href = 'login.html?redirect=sweep.html'; return; }
   if (started) return;
   started = true;
-  setTimeout(init, 0);
+  setTimeout(async () => {
+    if (!(await hasSweepAccess())) { window.location.href = 'dark.html'; return; }
+    init();
+  }, 0);
 });
 
 function banner(msg, tone) {
@@ -529,5 +533,6 @@ AOS.init({ duration: 600, once: true, easing: 'ease-out-cubic', disable: window.
 feather.replace();
 </script>
   <script type="module" src="nav-avatar.js"></script>
+  <script type="module">import { revealSweepNav } from "./sweep-access.js"; revealSweepNav();</script>
 </body>
 </html>
