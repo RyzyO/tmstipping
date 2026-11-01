@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.sweep_merge_log (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE public.sweep_merge_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS sweep_merge_log_admin ON public.sweep_merge_log;
 CREATE POLICY sweep_merge_log_admin ON public.sweep_merge_log FOR ALL TO authenticated
   USING (public.is_sweep_admin()) WITH CHECK (public.is_sweep_admin());
 

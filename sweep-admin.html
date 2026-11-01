@@ -588,6 +588,19 @@ function renderMerge() {
   if (options.some(x => x.id === keep)) $('merge-target').value = keep;
   $('merge-target').disabled = !options.length || sweep.status !== 'open';
   refreshMergePreview();
+
+  // Show how many people are already in each sweep you could merge into.
+  if (options.length) {
+    supabase.from('sweep_entries').select('sweep_id').in('sweep_id', options.map(x => x.id)).then(({ data, error }) => {
+      if (error || !$('merge-target').options.length) return;
+      const counts = {};
+      (data || []).forEach(r => { counts[r.sweep_id] = (counts[r.sweep_id] || 0) + 1; });
+      [...$('merge-target').options].forEach(o => {
+        const x = options.find(t => t.id === o.value);
+        if (x) { const n = counts[x.id] || 0; o.textContent = `${sweepLabel(x)}, ${n} ${n === 1 ? 'entrant' : 'entrants'}`; }
+      });
+    });
+  }
 }
 
 async function refreshMergePreview() {
