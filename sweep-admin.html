@@ -53,7 +53,8 @@
     table.data td { padding: .6rem .75rem; border-bottom: 1px solid rgba(37,45,59,.6); vertical-align: middle; }
     table.data tbody tr:hover { background: rgba(23,29,40,.6); }
     table.data tr:last-child td { border-bottom: 0; }
-    dialog { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 1.5rem; width: min(26rem, calc(100vw - 2rem)); margin: auto; }
+    dialog { background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 12px; width: min(26rem, calc(100vw - 2rem)); margin: auto; }
+    dialog#sweep-dialog { padding: 1.75rem !important; }
     dialog::backdrop { background: rgba(5,7,10,.75); }
     #status { position: fixed; left: 50%; bottom: 1.25rem; transform: translate(-50%, 8px); opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; max-width: calc(100vw - 2rem); }
     #status.show { opacity: 1; transform: translate(-50%, 0); }
@@ -155,6 +156,7 @@
       <section id="panel-field" data-panel="field" class="pt-6 space-y-6">
         <div class="flex flex-wrap items-center gap-3">
           <button id="ra-import-btn" class="btn btn-primary">Import from Racing Australia</button>
+          <button id="comp-silks-btn" class="btn" title="Copy silks from the main comp's Lexus Melbourne Cup race onto these horses">Copy silks from main comp</button>
           <span id="ra-source" class="text-sm muted"></span>
         </div>
         <div id="ra-progress" class="hidden">
@@ -858,6 +860,33 @@ async function importRace(race, meeting) {
   setTimeout(() => prog.classList.add('hidden'), 4000);
 }
 
+// Copy silk IDs from the main comp's Melbourne Cup race (races table) onto this sweep's
+// horses, matching by name first and falling back to the runner number.
+const normName = n => String(n || '').replace(/\s*\([^)]*\)/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+$('comp-silks-btn').addEventListener('click', () => run('Copying silks from main comp', async () => {
+  if (!horses.length) throw new Error('Add or import the field first.');
+  const { data, error } = await supabase.from('races').select('id,name,date,horses').ilike('name', '%Melbourne Cup%');
+  if (error) throw error;
+  const matches = (data || []).filter(r => /lexus/i.test(r.name)).sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const race = matches[0] || (data || [])[0];
+  if (!race) throw new Error('Could not find the Lexus Melbourne Cup race in the main comp.');
+  const src = Object.values(race.horses || {});
+  const byName = new Map(), byNo = new Map();
+  src.forEach(h => {
+    const id = h.silksId || h.silkId || h.silk || h.silkDesc;
+    if (!id) return;
+    byName.set(normName(h.name), id);
+    byNo.set(String(h.no ?? h.number), id);
+  });
+  const rows = [], missing = [];
+  horses.forEach(h => {
+    const id = byName.get(normName(h.name)) || byNo.get(String(h.number));
+    id ? rows.push({ id: h.id, silks_id: String(id) }) : missing.push(h.name);
+  });
+  for (const r of rows) check(await supabase.from('sweep_horses').update({ silks_id: r.silks_id }).eq('id', r.id));
+  await loadChildren();
+  $('ra-source').textContent = `Silks copied from "${race.name}": ${rows.length}/${horses.length}` + (missing.length ? `. No match: ${missing.join(', ')}` : '');
+}));
 $('ra-import-btn').addEventListener('click', raOpen);
 $('ra-close').addEventListener('click', () => raModal.classList.add('hidden'));
 raContent.addEventListener('click', e => {
