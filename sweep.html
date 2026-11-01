@@ -466,7 +466,7 @@ function render() {
            <i data-feather="check-circle" class="h-4 w-4"></i> You're entered
          </div>
          <p class="text-sm text-gray-400 mt-3">Horses are drawn at random once entries close.</p>
-         ${others.length ? `<button id="join-btn" class="btn-secondary rounded-xl px-6 py-3 text-sm w-full mt-4 justify-center">Enter another sweep (${others.length} available)</button>` : ''}`;
+         ${others.length ? `<button id="join-btn" class="btn-gold rounded-xl px-6 py-3.5 text-base w-full mt-4">Enter another sweep (${others.length} available)</button>` : ''}`;
     } else {
       $('sweep-actions').innerHTML = !others.length
         ? `<div class="w-full text-center rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 text-sm font-semibold">${many ? 'All sweeps are full' : 'This sweep is full'}</div>`
