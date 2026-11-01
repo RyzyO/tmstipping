@@ -3977,14 +3977,15 @@ async function loadRemoteImageForCanvas(url) {
   // Retry: firing a whole field's worth of proxy calls can trip timeouts / rate limits,
   // and a silent miss here means a default silk in the export.
   const proxyUrl = buildSelfProxyUrl(url);
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt) await sleep(400 * attempt);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt) await sleep(500 * attempt);
     try {
       const resp = await fetchWithTimeout(proxyUrl, 15000, proxyRequestHeaders(proxyUrl));
       if (!resp.ok) continue;
       const blob = await resp.blob();
-      if (!blob.type.startsWith('image/')) continue;
-      const img = await loadImageOrNull(URL.createObjectURL(blob));
+      // Don't trust the content-type: upstream sometimes labels PNGs octet-stream.
+      if (!blob.size || /text\/html/i.test(blob.type)) continue;
+      const img = await loadImageOrNull(URL.createObjectURL(new Blob([blob], { type: 'image/png' })));
       if (img) return img;
     } catch (e) { /* retry */ }
   }
@@ -4025,8 +4026,8 @@ window.exportRaceFieldPng = async function() {
       loadImageOrNull('images/logo.png'),
       loadImageOrNull(LB_DEFAULT_SILK_SRC),
     ]);
-    const silks = await mapWithConcurrency(horses, 4, async h =>
-      (await loadRemoteImageForCanvas(getUaSilkUrl(h, race.name))) || defaultSilk);
+    const silks = await mapWithConcurrency(horses, 3, async h =>
+      (await loadRemoteImageForCanvas(getUaSilkUrl(h, race.name))) || (console.warn('Silk failed to load:', h.name, getUaSilkUrl(h, race.name)), defaultSilk));
 
     const W = 1920, H = 1080;
     const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif';
