@@ -655,13 +655,21 @@ async function join(target, btn) {
   btn.textContent = 'One moment...';
   try {
     if (Number(target.entry_fee) > 0) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error('Not authenticated');
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ sweep_id: target.id })
-      });
+      // A stale cached token is what makes the function answer "Unauthorized", so call with a
+      // freshly refreshed one, and retry once with a forced refresh if it is still refused.
+      const startCheckout = async force => {
+        let { data: { session } } = force ? await supabase.auth.refreshSession() : await supabase.auth.getSession();
+        if (!session?.access_token) session = (await supabase.auth.refreshSession()).data.session;
+        if (!session?.access_token) throw new Error('Your login has expired. Please log out and back in, then try again.');
+        return fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ sweep_id: target.id })
+        });
+      };
+      let res = await startCheckout(false);
+      if (res.status === 401) res = await startCheckout(true);
+      if (res.status === 401) throw new Error('Your login has expired. Please log out and back in, then try again.');
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error || 'Failed to start checkout');
       if (!payload?.url) throw new Error('No checkout URL returned');
