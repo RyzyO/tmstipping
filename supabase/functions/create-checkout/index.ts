@@ -107,6 +107,13 @@ async function sweepCheckout(supabase: any, user: any, sweep_id: string, req: Re
     .select('paid').eq('sweep_id', sweep_id).eq('user_id', user.id).maybeSingle()
   if (existing?.paid) return fail('Already entered', 400)
 
+  // One runner per entrant: refuse once every unscratched horse has an entrant.
+  const [{ count: horseCount }, { count: entryCount }] = await Promise.all([
+    supabase.from('sweep_horses').select('id', { count: 'exact', head: true }).eq('sweep_id', sweep_id).eq('scratched', false),
+    supabase.from('sweep_entries').select('id', { count: 'exact', head: true }).eq('sweep_id', sweep_id),
+  ])
+  if ((horseCount ?? 0) > 0 && (entryCount ?? 0) >= (horseCount ?? 0)) return fail('This sweep is full', 400)
+
   const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
     apiVersion: '2023-10-16',
     httpClient: Stripe.createFetchHttpClient(),

@@ -280,6 +280,11 @@ let entries = [];
 let started = false;
 let sweepList = [];
 let enteredIds = new Set();
+// One runner per entrant, so spots = unscratched horses - entries. null while no field is loaded yet.
+let spotsBySweep = {};
+const spotsLeft = s => spotsBySweep[s.id] ?? null;
+const isFull = s => spotsLeft(s) !== null && spotsLeft(s) <= 0;
+const spotsText = s => { const n = spotsLeft(s); return n === null ? '' : n <= 0 ? 'Full' : `${n} spot${n === 1 ? '' : 's'} left`; };
 let selectedId = new URLSearchParams(window.location.search).get('sweep');
 const paymentParam = new URLSearchParams(window.location.search).get('payment');
 
@@ -331,7 +336,7 @@ function renderPicker(multi) {
     const fee = Number(s.entry_fee) || 0;
     return `<span class="shrink-0 w-16 text-lg font-extrabold ${on ? 'text-yellow-400' : 'text-gray-100'}">${fee > 0 ? money(fee) : 'Free'}</span>
       <span class="flex-1 min-w-0 truncate text-sm text-gray-300">${esc(s.name)}</span>
-      ${enteredIds.has(s.id) ? '<span class="shrink-0 text-xs font-semibold text-green-400">&#10003; Entered</span>' : ''}`;
+      ${enteredIds.has(s.id) ? '<span class="shrink-0 text-xs font-semibold text-green-400">&#10003; Entered</span>' : spotsText(s) ? `<span class="shrink-0 text-xs font-semibold ${isFull(s) ? 'text-red-400' : 'text-gray-400'}">${spotsText(s)}</span>` : ''}`;
   };
   btn.innerHTML = row(sweep, true) + '<span class="shrink-0 text-gray-400 text-lg leading-none">&#9662;</span>';
   list.innerHTML = sweepList.map(s => `<li role="option" aria-selected="${s.id === sweep.id}" data-sweep="${s.id}" class="flex items-center gap-3 px-4 min-h-[52px] cursor-pointer active:bg-gray-700 ${s.id === sweep.id ? 'bg-gray-700/50' : ''}">${row(s, s.id === sweep.id)}</li>`).join('');
@@ -366,6 +371,7 @@ function renderTabs() {
     return `<button role="tab" aria-selected="${on}" tabindex="${on ? 0 : -1}" data-sweep="${s.id}" title="${esc(s.name)}" class="snap-center shrink-0 min-w-[5.5rem] max-w-[9rem] min-h-[44px] rounded-xl py-2 px-3 text-center transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400 ${on ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-900/30' : 'text-gray-300 hover:bg-gray-700/60'}">
       <span class="block text-lg sm:text-xl font-extrabold leading-tight whitespace-nowrap">${fee > 0 ? money(fee) : 'Free'}${entered ? ' &#10003;' : ''}</span>
       <span class="block truncate text-xs font-medium leading-tight mt-0.5 ${on ? 'text-gray-800' : 'text-gray-400'}">${esc(s.name)}</span>
+      ${!entered && spotsText(s) ? `<span class="block text-[11px] font-semibold leading-tight mt-0.5 ${isFull(s) ? 'text-red-500' : on ? 'text-gray-800' : 'text-gray-500'}">${spotsText(s)}</span>` : ''}
     </button>`;
   }).join('');
   el.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -421,6 +427,14 @@ async function load() {
     supabase.from('sweep_entries').select('sweep_id').eq('user_id', user.id).in('sweep_id', sweepList.map(s => s.id))
   ]);
   enteredIds = new Set((mine.data || []).map(r => r.sweep_id));
+  const ids = sweepList.map(s => s.id);
+  const [allH, allE] = await Promise.all([
+    supabase.from('sweep_horses').select('sweep_id').in('sweep_id', ids).eq('scratched', false),
+    supabase.from('sweep_entries').select('sweep_id').in('sweep_id', ids)
+  ]);
+  const tally = rows => (rows || []).reduce((m, r) => (m[r.sweep_id] = (m[r.sweep_id] || 0) + 1, m), {});
+  const hc = tally(allH.data), ec = tally(allE.data);
+  spotsBySweep = Object.fromEntries(ids.filter(id => hc[id]).map(id => [id, hc[id] - (ec[id] || 0)]));
   renderTabs();
   horses = h.data || [];
   entries = e.data || [];
@@ -445,7 +459,7 @@ function render() {
 
   // Hero action
   if (sweep.status === 'open') {
-    const others = sweepList.filter(s => s.status === 'open' && !enteredIds.has(s.id));
+    const others = sweepList.filter(s => s.status === 'open' && !enteredIds.has(s.id) && !isFull(s));
     const many = sweepList.length > 1;
     if (mine) {
       $('sweep-actions').innerHTML = `<div class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 px-4 py-3 text-sm font-semibold">
@@ -454,8 +468,10 @@ function render() {
          <p class="text-sm text-gray-400 mt-3">Horses are drawn at random once entries close.</p>
          ${others.length ? `<button id="join-btn" class="btn-secondary rounded-xl px-6 py-3 text-sm w-full mt-4 justify-center">Enter another sweep (${others.length} available)</button>` : ''}`;
     } else {
-      $('sweep-actions').innerHTML = `<button id="join-btn" class="btn-gold rounded-xl px-8 py-3.5 text-base w-full">${many ? 'Choose a sweep to enter' : (fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep')}</button>
-         <p class="text-sm text-gray-400 mt-3">${many ? 'Pick a sweep, then confirm. ' : ''}${fee > 0 ? 'Secure card payment. ' : ''}Horses are drawn at random once entries close.</p>`;
+      $('sweep-actions').innerHTML = !others.length
+        ? `<div class="w-full text-center rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 text-sm font-semibold">${many ? 'All sweeps are full' : 'This sweep is full'}</div>`
+        : `<button id="join-btn" class="btn-gold rounded-xl px-8 py-3.5 text-base w-full">${many ? 'Choose a sweep to enter' : (fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep')}</button>
+         <p class="text-sm text-gray-400 mt-3">${many ? 'Pick a sweep, then confirm. ' : ''}${fee > 0 ? 'Secure card payment. ' : ''}Horses are drawn at random once entries close.${spotsText(sweep) ? ` ${spotsText(sweep)}.` : ''}</p>`;
     }
     $('join-btn')?.addEventListener('click', openOnboarding);
   } else {
@@ -580,7 +596,7 @@ function render() {
 // Entry onboarding: pick a sweep (if several), then the ground rules, then pay / enter.
 function openOnboarding() {
   const open = sweepList.filter(s => s.status === 'open');
-  const free = open.filter(s => !enteredIds.has(s.id));
+  const free = open.filter(s => !enteredIds.has(s.id) && !isFull(s));
   if (!free.length) return;
   let chosen = sweepList.length < 2 ? free[0] : null;
   const root = document.createElement('div');
@@ -599,11 +615,11 @@ function openOnboarding() {
       <h2 class="text-2xl font-bold text-white mt-1">Choose a sweep</h2>
       <p class="text-sm text-gray-400 mt-1">Tap the sweep you want to enter.</p>
       <ul class="mt-4 space-y-2">${open.map(s => {
-        const done = enteredIds.has(s.id), fee = Number(s.entry_fee) || 0;
+        const entered = enteredIds.has(s.id), full = isFull(s), done = entered || full, fee = Number(s.entry_fee) || 0;
         return `<li><button data-pick="${s.id}" ${done ? 'disabled' : ''} class="w-full min-h-[56px] flex items-center gap-3 px-4 py-2 rounded-2xl border text-left ${done ? 'opacity-50 border-gray-700 bg-gray-800/40 cursor-not-allowed' : 'border-gray-600 bg-gray-800 hover:border-yellow-400 active:bg-gray-700'}">
           <span class="shrink-0 w-16 text-lg font-extrabold text-yellow-400">${fee > 0 ? money(fee) : 'Free'}</span>
           <span class="flex-1 min-w-0 truncate text-sm text-gray-200">${esc(s.name)}</span>
-          ${done ? '<span class="text-xs font-semibold text-green-400">&#10003; Entered</span>' : ''}
+          ${entered ? '<span class="text-xs font-semibold text-green-400">&#10003; Entered</span>' : spotsText(s) ? `<span class="text-xs font-semibold ${full ? 'text-red-400' : 'text-gray-400'}">${spotsText(s)}</span>` : ''}
         </button></li>`; }).join('')}</ul>
       <button data-close class="w-full mt-4 py-3 text-sm text-gray-400">Cancel</button>`);
   };
@@ -633,6 +649,7 @@ function openOnboarding() {
 }
 
 async function join(target, btn) {
+  if (isFull(target)) { banner('Sorry, that sweep is now full.', 'bad'); await load(); return; }
   btn.disabled = true;
   const label = btn.textContent;
   btn.textContent = 'One moment...';
