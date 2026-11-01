@@ -5,8 +5,12 @@
   if (Date.now() > EXPIRES) return;
   try { if (sessionStorage.getItem(SESSION_KEY)) return; } catch (e) {}
 
-  // Private: only users with sweep access see the promo.
-  import('./sweep-access.js').then(function (m) { return m.hasSweepAccess(); }).then(function (ok) { if (ok) start(); });
+  // Only signed-in users with sweep access who haven't entered a sweep yet see the promo.
+  import('./sweep-access.js').then(function (m) {
+    return m.hasSweepAccess().then(function (ok) {
+      return ok ? m.hasEnteredSweep().then(function (entered) { return !entered; }) : false;
+    });
+  }).then(function (show) { if (show) start(); });
 
   function start() {
 

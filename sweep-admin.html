@@ -280,6 +280,15 @@
 </dialog>
 
 <!-- Racing Australia import modal -->
+<div id="contact-modal" class="hidden fixed inset-0 z-50 bg-black/75 overflow-y-auto" onclick="if(event.target===this)this.classList.add('hidden')">
+  <div class="max-w-md mx-auto sm:my-10 surface p-4 sm:p-6 min-h-[100dvh] sm:min-h-0 rounded-none sm:rounded-xl">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold">Contact details</h2>
+      <button id="contact-close" class="btn btn-ghost btn-sm" aria-label="Close">Close</button>
+    </div>
+    <dl id="contact-body" class="space-y-3 text-sm"></dl>
+  </div>
+</div>
 <div id="ra-modal" class="hidden fixed inset-0 z-50 bg-black/75 overflow-y-auto" onclick="if(event.target===this)this.classList.add('hidden')">
   <div class="max-w-3xl mx-auto sm:my-10 surface p-4 sm:p-6 min-h-[100dvh] sm:min-h-0 rounded-none sm:rounded-xl">
     <div class="flex items-center justify-between mb-4">
@@ -426,6 +435,12 @@ async function selectSweep(id) {
   await loadChildren();
 }
 
+let userInfo = {};
+const userSilk = silk => {
+  const k = String(silk ?? '').trim();
+  if (k.toLowerCase() === 'champions') return 'static/silks/champion.png';
+  return `static/silks/${/^\d+$/.test(k) ? k : 1}.png`;
+};
 async function loadChildren() {
   const [h, e] = await Promise.all([
     supabase.from('sweep_horses').select('*').eq('sweep_id', sweep.id).order('number'),
@@ -434,6 +449,13 @@ async function loadChildren() {
   check(h); check(e);
   horses = h.data || [];
   entries = e.data || [];
+  // Real names + username + chosen silk for the entrants who have accounts.
+  const uids = [...new Set(entries.map(x => x.user_id).filter(Boolean))];
+  userInfo = {};
+  if (uids.length) {
+    const { data: us } = await supabase.from('users').select('id,first_name,last_name,team_name,silk').in('id', uids);
+    (us || []).forEach(u => { userInfo[u.id] = u; });
+  }
   renderHorses();
   renderEntries();
 }
@@ -499,11 +521,20 @@ function renderEntries() {
     <thead><tr><th>Entrant</th><th>Horse</th><th>Paid</th><th></th></tr></thead>
     <tbody>${entries.map(e => {
       const h = e.horse_id ? horseById[e.horse_id] : null;
+      const u = userInfo[e.user_id];
+      const real = u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '';
+      const handle = u?.team_name || e.display_name;
       return `<tr data-entry="${e.id}">
-        <td class="span2"><span class="font-medium">${esc(e.display_name)}</span>${e.user_id ? '' : ' <span class="chip ml-1">Manual</span>'}</td>
+        <td class="span2"><div class="flex items-center gap-3 sm:min-w-[12rem]">
+          ${e.user_id ? `<img src="${userSilk(u?.silk)}" alt="" class="h-8 w-8 object-contain shrink-0" onerror="this.style.visibility='hidden'">` : '<span class="w-8 shrink-0"></span>'}
+          <div class="min-w-0">
+            <div class="font-medium">${esc(real || handle)}${e.user_id ? '' : ' <span class="chip ml-1">Manual</span>'}</div>
+            ${real && handle ? `<div class="text-xs muted truncate">${esc(handle)}</div>` : ''}
+          </div>
+        </div></td>
         <td data-label="Horse" class="${h ? '' : 'muted'}" ${h && h.scratched ? 'style="color:var(--danger)"' : ''}>${h ? `<span class="mono">#${h.number}</span> ${esc(h.name)}${h.scratched ? ' (scratched)' : ''}` : 'Not drawn'}</td>
         <td data-label="Paid"><input type="checkbox" data-act="paid" ${e.paid ? 'checked' : ''} aria-label="${esc(e.display_name)} paid"></td>
-        <td class="text-right span2 actions"><button class="btn btn-danger btn-sm" data-act="remove">Remove</button></td>
+        <td class="text-right span2 actions">${e.user_id ? '<button class="btn btn-ghost btn-sm" data-act="contact">Contact</button> ' : ''}<button class="btn btn-danger btn-sm" data-act="remove">Remove</button></td>
       </tr>`;
     }).join('')}</tbody></table>`
     : `<div class="p-8 text-center"><p class="font-medium">No entrants yet</p><p class="muted text-sm mt-1">Users enter from the Sweep page, or add people below.</p></div>`;
@@ -656,6 +687,25 @@ $('entrant-list').addEventListener('change', e => {
     check(await supabase.from('sweep_entries').update({ paid: e.target.checked }).eq('id', id));
     await loadChildren();
   });
+});
+$('contact-close').addEventListener('click', () => $('contact-modal').classList.add('hidden'));
+$('entrant-list').addEventListener('click', async e => {
+  if (e.target.dataset.act !== 'contact') return;
+  const entry = entries.find(x => x.id === e.target.closest('[data-entry]').dataset.entry);
+  if (!entry?.user_id) return;
+  const { data: u, error } = await supabase.from('users').select('*').eq('id', entry.user_id).maybeSingle();
+  if (error || !u) { say(error?.message || 'Could not load that user.', true); return; }
+  const addr = [u.address, [u.suburb, u.state, u.postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  const phone = u.phone || u.mobile || u.phone_number || '';
+  const row = (label, val, href) => `<div><dt class="muted text-xs">${label}</dt><dd class="font-medium break-words">${
+    val ? (href ? `<a href="${href}" class="underline">${esc(val)}</a>` : esc(val)) : '<span class="muted font-normal">Not provided</span>'}</dd></div>`;
+  $('contact-body').innerHTML =
+    row('Name', `${u.first_name || ''} ${u.last_name || ''}`.trim()) +
+    row('Username', u.team_name) +
+    row('Email', u.email, u.email && 'mailto:' + u.email) +
+    row('Phone', phone, phone && 'tel:' + String(phone).replace(/[^\d+]/g, '')) +
+    row('Address', addr);
+  $('contact-modal').classList.remove('hidden');
 });
 $('entrant-list').addEventListener('click', e => {
   if (e.target.dataset.act !== 'remove') return;

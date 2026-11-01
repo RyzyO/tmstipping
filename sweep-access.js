@@ -16,6 +16,20 @@ export async function hasSweepAccess() {
   } catch { return false; }
 }
 
+// Whether the signed-in user has already entered any sweep (own rows only).
+export async function hasEnteredSweep() {
+  try {
+    const ref = new URL(SUPABASE_URL).hostname.split('.')[0];
+    const session = JSON.parse(localStorage.getItem(`sb-${ref}-auth-token`));
+    const uid = session?.user?.id;
+    if (!session?.access_token || !uid) return false;
+    const res = await fetch(`${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/sweep_entries?select=sweep_id&user_id=eq.${encodeURIComponent(uid)}&limit=1`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${session.access_token}` }
+    });
+    return res.ok && (await res.json()).length > 0;
+  } catch { return false; }
+}
+
 // Reveals nav links marked data-sweep-nav for users with access.
 export async function revealSweepNav() {
   const links = document.querySelectorAll('[data-sweep-nav]');
