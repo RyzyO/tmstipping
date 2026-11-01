@@ -158,16 +158,20 @@
   <div id="banner" class="hidden rounded-2xl px-4 py-3 text-sm mb-6" role="status"></div>
 
   <!-- One tab per live sweep (e.g. $30 / $50 / $100 entry) -->
-  <div id="sweep-tabs" class="hidden mb-6 p-1 rounded-2xl bg-gray-800/70 border border-gray-700/60 gap-1" role="tablist" aria-label="Choose a sweep"></div>
+  <div id="sweep-picker" class="hidden sm:hidden mb-6 relative">
+    <button id="sweep-picker-btn" type="button" aria-haspopup="listbox" aria-expanded="false" class="w-full min-h-[56px] flex items-center gap-3 px-4 py-2 rounded-2xl bg-gray-800/70 border border-gray-700/60 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400"></button>
+    <ul id="sweep-picker-list" role="listbox" class="hidden absolute z-20 left-0 right-0 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl bg-gray-800 border border-gray-700 shadow-xl shadow-black/40 divide-y divide-gray-700/60"></ul>
+  </div>
+  <div id="sweep-tabs" class="hidden mb-6 px-3 py-3 rounded-2xl bg-gray-800/70 border border-gray-700/60 gap-2 overflow-x-auto snap-x" style="scrollbar-width:thin" role="tablist" aria-label="Choose a sweep"></div>
 
   <!-- Hero: message left, the actual field right -->
   <section id="hero" class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
     <div class="card rounded-2xl shadow-2xl p-6 sm:p-10 lg:col-span-3 relative overflow-hidden flex flex-col justify-center" data-aos="fade-up">
       <div class="relative z-10">
-        <p id="race-line" class="hidden text-sm font-semibold text-yellow-400 mb-3 pl-3 border-l-2 border-yellow-400"></p>
+        <p id="race-line" class="hidden text-sm font-semibold text-yellow-400 mb-5 pl-3 py-0.5 border-l-2 border-yellow-400 leading-snug"></p>
         <h1 id="sweep-title" class="sr-only">Melbourne Cup Sweep</h1>
-        <img src="images/sweep.png" alt="The Mock Sports Melbourne Cup Sweeps 2026" class="w-full max-w-md -mt-4 -mb-2 -ml-2 sm:-ml-4" style="object-fit: contain;" />
-        <p id="sweep-sub" class="text-gray-300 mt-4 max-w-md leading-relaxed">Enter, get a runner in the random draw, and cheer it home.</p>
+        <img src="images/sweep-crop.png" alt="The Mock Sports Melbourne Cup Sweeps 2026" class="block w-full max-w-sm sm:max-w-md h-auto" style="object-fit: contain;" />
+        <p id="sweep-sub" class="text-gray-300 mt-5 max-w-md leading-relaxed">Enter, get a runner in the random draw, and cheer it home.</p>
         <div id="sweep-actions" class="mt-8"><div class="skeleton h-12 w-56 rounded-xl"></div></div>
       </div>
     </div>
@@ -319,20 +323,60 @@ function banner(msg, tone) {
 
 const myEntry = () => entries.find(e => e.user_id === user?.id);
 
+function renderPicker(multi) {
+  const wrap = $('sweep-picker'), btn = $('sweep-picker-btn'), list = $('sweep-picker-list');
+  wrap.classList.toggle('hidden', !multi);
+  list.classList.add('hidden'); btn.setAttribute('aria-expanded', 'false');
+  const row = (s, on) => {
+    const fee = Number(s.entry_fee) || 0;
+    return `<span class="shrink-0 w-16 text-lg font-extrabold ${on ? 'text-yellow-400' : 'text-gray-100'}">${fee > 0 ? money(fee) : 'Free'}</span>
+      <span class="flex-1 min-w-0 truncate text-sm text-gray-300">${esc(s.name)}</span>
+      ${enteredIds.has(s.id) ? '<span class="shrink-0 text-xs font-semibold text-green-400">&#10003; Entered</span>' : ''}`;
+  };
+  btn.innerHTML = row(sweep, true) + '<span class="shrink-0 text-gray-400 text-lg leading-none">&#9662;</span>';
+  list.innerHTML = sweepList.map(s => `<li role="option" aria-selected="${s.id === sweep.id}" data-sweep="${s.id}" class="flex items-center gap-3 px-4 min-h-[52px] cursor-pointer active:bg-gray-700 ${s.id === sweep.id ? 'bg-gray-700/50' : ''}">${row(s, s.id === sweep.id)}</li>`).join('');
+}
+$('sweep-picker-btn').addEventListener('click', () => {
+  const list = $('sweep-picker-list'), open = list.classList.toggle('hidden') === false;
+  $('sweep-picker-btn').setAttribute('aria-expanded', String(open));
+});
+$('sweep-picker-list').addEventListener('click', e => {
+  const id = e.target.closest('[data-sweep]')?.dataset.sweep;
+  $('sweep-picker-list').classList.add('hidden');
+  if (!id || id === sweep?.id) return;
+  selectedId = id;
+  history.replaceState({}, '', 'sweep.html?sweep=' + id);
+  load();
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#sweep-picker')) $('sweep-picker-list').classList.add('hidden');
+});
+
 function renderTabs() {
   const el = $('sweep-tabs');
-  el.classList.toggle('hidden', sweepList.length < 2);
-  el.style.display = sweepList.length < 2 ? '' : 'grid';
-  el.style.gridTemplateColumns = `repeat(${sweepList.length}, minmax(0, 1fr))`;
+  const multi = sweepList.length >= 2;
+  el.classList.toggle('hidden', !multi);
+  el.classList.toggle('sm:flex', multi);
+  el.classList.toggle('max-sm:hidden', true);
+  renderPicker(multi);
   el.innerHTML = sweepList.map(s => {
     const fee = Number(s.entry_fee) || 0;
     const on = s.id === sweep.id;
-    return `<button role="tab" aria-selected="${on}" data-sweep="${s.id}" title="${esc(s.name)}" class="rounded-xl py-3 px-2 text-center transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400 ${on ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-900/30' : 'text-gray-300 hover:bg-gray-700/60'}">
-      <span class="block text-lg sm:text-2xl font-extrabold leading-tight">${fee > 0 ? money(fee) : 'Free'}</span>
-      <span class="block text-xs font-medium leading-tight mt-0.5 ${on ? 'text-gray-800' : 'text-gray-400'}">${enteredIds.has(s.id) ? '&#10003; Entered' : 'Entry'}</span>
+    const entered = enteredIds.has(s.id);
+    return `<button role="tab" aria-selected="${on}" tabindex="${on ? 0 : -1}" data-sweep="${s.id}" title="${esc(s.name)}" class="snap-center shrink-0 min-w-[5.5rem] max-w-[9rem] min-h-[44px] rounded-xl py-2 px-3 text-center transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-yellow-400 ${on ? 'bg-yellow-400 text-gray-900 shadow-lg shadow-yellow-900/30' : 'text-gray-300 hover:bg-gray-700/60'}">
+      <span class="block text-lg sm:text-xl font-extrabold leading-tight whitespace-nowrap">${fee > 0 ? money(fee) : 'Free'}${entered ? ' &#10003;' : ''}</span>
+      <span class="block truncate text-xs font-medium leading-tight mt-0.5 ${on ? 'text-gray-800' : 'text-gray-400'}">${esc(s.name)}</span>
     </button>`;
   }).join('');
+  el.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
+$('sweep-tabs').addEventListener('keydown', e => {
+  const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+  if (!d) return;
+  const tabs = [...e.currentTarget.querySelectorAll('[role="tab"]')];
+  const next = tabs[(tabs.indexOf(document.activeElement) + d + tabs.length) % tabs.length];
+  if (next) { e.preventDefault(); next.focus(); next.click(); }
+});
 $('sweep-tabs').addEventListener('click', e => {
   const id = e.target.closest('[data-sweep]')?.dataset.sweep;
   if (!id || id === sweep?.id) return;
@@ -365,8 +409,6 @@ async function load() {
   sweepList = sweeps || [];
   sweep = sweepList.find(s => s.id === selectedId) || sweepList[0] || null;
   if (sweep) selectedId = sweep.id;
-  $('sweep-tabs').classList.toggle('hidden', sweepList.length < 2);
-  if (sweepList.length < 2) $('sweep-tabs').style.display = '';
   if (!sweep) {
     $('sweep-sub').textContent = 'No sweep is running right now. Check back closer to the Cup.';
     $('sweep-actions').innerHTML = '';
@@ -403,14 +445,19 @@ function render() {
 
   // Hero action
   if (sweep.status === 'open') {
-    $('sweep-actions').innerHTML = mine
-      ? `<div class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 px-4 py-3 text-sm font-semibold">
+    const others = sweepList.filter(s => s.status === 'open' && !enteredIds.has(s.id));
+    const many = sweepList.length > 1;
+    if (mine) {
+      $('sweep-actions').innerHTML = `<div class="flex w-full items-center justify-center gap-2 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 px-4 py-3 text-sm font-semibold">
            <i data-feather="check-circle" class="h-4 w-4"></i> You're entered
          </div>
-         <p class="text-sm text-gray-400 mt-3">Horses are drawn at random once entries close.</p>`
-      : `<button id="join-btn" class="btn-gold rounded-xl px-8 py-3.5 text-base w-full">${fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep'}</button>
-         <p class="text-sm text-gray-400 mt-3">${fee > 0 ? 'Secure card payment. ' : ''}Horses are drawn at random once entries close.</p>`;
-    $('join-btn')?.addEventListener('click', join);
+         <p class="text-sm text-gray-400 mt-3">Horses are drawn at random once entries close.</p>
+         ${others.length ? `<button id="join-btn" class="btn-secondary rounded-xl px-6 py-3 text-sm w-full mt-4 justify-center">Enter another sweep (${others.length} available)</button>` : ''}`;
+    } else {
+      $('sweep-actions').innerHTML = `<button id="join-btn" class="btn-gold rounded-xl px-8 py-3.5 text-base w-full">${many ? 'Choose a sweep to enter' : (fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep')}</button>
+         <p class="text-sm text-gray-400 mt-3">${many ? 'Pick a sweep, then confirm. ' : ''}${fee > 0 ? 'Secure card payment. ' : ''}Horses are drawn at random once entries close.</p>`;
+    }
+    $('join-btn')?.addEventListener('click', openOnboarding);
   } else {
     $('sweep-actions').innerHTML = `<p class="text-sm text-gray-400">${sweep.status === 'drawn' ? 'Entries are closed and the horses are drawn.' : 'This sweep has finished.'}</p>`;
   }
@@ -530,19 +577,73 @@ function render() {
   feather.replace();
 }
 
-async function join() {
-  const btn = $('join-btn');
+// Entry onboarding: pick a sweep (if several), then the ground rules, then pay / enter.
+function openOnboarding() {
+  const open = sweepList.filter(s => s.status === 'open');
+  const free = open.filter(s => !enteredIds.has(s.id));
+  if (!free.length) return;
+  let chosen = sweepList.length < 2 ? free[0] : null;
+  const root = document.createElement('div');
+  root.className = 'fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70';
+  root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true');
+  document.body.appendChild(root);
+  const close = () => { root.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  root.addEventListener('click', e => { if (e.target === root) close(); });
+  const shell = inner => `<div class="w-full sm:max-w-md max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-gray-900 border border-gray-700 shadow-2xl p-6">${inner}</div>`;
+
+  const stepPick = () => {
+    root.innerHTML = shell(`
+      <p class="text-xs font-semibold text-yellow-400 uppercase tracking-wide">Step 1 of 2</p>
+      <h2 class="text-2xl font-bold text-white mt-1">Choose a sweep</h2>
+      <p class="text-sm text-gray-400 mt-1">Tap the sweep you want to enter.</p>
+      <ul class="mt-4 space-y-2">${open.map(s => {
+        const done = enteredIds.has(s.id), fee = Number(s.entry_fee) || 0;
+        return `<li><button data-pick="${s.id}" ${done ? 'disabled' : ''} class="w-full min-h-[56px] flex items-center gap-3 px-4 py-2 rounded-2xl border text-left ${done ? 'opacity-50 border-gray-700 bg-gray-800/40 cursor-not-allowed' : 'border-gray-600 bg-gray-800 hover:border-yellow-400 active:bg-gray-700'}">
+          <span class="shrink-0 w-16 text-lg font-extrabold text-yellow-400">${fee > 0 ? money(fee) : 'Free'}</span>
+          <span class="flex-1 min-w-0 truncate text-sm text-gray-200">${esc(s.name)}</span>
+          ${done ? '<span class="text-xs font-semibold text-green-400">&#10003; Entered</span>' : ''}
+        </button></li>`; }).join('')}</ul>
+      <button data-close class="w-full mt-4 py-3 text-sm text-gray-400">Cancel</button>`);
+  };
+  const stepRules = () => {
+    const fee = Number(chosen.entry_fee) || 0;
+    root.innerHTML = shell(`
+      <p class="text-xs font-semibold text-yellow-400 uppercase tracking-wide">${free.length > 1 || sweepList.length > 1 ? 'Step 2 of 2' : 'Before you enter'}</p>
+      <h2 class="text-2xl font-bold text-white mt-1">${esc(chosen.name)}</h2>
+      <ul class="mt-4 space-y-3 text-sm text-gray-300">
+        <li class="flex gap-3"><span class="text-yellow-400">1</span><span><b class="text-white">One entry per sweep.</b> You can only enter each sweep once.</span></li>
+        <li class="flex gap-3"><span class="text-yellow-400">2</span><span><b class="text-white">Enter as many sweeps as you like.</b> Each one gives you another horse and another chance to win.</span></li>
+        <li class="flex gap-3"><span class="text-yellow-400">3</span><span><b class="text-white">Your horse is drawn at random</b> once entries close. You can't pick one.</span></li>
+      </ul>
+      <button data-confirm class="btn-gold rounded-xl px-8 py-3.5 text-base w-full mt-6">${fee > 0 ? `Enter for ${money(fee)}` : 'Enter the sweep'}</button>
+      <p class="text-xs text-gray-500 text-center mt-2">${fee > 0 ? 'Secure card payment.' : 'Free entry.'}</p>
+      ${sweepList.length > 1 ? '<button data-back class="w-full mt-2 py-3 text-sm text-gray-400">&larr; Choose a different sweep</button>' : '<button data-close class="w-full mt-2 py-3 text-sm text-gray-400">Cancel</button>'}`);
+  };
+  root.addEventListener('click', async e => {
+    if (e.target.closest('[data-close]')) return close();
+    if (e.target.closest('[data-back]')) { chosen = null; return stepPick(); }
+    const pick = e.target.closest('[data-pick]');
+    if (pick) { chosen = open.find(s => s.id === pick.dataset.pick); return stepRules(); }
+    const ok = e.target.closest('[data-confirm]');
+    if (ok) { await join(chosen, ok); if (document.body.contains(root)) close(); }
+  });
+  chosen ? stepRules() : stepPick();
+}
+
+async function join(target, btn) {
   btn.disabled = true;
   const label = btn.textContent;
   btn.textContent = 'One moment...';
   try {
-    if (Number(sweep.entry_fee) > 0) {
+    if (Number(target.entry_fee) > 0) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
       const res = await fetch(`${SUPABASE_URL}/functions/v1/create-checkout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-        body: JSON.stringify({ sweep_id: sweep.id })
+        body: JSON.stringify({ sweep_id: target.id })
       });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload?.error || 'Failed to start checkout');
@@ -553,7 +654,7 @@ async function join() {
     // Free sweep: no payment, enter directly.
     const { data: u } = await supabase.from('users').select('team_name,email').eq('id', user.id).single();
     const { error } = await supabase.from('sweep_entries').insert({
-      sweep_id: sweep.id, user_id: user.id, display_name: u?.team_name || u?.email || user.email
+      sweep_id: target.id, user_id: user.id, display_name: u?.team_name || u?.email || user.email
     });
     if (error) throw error;
     await load();

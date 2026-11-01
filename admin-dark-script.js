@@ -3314,7 +3314,7 @@ let uaTipsCompRaces = [];
 // Same silk sources the tipping page uses (RA silk id, stored URL, then TAB by venue/number).
 function getUaSilkUrl(horse, raceName) {
   if (!horse) return '';
-  const id = horse.silksId || horse.silkId || horse.silk;
+  const id = horse.silksId || horse.silkId || horse.silk || horse.silkDesc;
   if (id) return `https://www.racingaustralia.horse/JockeySilks/${id}.png`;
   if (horse.silkUrl) return horse.silkUrl;
   const venue = (raceName || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
