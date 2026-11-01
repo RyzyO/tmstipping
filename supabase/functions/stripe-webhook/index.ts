@@ -32,7 +32,7 @@ serve(async (req) => {
     const { user_id, comp_id, sweep_id } = session.metadata ?? {}
 
     if (user_id && sweep_id) {
-      return await handleSweepPayment(user_id, sweep_id)
+      return await handleSweepPayment(user_id, sweep_id, (session.amount_total ?? 0) / 100)
     }
 
     if (!user_id || !comp_id) {
@@ -82,7 +82,7 @@ serve(async (req) => {
   })
 })
 
-async function handleSweepPayment(user_id: string, sweep_id: string) {
+async function handleSweepPayment(user_id: string, sweep_id: string, amountPaid: number) {
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -90,12 +90,17 @@ async function handleSweepPayment(user_id: string, sweep_id: string) {
 
   const { data: u } = await supabase.from('users').select('team_name, email').eq('id', user_id).single()
 
+  // If this sweep was merged into another after checkout started, the entry belongs in the merged sweep.
+  const { data: sw } = await supabase.from('sweeps').select('merged_into').eq('id', sweep_id).maybeSingle()
+  const entrySweepId = sw?.merged_into ?? sweep_id
+
   // Upsert so a replayed webhook never duplicates the entry.
   const { error } = await supabase.from('sweep_entries').upsert({
-    sweep_id,
+    sweep_id: entrySweepId,
     user_id,
     display_name: u?.team_name || u?.email || 'Entrant',
     paid: true,
+    fee_paid: amountPaid,
   }, { onConflict: 'sweep_id,user_id' })
 
   if (error) {
@@ -103,7 +108,7 @@ async function handleSweepPayment(user_id: string, sweep_id: string) {
     return new Response('DB error', { status: 500 })
   }
 
-  console.log(`Sweep payment confirmed: user=${user_id} sweep=${sweep_id}`)
+  console.log(`Sweep payment confirmed: user=${user_id} sweep=${entrySweepId}`)
   return new Response(JSON.stringify({ received: true }), {
     headers: { 'Content-Type': 'application/json' },
   })

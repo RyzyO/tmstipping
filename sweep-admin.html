@@ -138,6 +138,11 @@
       </div>
       <p id="race-line" class="muted text-sm mb-5 hidden"></p>
 
+      <div id="merge-banner" class="hidden surface p-4 mb-5 flex flex-wrap items-center justify-between gap-3" style="border-color: rgba(217,178,76,.4)">
+        <p id="merge-banner-text" class="text-sm"></p>
+        <button id="undo-merge-btn" class="btn btn-ghost btn-sm">Undo merge</button>
+      </div>
+
       <dl class="stats">
         <div><dt>Entrants</dt><dd id="stat-entrants" class="mono">0</dd></div>
         <div><dt>Collected</dt><dd id="stat-collected" class="mono">$0</dd><span id="stat-paid"></span></div>
@@ -253,6 +258,20 @@
           <div class="mt-6 stack-btns">
             <button id="save-details-btn" class="btn btn-primary">Save settings</button>
           </div>
+        </div>
+        <div id="merge-section" class="surface p-6 max-w-2xl mt-6">
+          <h3 class="font-semibold">Merge into another sweep</h3>
+          <p class="text-sm muted mt-1">Moves everyone in this sweep into another one, for example when a sweep did not fill. Nobody is deleted or re-charged, their payment is kept, and you can undo it until the draw runs. Only possible before any horses are assigned.</p>
+          <div class="mt-4">
+            <label class="field" for="merge-target">Merge into</label>
+            <select id="merge-target"></select>
+          </div>
+          <div id="merge-preview" class="mt-4 text-sm space-y-2 hidden" aria-live="polite"></div>
+          <label id="merge-ack-row" class="hidden flex items-start gap-3 text-sm mt-4 cursor-pointer">
+            <input id="merge-ack" type="checkbox" class="mt-0.5">
+            <span id="merge-ack-text"></span>
+          </label>
+          <div class="mt-5 stack-btns"><button id="merge-btn" class="btn btn-primary" disabled>Merge entrants</button></div>
         </div>
         <div class="surface p-6 max-w-2xl mt-6" style="border-color: rgba(224,120,111,.3)">
           <h3 class="font-semibold">Delete this sweep</h3>
@@ -402,7 +421,7 @@ async function loadSweeps(selectId) {
         <span class="font-medium truncate">${esc(s.name)}</span>
         <span class="mono text-sm muted">${money(s.entry_fee)}</span>
       </span>
-      <span class="block text-xs mt-1 muted"><span class="${s.is_active ? 'live-text' : ''}">${s.is_active ? 'Live' : 'Hidden'}</span>, ${(STATUS_LABEL[s.status] || s.status).toLowerCase()}</span>
+      <span class="block text-xs mt-1 muted">${s.merged_into ? `Merged into ${esc(sweeps.find(x => x.id === s.merged_into)?.name || 'another sweep')}` : `<span class="${s.is_active ? 'live-text' : ''}">${s.is_active ? 'Live' : 'Hidden'}</span>, ${(STATUS_LABEL[s.status] || s.status).toLowerCase()}`}</span>
     </button>`).join('') || '<p class="text-sm muted px-1">Nothing here yet.</p>';
   $('dup-sweep-btn').disabled = !sweeps.length;
   await selectSweep(keep);
@@ -458,6 +477,7 @@ async function loadChildren() {
   }
   renderHorses();
   renderEntries();
+  renderMerge();
 }
 
 const PLACE = { 1: '1st', 2: '2nd', 3: '3rd' };
@@ -508,13 +528,14 @@ function renderEntries() {
   const drawn = entries.filter(e => e.horse_id).length;
 
   $('stat-entrants').textContent = entries.length;
-  $('stat-collected').textContent = money(paid * fee);
+  const collected = entries.reduce((sum, e) => sum + (e.paid ? Number(e.fee_paid ?? fee) : 0), 0);
+  $('stat-collected').textContent = money(collected);
   $('stat-paid').textContent = fee > 0 ? `${paid} of ${entries.length} paid` : 'Free sweep';
   $('stat-runners').textContent = live;
   $('stat-scratched').textContent = scratched ? `${scratched} scratched` : 'none scratched';
   $('stat-drawn').textContent = drawn;
   $('fees-line').textContent = fee > 0
-    ? `${paid} of ${entries.length} paid. ${money(paid * fee)} collected of ${money(entries.length * fee)} expected.`
+    ? `${paid} of ${entries.length} paid. ${money(collected)} collected of ${money(entries.length * fee)} expected at this sweep's fee.`
     : 'Free sweep, no payments to track.';
 
   $('entrant-list').innerHTML = entries.length ? `<table class="data">
@@ -530,6 +551,7 @@ function renderEntries() {
           <div class="min-w-0">
             <div class="font-medium">${esc(real || handle)}${e.user_id ? '' : ' <span class="chip ml-1">Manual</span>'}</div>
             ${real && handle ? `<div class="text-xs muted truncate">${esc(handle)}</div>` : ''}
+            ${e.merged_from_sweep ? `<div class="text-xs" style="color:var(--accent)">Moved from ${esc(sweeps.find(x => x.id === e.merged_from_sweep)?.name || 'a merged sweep')}${e.paid && e.fee_paid != null && Number(e.fee_paid) !== fee ? `, paid ${money(e.fee_paid)}` : ''}</div>` : ''}
           </div>
         </div></td>
         <td data-label="Horse" class="${h ? '' : 'muted'}" ${h && h.scratched ? 'style="color:var(--danger)"' : ''}>${h ? `<span class="mono">#${h.number}</span> ${esc(h.name)}${h.scratched ? ' (scratched)' : ''}` : 'Not drawn'}</td>
@@ -542,6 +564,112 @@ function renderEntries() {
   $('draw-info').textContent = `${entries.length} ${entries.length === 1 ? 'entrant' : 'entrants'} and ${live} running ${live === 1 ? 'horse' : 'horses'}.` +
     (entries.length > live ? ` ${entries.length - live} will miss out. Add more horses or remove entrants first.` : '');
 }
+
+/* ---------- merge sweeps ---------- */
+let mergeToken = 0;
+let mergeOk = false;
+const sweepLabel = s => `${s.name} (${money(s.entry_fee)})`;
+
+function renderMerge() {
+  const merged = !!sweep.merged_into;
+  const target = merged ? sweeps.find(x => x.id === sweep.merged_into) : null;
+  $('merge-banner').classList.toggle('hidden', !merged);
+  if (merged) {
+    const when = sweep.merged_at ? new Date(sweep.merged_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : '';
+    $('merge-banner-text').textContent = `Merged into ${target ? sweepLabel(target) : 'another sweep'}${when ? ' on ' + when : ''}. Its entrants now live there. This sweep is hidden and closed.`;
+  }
+  $('merge-section').classList.toggle('hidden', merged);
+  if (merged) return;
+
+  const keep = $('merge-target').value;
+  const options = sweeps.filter(x => x.id !== sweep.id && x.status === 'open' && !x.merged_into);
+  $('merge-target').innerHTML = `<option value="">${options.length ? 'Choose a sweep' : 'No other open sweeps'}</option>` +
+    options.map(x => `<option value="${x.id}">${esc(sweepLabel(x))}</option>`).join('');
+  if (options.some(x => x.id === keep)) $('merge-target').value = keep;
+  $('merge-target').disabled = !options.length || sweep.status !== 'open';
+  refreshMergePreview();
+}
+
+async function refreshMergePreview() {
+  const token = ++mergeToken;
+  mergeOk = false;
+  $('merge-btn').disabled = true;
+  $('merge-ack-row').classList.add('hidden');
+  const target = sweeps.find(x => x.id === $('merge-target').value);
+  const box = $('merge-preview');
+  if (!target) { box.classList.add('hidden'); return; }
+  box.classList.remove('hidden');
+  box.innerHTML = '<p class="muted">Checking...</p>';
+
+  const [te, th] = await Promise.all([
+    supabase.from('sweep_entries').select('user_id,display_name,paid,horse_id').eq('sweep_id', target.id),
+    supabase.from('sweep_horses').select('id', { count: 'exact', head: true }).eq('sweep_id', target.id).eq('scratched', false)
+  ]);
+  if (token !== mergeToken) return;                       // a newer selection superseded this one
+  if (te.error || th.error) { box.innerHTML = `<p style="color:var(--danger)">${esc((te.error || th.error).message)}</p>`; return; }
+
+  const targetEntries = te.data || [];
+  const live = th.count || 0;
+  const total = entries.length + targetEntries.length;
+  const paidN = entries.filter(e => e.paid).length;
+  const srcFee = Number(sweep.entry_fee) || 0;
+  const tgtFee = Number(target.entry_fee) || 0;
+  const targetUsers = new Set(targetEntries.map(e => e.user_id).filter(Boolean));
+  const clash = entries.filter(e => e.user_id && targetUsers.has(e.user_id)).map(e => e.display_name);
+
+  const problems = [];
+  if (sweep.status !== 'open' || target.status !== 'open') problems.push('Both sweeps must be open.');
+  if (entries.some(e => e.horse_id) || targetEntries.some(e => e.horse_id)) problems.push('Horses are already assigned in one of these sweeps. Clear the draw first.');
+  if (entries.some(e => e.merged_from_sweep)) problems.push('This sweep already received entrants from a merge. Undo that merge first, or use this sweep as the target.');
+  if (clash.length) problems.push(`In both sweeps: ${clash.join(', ')}. They paid twice, so sort these out first (remove the duplicate and refund it in Stripe) and nobody loses an entry.`);
+  if (live > 0 && total > live) problems.push(`Not enough runners: ${total} entrants would share ${live} running horses in "${target.name}".`);
+  if (!entries.length) problems.push('This sweep has no entrants to move.');
+
+  const feeDiffers = paidN > 0 && srcFee !== tgtFee;
+  box.innerHTML = `
+    <p>Moves <strong>${entries.length}</strong> ${entries.length === 1 ? 'entrant' : 'entrants'} (${paidN} paid) from "${esc(sweep.name)}" into "${esc(target.name)}", which then has <strong>${total}</strong>${live ? ` for ${live} running horses` : ''}.</p>
+    ${problems.map(p => `<p style="color:var(--danger)">${esc(p)}</p>`).join('')}
+    ${!problems.length ? '<p class="muted">Every entrant keeps their paid status and their original payment. This sweep is kept, hidden and closed, so the merge can be undone.</p>' : ''}`;
+
+  if (feeDiffers && !problems.length) {
+    $('merge-ack-row').classList.remove('hidden');
+    $('merge-ack').checked = false;
+    $('merge-ack-text').textContent = `Paid entrants paid ${money(srcFee)} but "${target.name}" costs ${money(tgtFee)}. They stay marked as paid at ${money(srcFee)} and nothing is charged or refunded automatically.`;
+  }
+  mergeOk = !problems.length;
+  updateMergeButton();
+}
+
+function updateMergeButton() {
+  const needsAck = !$('merge-ack-row').classList.contains('hidden');
+  $('merge-btn').disabled = !(mergeOk && (!needsAck || $('merge-ack').checked));
+}
+$('merge-target').addEventListener('change', refreshMergePreview);
+$('merge-ack').addEventListener('change', updateMergeButton);
+
+$('merge-btn').addEventListener('click', () => {
+  const target = sweeps.find(x => x.id === $('merge-target').value);
+  if (!target || !mergeOk) return;
+  const paidN = entries.filter(e => e.paid).length;
+  if (!confirm(`Merge "${sweep.name}" into "${target.name}"?\n\n${entries.length} entrants move (${paidN} paid). Nothing is deleted and you can undo it until the draw runs.`)) return;
+  run('Merging sweeps', async () => {
+    const { data, error } = await supabase.rpc('merge_sweeps', { p_source: sweep.id, p_target: target.id });
+    if (error) throw error;
+    await loadSweeps(target.id);
+    say(`Merged ${data} ${data === 1 ? 'entrant' : 'entrants'} into ${target.name}`);
+  });
+});
+
+$('undo-merge-btn').addEventListener('click', () => {
+  const target = sweeps.find(x => x.id === sweep.merged_into);
+  if (!confirm(`Undo the merge? Everyone who was moved from "${sweep.name}" goes back into it${target ? ` and leaves "${target.name}"` : ''}. This only works until the draw runs.`)) return;
+  run('Undoing merge', async () => {
+    const { data, error } = await supabase.rpc('undo_sweep_merge', { p_source: sweep.id });
+    if (error) throw error;
+    await loadSweeps(sweep.id);
+    say(`Moved ${data} ${data === 1 ? 'entrant' : 'entrants'} back`);
+  });
+});
 
 /* ---------- events ---------- */
 $('new-sweep-btn').addEventListener('click', async () => {
@@ -585,7 +713,8 @@ $('save-details-btn').addEventListener('click', () => run('Saving', async () => 
 }));
 
 $('delete-sweep-btn').addEventListener('click', () => {
-  if (!confirm(`Delete "${sweep.name}" and all its horses and entrants? This cannot be undone.`)) return;
+  const paidN = entries.filter(e => e.paid).length;
+  if (!confirm(`Delete "${sweep.name}" with ${horses.length} horses and ${entries.length} entrants (${paidN} paid)? This cannot be undone.` + (paidN ? '\n\nPaid entrants lose their entry. Merge them into another sweep instead if they should keep it.' : ''))) return;
   run('Deleting', async () => {
     check(await supabase.from('sweeps').delete().eq('id', sweep.id));
     sweep = null;
