@@ -3974,16 +3974,34 @@ async function loadRemoteImageForCanvas(url) {
     img.src = url;
   });
   if (direct) return direct;
-  try {
-    const proxyUrl = buildSelfProxyUrl(url);
-    const resp = await fetchWithTimeout(proxyUrl, 15000, proxyRequestHeaders(proxyUrl));
-    if (!resp.ok) return null;
-    const blob = await resp.blob();
-    if (!blob.type.startsWith('image/')) return null;
-    return await loadImageOrNull(URL.createObjectURL(blob));
-  } catch (e) {
-    return null;
+  // Retry: firing a whole field's worth of proxy calls can trip timeouts / rate limits,
+  // and a silent miss here means a default silk in the export.
+  const proxyUrl = buildSelfProxyUrl(url);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await sleep(400 * attempt);
+    try {
+      const resp = await fetchWithTimeout(proxyUrl, 15000, proxyRequestHeaders(proxyUrl));
+      if (!resp.ok) continue;
+      const blob = await resp.blob();
+      if (!blob.type.startsWith('image/')) continue;
+      const img = await loadImageOrNull(URL.createObjectURL(blob));
+      if (img) return img;
+    } catch (e) { /* retry */ }
   }
+  return null;
+}
+
+// Run `fn` over `items` with at most `limit` in flight, keeping result order.
+async function mapWithConcurrency(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  }));
+  return out;
 }
 
 // Drop bracketed bits such as country suffixes: "Zahran (NZ)" -> "Zahran".
@@ -4007,8 +4025,8 @@ window.exportRaceFieldPng = async function() {
       loadImageOrNull('images/logo.png'),
       loadImageOrNull(LB_DEFAULT_SILK_SRC),
     ]);
-    const silks = await Promise.all(horses.map(async h =>
-      (await loadRemoteImageForCanvas(getUaSilkUrl(h, race.name))) || defaultSilk));
+    const silks = await mapWithConcurrency(horses, 4, async h =>
+      (await loadRemoteImageForCanvas(getUaSilkUrl(h, race.name))) || defaultSilk);
 
     const W = 1920, H = 1080;
     const FONT = '"Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif';
