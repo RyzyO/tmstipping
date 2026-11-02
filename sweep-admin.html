@@ -8,7 +8,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #111827; --surface: #1a2332; --raised: #1f2937; --line: #2b3648;
@@ -93,7 +93,75 @@
       table.data td.actions .btn { flex: 1; }
       table.data select { width: 100% !important; }
     }
-    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+    /* ---- Live draw show: a fixed 1920x1080 frame, scaled to fit. Spacing is in real px on that frame. ---- */
+    #show { position: fixed; inset: 0; z-index: 100; display: none; overflow: hidden; background: #0b0e13; }
+    #show.open { display: block; }
+    :where(#show-frame, #show-frame *) { box-sizing: border-box; margin: 0; }
+    #show.playing:not(.active) { cursor: none; }
+    #show-frame { --gold: #d9b24c; --ink: #14120a; --paper: #f2f3f5; --dim: #a3a9b4; --panel: #12161d; --panel2: #191e27; position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; background: var(--panel); color: var(--paper); font-family: 'Barlow Condensed', 'Geist', sans-serif; }
+
+    #show-bar { position: absolute; left: 0; top: 0; width: 100%; height: 88px; display: flex; align-items: center; justify-content: space-between; padding: 0 72px; background: var(--gold); color: var(--ink); font-size: 44px; font-weight: 700; }
+    #show-left, #show-right { position: absolute; top: 88px; height: 900px; padding-top: 56px; padding-bottom: 56px; display: flex; flex-direction: column; min-width: 0; }
+    #show-left { left: 0; width: 1060px; padding-left: 72px; padding-right: 72px; }
+    #show-right { left: 1060px; width: 860px; padding-left: 64px; padding-right: 72px; background: var(--panel2); }
+
+    #show-badge { display: flex; height: 340px; flex: 0 0 auto; }
+    #show-num { width: 340px; display: flex; align-items: center; justify-content: center; background: var(--paper); color: var(--ink); font-size: 280px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    #show-silks-wrap { width: 340px; display: flex; align-items: center; justify-content: center; background: #dfe2e7; }
+    #show-silks-wrap.gone { display: none; }
+    #show-silks { width: 280px; height: 280px; object-fit: contain; }
+    #show-name { margin-top: 32px; font-size: 124px; font-weight: 700; line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; flex: 0 0 auto; }
+
+    #show-stats { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 32px 56px; }
+    .stat { flex: 0 0 auto; min-width: 0; }
+    .stat.s3 { flex: 0 0 calc(50% - 28px); }
+    .stat label { display: block; font-size: 28px; font-weight: 500; line-height: 1.1; color: var(--dim); }
+    .stat b { display: block; margin-top: 4px; font-size: 52px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+    .stat b i { font-style: normal; color: var(--dim); font-weight: 500; }
+    .stat b i.placed { color: var(--gold); font-weight: 700; }
+
+    #show-who { display: flex; justify-content: space-between; align-items: baseline; font-size: 44px; font-weight: 600; line-height: 1; flex: 0 0 auto; }
+    #show-who b { font-weight: 500; color: var(--dim); }
+    #show-users { --fs: 64px; margin-top: 32px; flex: 1 1 0; min-height: 0; overflow: hidden; display: grid; grid-auto-rows: min-content; gap: 20px 40px; font-size: var(--fs); }
+    #show-users.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #show-users.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .p { display: flex; align-items: center; gap: .3em; min-width: 0; font-weight: 600; line-height: 1.15; opacity: 0; }
+    .p.on { opacity: 1; animation: showRow .28s cubic-bezier(.2,.8,.2,1) both; }
+    .p img { width: 1.15em; height: 1.15em; object-fit: contain; flex: 0 0 auto; }
+    .p .n { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; }
+    .p .l { margin-left: auto; flex: 0 0 auto; font-size: .75em; font-weight: 600; color: var(--gold); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .p.none { color: var(--dim); }
+    @keyframes showRow { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+    #show-strip { position: absolute; left: 0; bottom: 0; width: 100%; height: 92px; display: flex; background: #0b0e13; }
+    #show-strip span { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 600; color: #6d7480; border-left: 1px solid #262c37; font-variant-numeric: tabular-nums; }
+    #show-strip span:first-child { border-left: 0; }
+    #show-strip span.done { background: #262c37; color: var(--paper); }
+    #show-strip span.cur { background: var(--gold); color: var(--ink); }
+
+    #show-wipe { position: absolute; left: 0; top: 88px; width: 100%; height: 900px; z-index: 5; background: var(--gold); transform: scaleX(0); pointer-events: none; }
+    #show-wipe.go { animation: showWipe .6s cubic-bezier(.76,0,.24,1) both; }
+    @keyframes showWipe { 0% { transform-origin: left; transform: scaleX(0); } 49.9% { transform-origin: left; transform: scaleX(1); } 50% { transform-origin: right; transform: scaleX(1); } 100% { transform-origin: right; transform: scaleX(0); } }
+
+    #show-intro { position: absolute; left: 0; top: 88px; width: 100%; height: 900px; z-index: 4; padding: 56px 72px; display: flex; flex-direction: column; justify-content: flex-end; background: var(--panel); }
+    #show-intro.hide { display: none; }
+    #show-intro-title { max-width: 1400px; font-size: 180px; font-weight: 700; line-height: 1; text-transform: uppercase; }
+    #show-intro-sub { margin-top: 24px; font-size: 52px; font-weight: 500; line-height: 1.1; color: var(--dim); }
+    #show-countdown { position: absolute; right: 72px; bottom: 56px; font-size: 320px; font-weight: 700; line-height: .8; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+    #show-summary { display: none; position: absolute; left: 0; top: 88px; width: 100%; height: 900px; z-index: 3; padding: 56px 72px; background: var(--panel); }
+    #show-board { --fs: 30px; height: 100%; overflow: hidden; column-count: 4; column-gap: 48px; column-fill: auto; font-size: var(--fs); }
+    #show.finished #show-summary { display: block; }
+    .sum { break-inside: avoid; padding-bottom: .7em; line-height: 1.2; }
+    .sum h4 { font-size: 1em; font-weight: 700; text-transform: uppercase; }
+    .sum h4 b { color: var(--gold); font-weight: 700; margin-right: .3em; font-variant-numeric: tabular-nums; }
+    .sum p { font-size: .85em; font-weight: 500; color: var(--dim); }
+
+    #show-controls { position: absolute; z-index: 30; top: 12px; right: 12px; display: flex; gap: 6px; }
+    #show.playing:not(.active) #show-controls { display: none; }
+    #show-controls .btn { border-radius: 0; background: #12161d; color: #f2f3f5; border-color: #12161d; }
+    #show-controls .btn-primary { background: #f2f3f5; color: #14120a; border-color: #f2f3f5; }
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } #show-frame *, #show-frame *::after { animation: none !important; } }
   </style>
 </head>
 <body>
@@ -107,6 +175,40 @@
     <a href="sweep.html" class="btn btn-ghost btn-sm">View live page</a>
   </div>
 </header>
+
+<div id="show" class="pre" role="dialog" aria-modal="true" aria-label="Live draw">
+  <div id="show-frame">
+    <div id="show-bar"><div id="show-title"></div><div id="show-count"></div></div>
+    <div id="show-left">
+      <div id="show-badge">
+        <div id="show-num"></div>
+        <div id="show-silks-wrap" class="gone"><img id="show-silks" alt=""></div>
+      </div>
+      <div id="show-name"></div>
+      <div id="show-stats"></div>
+    </div>
+    <div id="show-right">
+      <div id="show-who"><span>Drawn by</span><b id="show-who-n"></b></div>
+      <div id="show-users"></div>
+    </div>
+    <div id="show-summary"><div id="show-board"></div></div>
+    <div id="show-strip"></div>
+    <div id="show-intro">
+      <div id="show-intro-title"></div>
+      <div id="show-intro-sub"></div>
+      <div id="show-countdown"></div>
+    </div>
+    <div id="show-wipe"></div>
+  </div>
+  <div id="show-controls">
+    <button id="show-start" class="btn btn-primary btn-sm">Start draw</button>
+    <button id="show-pause" class="btn btn-ghost btn-sm hidden">Pause</button>
+    <button id="show-skip" class="btn btn-ghost btn-sm hidden">Skip to results</button>
+    <button id="show-sound" class="btn btn-ghost btn-sm">Sound off</button>
+    <button id="show-full" class="btn btn-ghost btn-sm">Fullscreen</button>
+    <button id="show-close" class="btn btn-ghost btn-sm">Close</button>
+  </div>
+</div>
 
 <div id="status" role="status" aria-live="polite" class="rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg bg-[var(--raised)] border border-[var(--line)]"></div>
 
@@ -224,6 +326,14 @@
             <button id="draw-btn" class="btn btn-primary">Run draw</button>
             <button id="redraw-btn" class="btn btn-ghost">Redraw scratched horses</button>
             <button id="clear-draw-btn" class="btn btn-danger">Clear draw</button>
+          </div>
+          <div class="mt-6 pt-5 border-t border-[var(--line)]">
+            <h3 class="font-semibold">Live draw, all sweeps</h3>
+            <p class="text-sm muted mt-1">Draws every sweep at once, each on its own, then plays one full-screen show through the horses with the names from all sweeps. Play demo saves nothing.</p>
+            <div class="flex flex-wrap gap-3 mt-4 stack-btns">
+              <button id="assign-sweeps-btn" class="btn btn-primary">Assign all</button>
+              <button id="demo-sweeps-btn" class="btn btn-ghost">Play demo</button>
+            </div>
           </div>
           <dl class="mt-6 pt-5 border-t border-[var(--line)] grid gap-3 text-sm">
             <div><dt class="font-medium">Run draw</dt><dd class="muted">Shuffles the running horses and deals one to each entrant, replacing any existing draw. Entries close.</dd></div>
@@ -917,6 +1027,320 @@ $('draw-btn').addEventListener('click', () => {
     await loadSweeps(sweep.id);
   });
 });
+
+// ---- Assign all: deal everyone a horse, save, then play a full-screen reveal ----
+const showEl = $('show');
+let showState = null; // { groups, i, paused, skipped, started }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const horseSilkUrl = h => h.silks_id ? `https://www.racingaustralia.horse/JockeySilks/${encodeURIComponent(h.silks_id)}.png` : '';
+
+// A "set" is one sweep's horses and entrants. Each set is dealt on its own (one horse per entrant
+// within a sweep), then everything is grouped by horse number so several sweeps share one reveal.
+const setOf = (sw, hs, es, users) => ({ sweep: sw, horses: hs, entries: es, users: users || {} });
+function dealSets(sets, labelled) {
+  const byNumber = new Map();
+  const groupFor = h => {
+    if (!byNumber.has(h.number)) byNumber.set(h.number, { horse: h, people: [] });
+    const g = byNumber.get(h.number);
+    const rich = x => [x.silks_id, x.jockey, x.trainer, x.barrier, x.weight, x.last10, x.prizemoney].filter(Boolean).length;
+    if (rich(h) > rich(g.horse)) g.horse = h;
+    return g;
+  };
+  sets.forEach(set => {
+    const live = set.horses.filter(h => !h.scratched);
+    live.forEach(groupFor);
+    set.plan = new Map();
+    if (!live.length) return;
+    const pool = shuffle(live);
+    shuffle(set.entries).forEach((e, i) => {
+      const h = pool[i % pool.length];
+      const u = set.users[e.user_id];
+      groupFor(h).people.push({
+        handle: u?.team_name || e.display_name || 'Unknown',
+        silk: e.user_id ? userSilk(u?.silk) : '',
+        label: labelled ? money(set.sweep.entry_fee) : ''
+      });
+      if (!set.plan.has(h.id)) set.plan.set(h.id, []);
+      set.plan.get(h.id).push(e.id);
+    });
+  });
+  return [...byNumber.values()].sort((a, b) => a.horse.number - b.horse.number);
+}
+// Titled after the race, never one sweep, because the show covers all of them.
+const drawTitle = sets => {
+  const race = (sets.find(x => x.sweep.race_name)?.sweep.race_name || '').replace(/^Race \d+\s*-\s*/, '');
+  return race ? `${race} sweep draw` : 'Sweep draw';
+};
+const personHtml = p => `${p.silk ? `<img src="${p.silk}" alt="" onerror="this.style.visibility='hidden'">` : ''}<span class="n">${esc(p.handle)}</span>${p.label ? `<span class="l">${esc(p.label)}</span>` : ''}`;
+
+async function saveSet(set) {
+  check(await supabase.from('sweep_entries').update({ horse_id: null }).eq('sweep_id', set.sweep.id));
+  for (const [horseId, ids] of set.plan) {
+    check(await supabase.from('sweep_entries').update({ horse_id: horseId }).in('id', ids));
+  }
+  check(await supabase.from('sweeps').update({ status: 'drawn' }).eq('id', set.sweep.id));
+}
+
+// Every sweep that can still be drawn (not merged away, not completed) with its field and entrants.
+async function loadAllSets() {
+  const open = sweeps.filter(s => !s.merged_into && s.status !== 'completed');
+  const sets = await Promise.all(open.map(async s => {
+    const [h, e] = await Promise.all([
+      supabase.from('sweep_horses').select('*').eq('sweep_id', s.id),
+      supabase.from('sweep_entries').select('*').eq('sweep_id', s.id)
+    ]);
+    check(h); check(e);
+    const uids = [...new Set((e.data || []).map(x => x.user_id).filter(Boolean))];
+    const users = {};
+    if (uids.length) {
+      const { data } = await supabase.from('users').select('id,team_name,silk').in('id', uids);
+      (data || []).forEach(u => { users[u.id] = u; });
+    }
+    return setOf(s, h.data || [], e.data || [], users);
+  }));
+  return sets.filter(x => x.entries.length && x.horses.some(h => !h.scratched));
+}
+
+const restart = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+
+// Synthesised sound effects (off by default so the stream mix stays in the host's hands).
+let soundOn = false, actx = null;
+function beep(freq, dur, type = 'sine', vol = .06, slideTo) {
+  if (!soundOn || !actx) return;
+  const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+}
+const sfx = {
+  tick: () => beep(1000, .08, 'square', .035),
+  land: () => { beep(140, .4, 'sine', .25, 40); beep(520, .3, 'triangle', .07); },
+  name: () => beep(880, .14, 'sine', .07),
+  finish: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, .5, 'triangle', .09), i * 130))
+};
+
+// The frame is always 1920x1080; scale it to the window, letterboxed.
+function fitFrame() {
+  const k = Math.min(innerWidth / 1920, innerHeight / 1080);
+  const f = $('show-frame');
+  f.style.transform = `scale(${k})`;
+  f.style.left = `${(innerWidth - 1920 * k) / 2}px`;
+  f.style.top = `${(innerHeight - 1080 * k) / 2}px`;
+}
+addEventListener('resize', () => { if (showState) fitFrame(); });
+
+// Steps a font size down until the element stops overflowing.
+function fitText(size, min, overflows, apply) {
+  apply(size);
+  while (size > min && overflows()) apply(--size);
+}
+
+// Jockey, trainer, barrier, weight, prizemoney and the last-10 run for the horse on screen.
+function horseStats(h) {
+  const stat = (label, html, cls = '') => `<div class="stat ${cls}"><label>${label}</label><b>${html}</b></div>`;
+  const has = v => v !== null && v !== undefined && String(v).trim() !== '';
+  const prize = v => { const n = Number(String(v).replace(/[$,]/g, '')); return Number.isFinite(n) && n > 0 ? '$' + n.toLocaleString('en-AU') : v; };
+  const run = String(h.last10 || '').replace(/\s/g, '');
+  return [
+    has(h.jockey) ? stat('Jockey', esc(h.jockey), 's3') : '',
+    has(h.trainer) ? stat('Trainer', esc(h.trainer), 's3') : '',
+    has(h.barrier) ? stat('Barrier', esc(h.barrier), 's1') : '',
+    has(h.weight) ? stat('Weight', esc(/kg/i.test(h.weight) ? h.weight : `${h.weight}kg`), 's1') : '',
+    has(h.prizemoney) ? stat('Prizemoney', esc(prize(h.prizemoney))) : '',
+    run ? stat('Last 10', [...run].map(c => `<i class="${'123'.includes(c) ? 'placed' : ''}">${esc(c)}</i>`).join('')) : ''
+  ].join('');
+}
+
+function renderStrip(groups, doneUpTo, cur) {
+  $('show-strip').innerHTML = groups.map((g, i) =>
+    `<span class="${i < doneUpTo ? 'done' : ''} ${i === cur ? 'cur' : ''}">${g.horse.number}</span>`).join('');
+}
+
+function setHorse({ horse, people }) {
+  $('show-num').textContent = horse.number;
+  const url = horseSilkUrl(horse), wrap = $('show-silks-wrap');
+  wrap.classList.toggle('gone', !url);
+  if (url) { $('show-silks').onerror = () => wrap.classList.add('gone'); $('show-silks').src = url; }
+  const name = $('show-name');
+  name.textContent = horse.name;
+  fitText(124, 60, () => name.scrollWidth > name.clientWidth, n => { name.style.fontSize = `${n}px`; });
+  $('show-stats').innerHTML = horseStats(horse);
+  const wide = [...document.querySelectorAll('.stat.s3 b')];
+  fitText(52, 24, () => wide.some(el => el.scrollWidth > el.clientWidth), n => wide.forEach(el => { el.style.fontSize = `${n}px`; }));
+  $('show-who-n').textContent = '';
+
+  // Lay every row out hidden first, so the list is sized once and nothing shifts as names land.
+  const users = $('show-users'), n = people.length;
+  users.className = n > 16 ? 'c3' : n > 7 ? 'c2' : '';
+  users.innerHTML = n ? people.map(p => `<div class="p">${personHtml(p)}</div>`).join('') : '<div class="p none on"><span class="n">No entrants</span></div>';
+  const rows = [...users.querySelectorAll('.n')];
+  fitText(n > 16 ? 30 : n > 7 ? 42 : 64, 12, () => users.scrollHeight > users.clientHeight || rows.some(el => el.scrollWidth > el.clientWidth), s => users.style.setProperty('--fs', `${s}px`));
+}
+
+function showSummary(groups) {
+  const board = $('show-board');
+  board.innerHTML = groups.map(g => `<div class="sum"><h4><b>${g.horse.number}</b>${esc(g.horse.name)}</h4>
+    <p>${g.people.length ? g.people.map(p => esc(p.label ? `${p.handle} (${p.label})` : p.handle)).join(', ') : 'No entrants'}</p></div>`).join('');
+  showEl.classList.add('finished');
+  fitText(30, 12, () => board.scrollWidth > board.clientWidth, s => board.style.setProperty('--fs', `${s}px`));
+  $('show-pause').classList.add('hidden');
+  $('show-skip').classList.add('hidden');
+  $('show-count').textContent = 'Final draw';
+}
+
+function finishShow(s) {
+  if (showState !== s || s.finished) return;
+  s.finished = true;
+  $('show-intro').classList.add('hide');
+  renderStrip(s.groups, s.groups.length, -1);
+  showSummary(s.groups);
+  sfx.finish();
+}
+
+// Waits in small slices so Pause, Skip and Close take effect immediately. false = stop playing.
+async function wait(s, ms) {
+  // Counts real elapsed time, so a throttled background tab keeps pace instead of crawling.
+  let last = performance.now();
+  while (ms > 0) {
+    if (showState !== s || s.skipped) return false;
+    await sleep(Math.min(100, ms));
+    const now = performance.now();
+    if (!s.paused) ms -= now - last;
+    last = now;
+  }
+  return showState === s && !s.skipped;
+}
+
+async function playShow() {
+  const s = showState;
+  s.started = true;
+  showEl.classList.remove('pre'); showEl.classList.add('playing');
+  wakeControls();
+  $('show-start').classList.add('hidden');
+  $('show-pause').classList.remove('hidden');
+  $('show-skip').classList.remove('hidden');
+
+  const cd = $('show-countdown');
+  for (const n of ['3', '2', '1']) {
+    cd.textContent = n; sfx.tick();
+    if (!await wait(s, 900)) return;
+  }
+
+  const wipe = $('show-wipe'), total = s.groups.length;
+  for (; s.i < total; s.i++) {
+    const g = s.groups[s.i];
+    restart(wipe, 'go'); sfx.land();
+    if (!await wait(s, 300)) return;
+    $('show-intro').classList.add('hide');
+    setHorse(g);
+    renderStrip(s.groups, s.i, s.i);
+    $('show-count').textContent = `Horse ${s.i + 1} of ${total}`;
+    if (!await wait(s, 1800)) return;
+
+    const n = g.people.length;
+    $('show-who-n').textContent = n ? String(n) : '';
+    const gap = Math.max(350, Math.min(1000, 6000 / n));
+    for (const row of $('show-users').querySelectorAll('.p:not(.on)')) {
+      row.classList.add('on'); sfx.name();
+      if (!await wait(s, gap)) return;
+    }
+    if (!await wait(s, 2000)) return;
+  }
+  restart(wipe, 'go');
+  if (await wait(s, 300)) finishShow(s);
+}
+
+function closeShow() {
+  showState = null;
+  clearTimeout(idleTimer);
+  showEl.classList.remove('open', 'finished', 'playing', 'active');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+let idleTimer = 0;
+function wakeControls() {
+  showEl.classList.add('active');
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => showEl.classList.remove('active'), 2500);
+}
+showEl.addEventListener('mousemove', wakeControls);
+function togglePause() {
+  if (!showState || !showState.started || showState.finished) return;
+  showState.paused = !showState.paused;
+  $('show-pause').textContent = showState.paused ? 'Resume' : 'Pause';
+}
+function startShow() {
+  if (showState && !showState.started) playShow();
+}
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else showEl.requestFullscreen?.().catch(() => {});
+}
+$('show-pause').addEventListener('click', togglePause);
+$('show-skip').addEventListener('click', () => {
+  if (!showState) return;
+  showState.skipped = true;
+  finishShow(showState);
+});
+$('show-close').addEventListener('click', closeShow);
+$('show-start').addEventListener('click', startShow);
+$('show-full').addEventListener('click', toggleFullscreen);
+$('show-sound').addEventListener('click', () => {
+  soundOn = !soundOn;
+  if (soundOn && !actx) { try { actx = new AudioContext(); } catch {} }
+  $('show-sound').textContent = soundOn ? 'Sound on' : 'Sound off';
+  if (soundOn) sfx.tick();
+});
+document.addEventListener('keydown', e => {
+  if (!showState) return;
+  if (e.key === 'Escape') closeShow();
+  else if (e.key === ' ') { e.preventDefault(); showState.started ? togglePause() : startShow(); }
+  else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+});
+
+function openShow(groups, demo, sub, title) {
+  showState = { groups, i: 0, paused: false, skipped: false, started: false, finished: false };
+  $('show-title').textContent = demo ? `Demo: ${title}` : title;
+  $('show-intro-title').textContent = title;
+  $('show-intro-sub').textContent = sub;
+  $('show-count').textContent = `${groups.length} horses`;
+  $('show-countdown').textContent = '';
+  $('show-intro').classList.remove('hide');
+  $('show-wipe').classList.remove('go');
+  $('show-start').classList.remove('hidden');
+  $('show-pause').classList.add('hidden'); $('show-pause').textContent = 'Pause';
+  $('show-skip').classList.add('hidden');
+  renderStrip(groups, 0, -1);
+  showEl.classList.remove('finished', 'playing', 'active');
+  showEl.classList.add('open', 'pre');
+  fitFrame();
+}
+const DEMO_SUB = 'Demo only, nothing is saved';
+
+// Every sweep is the same race: draw each on its own, then reveal them together horse by horse.
+$('assign-sweeps-btn').addEventListener('click', () => run('Preparing draw', async () => {
+  const sets = await loadAllSets();
+  if (!sets.length) throw new Error('No sweeps with entrants and running horses.');
+  const already = sets.filter(x => x.entries.some(e => e.horse_id));
+  const names = sets.map(x => `${x.sweep.name} (${x.entries.length})`).join('\n');
+  if (!confirm(`Draw ${sets.length} sweeps at once?\n\n${names}` + (already.length ? `\n\nExisting assignments in ${already.length} of them will be cleared.` : ''))) return;
+  const groups = dealSets(sets, true);
+  for (const set of sets) await saveSet(set);
+  const total = sets.reduce((n, x) => n + x.entries.length, 0);
+  openShow(groups, false, `${sets.length} sweeps, ${total} entrants, ${groups.length} horses`, drawTitle(sets));
+  await loadSweeps(sweep?.id);
+}));
+
+$('demo-sweeps-btn').addEventListener('click', () => run('Loading sweeps', async () => {
+  let sets = await loadAllSets();
+  // Nobody has entered yet: preview the selected sweep's field with sample names.
+  if (!sets.length) {
+    if (!horses.some(h => !h.scratched)) throw new Error('Import or add the field first.');
+    sets = [setOf(sweep, horses, Array.from({ length: 30 }, (_, i) => ({ id: `demo${i}`, display_name: `Demo player ${i + 1}` })), {})];
+  }
+  openShow(dealSets(sets, true), true, DEMO_SUB, drawTitle(sets));
+}));
 
 $('clear-draw-btn').addEventListener('click', () => {
   if (!entries.some(e => e.horse_id)) { say('No horses are assigned.', true); return; }
