@@ -105,27 +105,43 @@
     #show-left { left: 0; width: 1060px; padding-left: 72px; padding-right: 72px; }
     #show-right { left: 1060px; width: 860px; padding-left: 64px; padding-right: 72px; background: var(--panel2); }
 
-    #show-badge { display: flex; height: 340px; flex: 0 0 auto; }
-    #show-num { width: 340px; display: flex; align-items: center; justify-content: center; background: var(--paper); color: var(--ink); font-size: 280px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-    #show-silks-wrap { width: 340px; display: flex; align-items: center; justify-content: center; background: #dfe2e7; }
+    #show-badge { display: flex; height: 240px; flex: 0 0 auto; }
+    #show-num { width: 240px; display: flex; align-items: center; justify-content: center; background: var(--paper); color: var(--ink); font-size: 196px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+    #show-silks-wrap { width: 240px; display: flex; align-items: center; justify-content: center; background: #dfe2e7; }
     #show-silks-wrap.gone { display: none; }
-    #show-silks { width: 280px; height: 280px; object-fit: contain; }
-    #show-name { margin-top: 32px; font-size: 124px; font-weight: 700; line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; flex: 0 0 auto; }
+    #show-silks { width: 200px; height: 200px; object-fit: contain; }
+    #show-name { margin-top: 20px; font-size: 96px; font-weight: 700; line-height: 1; text-transform: uppercase; white-space: nowrap; overflow: hidden; flex: 0 0 auto; }
 
-    #show-stats { margin-top: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 32px 56px; }
+    #show-stats { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px 56px; }
     .stat { flex: 0 0 auto; min-width: 0; }
     .stat.s3 { flex: 0 0 calc(50% - 28px); }
-    .stat label { display: block; font-size: 28px; font-weight: 500; line-height: 1.1; color: var(--dim); }
-    .stat b { display: block; margin-top: 4px; font-size: 52px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
+    .stat label { display: block; font-size: 22px; font-weight: 500; line-height: 1.1; color: var(--dim); }
+    .stat b { display: block; margin-top: 2px; font-size: 40px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
     .stat b i { font-style: normal; color: var(--dim); font-weight: 500; }
     .stat b i.placed { color: var(--gold); font-weight: 700; }
 
-    #show-who { display: flex; justify-content: space-between; align-items: baseline; font-size: 44px; font-weight: 600; line-height: 1; flex: 0 0 auto; }
+    #show-band { margin-top: auto; height: 232px; flex: 0 0 auto; display: flex; flex-direction: column; padding: 16px 24px; background: var(--panel2); }
+    #show-who { display: flex; justify-content: space-between; align-items: baseline; font-size: 24px; font-weight: 600; line-height: 1; color: var(--dim); flex: 0 0 auto; }
+    #show-list-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 44px; font-weight: 600; line-height: 1; flex: 0 0 auto; }
+    #show-list-head b { font-weight: 500; color: var(--dim); }
+    #show-list { --rh: 50px; margin-top: 28px; flex: 1 1 0; min-height: 0; display: grid; grid-auto-flow: column; column-gap: 32px; }
+    .r { display: flex; align-items: center; gap: 12px; min-width: 0; height: var(--rh); visibility: hidden; }
+    .r.on, .r.ghost { visibility: visible; }
+    .r.ghost { position: absolute; z-index: 6; transform-origin: 0 0; background: var(--panel2); }
+    .r b { flex: 0 0 40px; text-align: right; font-size: 30px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+    .r img { flex: 0 0 auto; width: calc(var(--rh) - 10px); height: calc(var(--rh) - 10px); object-fit: contain; }
+    .r > div { flex: 1 1 0; min-width: 0; }
+    .r span { display: block; white-space: nowrap; overflow: hidden; line-height: 1.1; }
+    .r .hn { font-weight: 500; color: var(--dim); text-transform: uppercase; }
+    .r .pn { font-weight: 700; }
     #show-who b { font-weight: 500; color: var(--dim); }
-    #show-users { --fs: 64px; margin-top: 32px; flex: 1 1 0; min-height: 0; overflow: hidden; display: grid; grid-auto-rows: min-content; gap: 20px 40px; font-size: var(--fs); }
+    #show-users { --fs: 44px; margin-top: 10px; flex: 1 1 0; min-height: 0; overflow: hidden; display: grid; grid-auto-rows: min-content; gap: 8px 32px; font-size: var(--fs); }
     #show-users.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     #show-users.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .p { display: flex; align-items: center; gap: .3em; min-width: 0; font-weight: 600; line-height: 1.15; opacity: 0; }
+    #show-users.solo .p { height: 100%; gap: 28px; }
+    #show-users.solo .p img { width: 166px; height: 166px; padding: 14px; background: #dfe2e7; }
+    #show-users.solo .n { line-height: 1; font-weight: 700; }
+        .p { display: flex; align-items: center; gap: .3em; min-width: 0; font-weight: 600; line-height: 1.15; opacity: 0; }
     .p.on { opacity: 1; animation: showRow .28s cubic-bezier(.2,.8,.2,1) both; }
     .p img { width: 1.15em; height: 1.15em; object-fit: contain; flex: 0 0 auto; }
     .p .n { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; }
@@ -139,7 +155,8 @@
     #show-strip span.done { background: #262c37; color: var(--paper); }
     #show-strip span.cur { background: var(--gold); color: var(--ink); }
 
-    #show-wipe { position: absolute; left: 0; top: 88px; width: 100%; height: 900px; z-index: 5; background: var(--gold); transform: scaleX(0); pointer-events: none; }
+    #show-wipe.full { width: 100%; }
+    #show-wipe { position: absolute; left: 0; top: 88px; width: 1060px; height: 900px; z-index: 5; background: var(--gold); transform: scaleX(0); pointer-events: none; }
     #show-wipe.go { animation: showWipe .6s cubic-bezier(.76,0,.24,1) both; }
     @keyframes showWipe { 0% { transform-origin: left; transform: scaleX(0); } 49.9% { transform-origin: left; transform: scaleX(1); } 50% { transform-origin: right; transform: scaleX(1); } 100% { transform-origin: right; transform: scaleX(0); } }
 
@@ -172,7 +189,11 @@
       <span class="h-4 w-px bg-[var(--line)]"></span>
       <h1 class="text-base font-semibold tracking-tight">Sweeps</h1>
     </div>
-    <a href="sweep.html" class="btn btn-ghost btn-sm">View live page</a>
+    <div class="flex items-center gap-2">
+      <button id="assign-sweeps-btn" class="btn btn-primary btn-sm">Assign all</button>
+      <button id="play-show-btn" class="btn btn-ghost btn-sm">Play show</button>
+      <a href="sweep.html" class="btn btn-ghost btn-sm hidden sm:inline-flex">View live page</a>
+    </div>
   </div>
 </header>
 
@@ -186,10 +207,14 @@
       </div>
       <div id="show-name"></div>
       <div id="show-stats"></div>
+      <div id="show-band">
+        <div id="show-who"><span>Drawn by</span><b id="show-who-n"></b></div>
+        <div id="show-users"></div>
+      </div>
     </div>
     <div id="show-right">
-      <div id="show-who"><span>Drawn by</span><b id="show-who-n"></b></div>
-      <div id="show-users"></div>
+      <div id="show-list-head"><span>The draw</span><b id="show-list-n"></b></div>
+      <div id="show-list"></div>
     </div>
     <div id="show-summary"><div id="show-board"></div></div>
     <div id="show-strip"></div>
@@ -209,6 +234,14 @@
     <button id="show-close" class="btn btn-ghost btn-sm">Close</button>
   </div>
 </div>
+
+<dialog id="play-dialog" class="p-6" aria-label="Play show">
+  <h2 class="font-semibold">Play show</h2>
+  <p class="text-sm muted mt-1">Which draw do you want to show?</p>
+  <div id="play-list" class="mt-4 grid gap-1 max-h-[50vh] overflow-y-auto"></div>
+  <p id="play-msg" role="alert" class="text-sm mt-3" style="color:var(--danger)"></p>
+  <div class="flex justify-end mt-4"><button type="button" id="play-cancel" class="btn btn-ghost">Cancel</button></div>
+</dialog>
 
 <div id="status" role="status" aria-live="polite" class="rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg bg-[var(--raised)] border border-[var(--line)]"></div>
 
@@ -326,14 +359,6 @@
             <button id="draw-btn" class="btn btn-primary">Run draw</button>
             <button id="redraw-btn" class="btn btn-ghost">Redraw scratched horses</button>
             <button id="clear-draw-btn" class="btn btn-danger">Clear draw</button>
-          </div>
-          <div class="mt-6 pt-5 border-t border-[var(--line)]">
-            <h3 class="font-semibold">Live draw, all sweeps</h3>
-            <p class="text-sm muted mt-1">Draws every sweep at once, each on its own, then plays one full-screen show through the horses with the names from all sweeps. Play demo saves nothing.</p>
-            <div class="flex flex-wrap gap-3 mt-4 stack-btns">
-              <button id="assign-sweeps-btn" class="btn btn-primary">Assign all</button>
-              <button id="demo-sweeps-btn" class="btn btn-ghost">Play demo</button>
-            </div>
           </div>
           <dl class="mt-6 pt-5 border-t border-[var(--line)] grid gap-3 text-sm">
             <div><dt class="font-medium">Run draw</dt><dd class="muted">Shuffles the running horses and deals one to each entrant, replacing any existing draw. Entries close.</dd></div>
@@ -1089,7 +1114,6 @@ async function saveDraw(sets) {
     es.map(e => ({ id: e.id, sweep_id: e.sweep_id, display_name: e.display_name, horse_id }))));
   if (!rows.length) return;
   check(await supabase.from('sweep_entries').upsert(rows, { onConflict: 'id' }));
-  check(await supabase.from('sweeps').update({ status: 'drawn' }).in('id', fresh.map(x => x.sweep.id)));
 }
 
 // Live sweeps only: hidden, merged and completed sweeps are never touched. Always reads fresh data.
@@ -1178,18 +1202,54 @@ function setHorse({ horse, people }) {
   if (url) { $('show-silks').onerror = () => wrap.classList.add('gone'); $('show-silks').src = url; }
   const name = $('show-name');
   name.textContent = horse.name;
-  fitText(124, 60, () => name.scrollWidth > name.clientWidth, n => { name.style.fontSize = `${n}px`; });
+  fitText(96, 48, () => name.scrollWidth > name.clientWidth, n => { name.style.fontSize = `${n}px`; });
   $('show-stats').innerHTML = horseStats(horse);
   const wide = [...document.querySelectorAll('.stat.s3 b')];
-  fitText(52, 24, () => wide.some(el => el.scrollWidth > el.clientWidth), n => wide.forEach(el => { el.style.fontSize = `${n}px`; }));
+  fitText(40, 20, () => wide.some(el => el.scrollWidth > el.clientWidth), n => wide.forEach(el => { el.style.fontSize = `${n}px`; }));
   $('show-who-n').textContent = '';
 
   // Lay every row out hidden first, so the list is sized once and nothing shifts as names land.
   const users = $('show-users'), n = people.length;
-  users.className = n > 16 ? 'c3' : n > 7 ? 'c2' : '';
+  users.className = n > 8 ? 'c3' : n > 3 ? 'c2' : n === 1 ? 'solo' : '';
   users.innerHTML = n ? people.map(p => `<div class="p">${personHtml(p)}</div>`).join('') : '<div class="p none on"><span class="n">No entrants</span></div>';
   const rows = [...users.querySelectorAll('.n')];
-  fitText(n > 16 ? 30 : n > 7 ? 42 : 64, 12, () => users.scrollHeight > users.clientHeight || rows.some(el => el.scrollWidth > el.clientWidth), s => users.style.setProperty('--fs', `${s}px`));
+  fitText(n === 1 ? 100 : n > 8 ? 30 : n > 3 ? 34 : 44, 12, () => users.scrollHeight > users.clientHeight || rows.some(el => el.scrollWidth > el.clientWidth), s => users.style.setProperty('--fs', `${s}px`));
+}
+
+// The running list on the right. Every slot exists from the start, so rows land without moving the others.
+function setupList(groups) {
+  const list = $('show-list'), total = groups.length, cols = total > 12 ? 2 : 1, rows = Math.ceil(total / cols);
+  list.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+  list.style.gridTemplateRows = `repeat(${rows}, minmax(0, 1fr))`;
+  list.innerHTML = groups.map(g => {
+    const url = horseSilkUrl(g.horse);
+    const who = g.people.map(p => p.handle).join(', ') || 'No entrants';
+    return `<div class="r"><b>${g.horse.number}</b>${url ? `<img src="${esc(url)}" alt="" onerror="this.style.visibility='hidden'">` : ''}<div><span class="hn">${esc(g.horse.name)}</span><span class="pn">${esc(who)}</span></div></div>`;
+  }).join('');
+  const h = list.clientHeight / rows;
+  list.style.setProperty('--rh', `${h}px`);
+  const fit = (cls, size) => list.querySelectorAll(cls).forEach(el => fitText(Math.round(size), 10, () => el.scrollWidth > el.clientWidth, n => { el.style.fontSize = `${n}px`; }));
+  fit('.hn', Math.min(26, h * .36));
+  fit('.pn', Math.min(32, h * .44));
+  $('show-list-n').textContent = `0 of ${total}`;
+}
+
+// Sends the finished horse from the left panel into its slot on the right.
+async function moveToList(s, i) {
+  const row = $('show-list').children[i], frame = $('show-frame');
+  const k = frame.getBoundingClientRect().width / 1920;
+  const f = frame.getBoundingClientRect(), r = row.getBoundingClientRect(), from = $('show-badge').getBoundingClientRect();
+  const ghost = row.cloneNode(true);
+  ghost.classList.add('ghost');
+  Object.assign(ghost.style, { left: `${(r.left - f.left) / k}px`, top: `${(r.top - f.top) / k}px`, width: `${r.width / k}px`, height: `${r.height / k}px` });
+  frame.appendChild(ghost);
+  const dx = (from.left - r.left) / k, dy = (from.top - r.top) / k;
+  ghost.animate([{ transform: `translate(${dx}px, ${dy}px) scale(1.5)` }, { transform: 'none' }], { duration: 600, easing: 'cubic-bezier(.76,0,.24,1)' });
+  const ok = await wait(s, 620);
+  ghost.remove();
+  row.classList.add('on');
+  $('show-list-n').textContent = `${i + 1} of ${s.groups.length}`;
+  return ok;
 }
 
 function showSummary(groups) {
@@ -1244,6 +1304,7 @@ async function playShow() {
   const wipe = $('show-wipe'), total = s.groups.length;
   for (; s.i < total; s.i++) {
     const g = s.groups[s.i];
+    wipe.classList.toggle('full', s.i === 0);
     restart(wipe, 'go'); sfx.land();
     if (!await wait(s, 300)) return;
     $('show-intro').classList.add('hide');
@@ -1253,26 +1314,27 @@ async function playShow() {
     if (!await wait(s, 1800)) return;
 
     const n = g.people.length;
-    $('show-who-n').textContent = n ? String(n) : '';
+    $('show-who-n').textContent = n > 1 ? String(n) : '';
     const gap = Math.max(350, Math.min(1000, 6000 / n));
     for (const row of $('show-users').querySelectorAll('.p:not(.on)')) {
       row.classList.add('on'); sfx.name();
       if (!await wait(s, gap)) return;
     }
     if (!await wait(s, 2000)) return;
+    if (!await moveToList(s, s.i)) return;
   }
+  // Hold on the completed list before the final board.
+  if (!await wait(s, 3000)) return;
+  wipe.classList.add('full');
   restart(wipe, 'go');
   if (await wait(s, 300)) finishShow(s);
 }
 
 function closeShow() {
-  const s = showState;
-  if (s?.busy) return;
   showState = null;
   clearTimeout(idleTimer);
   showEl.classList.remove('open', 'finished', 'playing', 'active');
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  s?.cancel?.();
 }
 
 let idleTimer = 0;
@@ -1287,28 +1349,8 @@ function togglePause() {
   showState.paused = !showState.paused;
   $('show-pause').textContent = showState.paused ? 'Resume' : 'Pause';
 }
-async function startShow() {
-  const s = showState;
-  if (!s || s.started || s.busy) return;
-  if (s.prepare) {
-    const btn = $('show-start');
-    s.busy = true;
-    btn.textContent = 'Saving draw...';
-    try {
-      s.groups = await s.prepare();
-      s.prepare = s.cancel = null;
-    } catch (err) {
-      // Nothing was saved or shown, so pressing Start again is safe.
-      console.error(err);
-      alert(`The draw was not saved, nothing changed: ${err.message || err}`);
-      return;
-    } finally {
-      s.busy = false;
-      btn.textContent = 'Start draw';
-    }
-    renderStrip(s.groups, 0, -1);
-  }
-  playShow();
+function startShow() {
+  if (showState && !showState.started) playShow();
 }
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -1336,8 +1378,8 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
 });
 
-function openShow(groups, demo, sub, title, hooks = {}) {
-  showState = { groups, i: 0, paused: false, skipped: false, started: false, finished: false, busy: false, ...hooks };
+function openShow(groups, demo, sub, title) {
+  showState = { groups, i: 0, paused: false, skipped: false, started: false, finished: false };
   $('show-title').textContent = demo ? `Demo: ${title}` : title;
   $('show-intro-title').textContent = title;
   $('show-intro-sub').textContent = sub;
@@ -1352,67 +1394,71 @@ function openShow(groups, demo, sub, title, hooks = {}) {
   showEl.classList.remove('finished', 'playing', 'active');
   showEl.classList.add('open', 'pre');
   fitFrame();
+  setupList(groups);
 }
-const DEMO_SUB = 'Demo only, nothing is saved';
 
-// Every sweep is the same race: draw each on its own, then reveal them together horse by horse.
-$('assign-sweeps-btn').addEventListener('click', () => run('Preparing draw', async () => {
+// Every sweep is the same race: Assign all draws them, then the show plays from what is saved.
+$('assign-sweeps-btn').addEventListener('click', () => run('Assigning horses', async () => {
   const { sets, noField } = await loadAllSets();
   if (!sets.length) throw new Error('No live sweeps with entrants and running horses.');
   const fresh = sets.filter(x => !isDrawn(x));
-  const total = sets.reduce((n, x) => n + x.entries.length, 0);
-  const sub = `${sets.length} sweeps, ${total} entrants`;
-  const title = drawTitle(sets);
-  const horseless = sets.filter(isDrawn).reduce((n, x) => n + x.entries.filter(e => !e.horse_id).length, 0);
-  const noHorse = horseless ? `${horseless} entrants in already drawn sweeps have no horse and won't appear. Assign them by hand.` : '';
-
-  // Nothing left to draw, so this can only be a replay of what is saved.
-  if (!fresh.length) {
-    if (noHorse) alert(noHorse);
-    openShow(dealSets(sets, true), false, sub, title);
-    return;
-  }
+  if (!fresh.length) throw new Error('Every live sweep is already drawn. Press Play show.');
 
   const unpaid = fresh.reduce((n, x) => n + (Number(x.sweep.entry_fee) ? x.entries.filter(e => !e.paid).length : 0), 0);
   const crowded = fresh.filter(x => x.entries.length > x.horses.filter(h => !h.scratched).length);
   const notes = [
-    fresh.length < sets.length && `Already drawn, shown as saved: ${sets.filter(isDrawn).map(x => x.sweep.name).join(', ')}`,
+    fresh.length < sets.length && `Already drawn, left as they are: ${sets.filter(isDrawn).map(x => x.sweep.name).join(', ')}`,
     noField.length && `SKIPPED, no running horses: ${noField.map(x => x.sweep.name).join(', ')}`,
     unpaid && `${unpaid} unpaid entrants will get a horse.`,
-    crowded.length && `More entrants than running horses, so horses are shared: ${crowded.map(x => x.sweep.name).join(', ')}`,
-    noHorse
+    crowded.length && `More entrants than running horses, so horses are shared: ${crowded.map(x => x.sweep.name).join(', ')}`
   ].filter(Boolean);
   const names = fresh.map(x => `${x.sweep.name} (${x.entries.length})`).join('\n');
-  if (!confirm(`Close entries and open the live draw for ${fresh.length} sweeps?\n\n${names}` + (notes.length ? `\n\n${notes.join('\n\n')}` : '') + '\n\nThe draw is made and saved when you press Start draw. Close before then to reopen entries.')) return;
+  if (!confirm(`Close entries and draw ${fresh.length} sweeps now?\n\n${names}` + (notes.length ? `\n\n${notes.join('\n\n')}` : '') + '\n\nThis saves straight away and entrants can see their horse on the sweep page.')) return;
 
+  // Close first, then re-read, so a payment that landed in between still gets a horse.
   const closed = fresh.filter(x => x.sweep.status === 'open').map(x => x.sweep.id);
   if (closed.length) check(await supabase.from('sweeps').update({ status: 'drawn' }).in('id', closed));
-  openShow(dealSets(sets, true), false, sub, title, {
-    // Re-read on Start so a payment that landed after entries closed still gets a horse.
-    prepare: async () => {
-      const { sets: latest } = await loadAllSets();
-      const groups = dealSets(latest, true);
-      await saveDraw(latest);
-      await loadSweeps(sweep?.id);
-      return groups;
-    },
-    cancel: () => run('Reopening entries', async () => {
-      if (closed.length) check(await supabase.from('sweeps').update({ status: 'open' }).in('id', closed));
-      await loadSweeps(sweep?.id);
-    })
-  });
+  try {
+    const { sets: latest } = await loadAllSets();
+    dealSets(latest, true);
+    await saveDraw(latest);
+  } catch (err) {
+    if (closed.length) await supabase.from('sweeps').update({ status: 'open' }).in('id', closed);
+    await loadSweeps(sweep?.id);
+    throw new Error(`Draw not saved, entries reopened: ${err.message || err}`);
+  }
   await loadSweeps(sweep?.id);
 }));
 
-$('demo-sweeps-btn').addEventListener('click', () => run('Loading sweeps', async () => {
-  let { sets } = await loadAllSets();
-  // Nobody has entered yet: preview the selected sweep's field with sample names.
-  if (!sets.length) {
-    if (!horses.some(h => !h.scratched)) throw new Error('Import or add the field first.');
-    sets = [setOf(sweep, horses, Array.from({ length: 30 }, (_, i) => ({ id: `demo${i}`, display_name: `Demo player ${i + 1}` })), {})];
-  }
-  openShow(dealSets(sets, true), true, DEMO_SUB, drawTitle(sets));
+const showSub = sets => {
+  const total = sets.reduce((n, x) => n + x.entries.length, 0);
+  return sets.length > 1 ? `${sets.length} sweeps, ${total} entrants` : `${total} entrants`;
+};
+
+// Play show only ever reads the saved draw, so it can be played as often as you like.
+let pickSets = [];
+$('play-show-btn').addEventListener('click', () => run('Loading sweeps', async () => {
+  const { sets } = await loadAllSets();
+  if (!sets.length) throw new Error('No live sweeps with entrants and running horses.');
+  pickSets = sets;
+  const row = (i, name, meta) => `<button type="button" class="sweep-row" data-pick="${i}"><span class="font-medium">${esc(name)}</span><span class="block text-xs mt-1 muted">${esc(meta)}</span></button>`;
+  const state = x => `${x.entries.length} entrants, ${isDrawn(x) ? 'drawn' : 'not drawn yet'}`;
+  $('play-list').innerHTML = row('all', 'All sweeps', sets.every(isDrawn) ? 'All drawn' : 'Not all drawn yet') + sets.map((x, i) => row(i, x.sweep.name, state(x))).join('');
+  $('play-msg').textContent = '';
+  $('play-dialog').showModal();
 }));
+$('play-cancel').addEventListener('click', () => $('play-dialog').close());
+$('play-list').addEventListener('click', e => {
+  const pick = e.target.closest('[data-pick]')?.dataset.pick;
+  if (pick === undefined) return;
+  const chosen = pick === 'all' ? pickSets : [pickSets[pick]];
+  const undrawn = chosen.filter(x => !isDrawn(x));
+  if (undrawn.length) { $('play-msg').textContent = `Not drawn yet: ${undrawn.map(x => x.sweep.name).join(', ')}. Press Assign all first.`; return; }
+  $('play-dialog').close();
+  const horseless = chosen.reduce((n, x) => n + x.entries.filter(e => !e.horse_id).length, 0);
+  if (horseless) alert(`${horseless} entrants have no horse and won't appear. Assign them by hand.`);
+  openShow(dealSets(chosen, chosen.length > 1), false, showSub(chosen), chosen.length > 1 ? drawTitle(chosen) : chosen[0].sweep.name);
+});
 
 $('clear-draw-btn').addEventListener('click', () => {
   if (!entries.some(e => e.horse_id)) { say('No horses are assigned.', true); return; }
