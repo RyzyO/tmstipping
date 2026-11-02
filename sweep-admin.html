@@ -240,7 +240,7 @@
   <p class="text-sm muted mt-1">Which draw do you want to show?</p>
   <div id="play-list" class="mt-4 grid gap-1 max-h-[50vh] overflow-y-auto"></div>
   <p id="play-msg" role="alert" class="text-sm mt-3" style="color:var(--danger)"></p>
-  <div class="flex justify-end mt-4"><button type="button" id="play-cancel" class="btn btn-ghost">Cancel</button></div>
+  <div class="flex justify-end gap-2 mt-4"><button type="button" id="play-cancel" class="btn btn-ghost">Cancel</button><button type="button" id="play-demo" class="btn btn-primary hidden">Play demo</button></div>
 </dialog>
 
 <div id="status" role="status" aria-live="polite" class="rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg bg-[var(--raised)] border border-[var(--line)]"></div>
@@ -1436,7 +1436,8 @@ const showSub = sets => {
 };
 
 // Play show only ever reads the saved draw, so it can be played as often as you like.
-let pickSets = [];
+let pickSets = [], demoSets = [];
+const pickTitle = chosen => chosen.length > 1 ? drawTitle(chosen) : chosen[0].sweep.name;
 $('play-show-btn').addEventListener('click', () => run('Loading sweeps', async () => {
   const { sets } = await loadAllSets();
   if (!sets.length) throw new Error('No live sweeps with entrants and running horses.');
@@ -1445,6 +1446,7 @@ $('play-show-btn').addEventListener('click', () => run('Loading sweeps', async (
   const state = x => `${x.entries.length} entrants, ${isDrawn(x) ? 'drawn' : 'not drawn yet'}`;
   $('play-list').innerHTML = row('all', 'All sweeps', sets.every(isDrawn) ? 'All drawn' : 'Not all drawn yet') + sets.map((x, i) => row(i, x.sweep.name, state(x))).join('');
   $('play-msg').textContent = '';
+  $('play-demo').classList.add('hidden');
   $('play-dialog').showModal();
 }));
 $('play-cancel').addEventListener('click', () => $('play-dialog').close());
@@ -1453,11 +1455,21 @@ $('play-list').addEventListener('click', e => {
   if (pick === undefined) return;
   const chosen = pick === 'all' ? pickSets : [pickSets[pick]];
   const undrawn = chosen.filter(x => !isDrawn(x));
-  if (undrawn.length) { $('play-msg').textContent = `Not drawn yet: ${undrawn.map(x => x.sweep.name).join(', ')}. Press Assign all first.`; return; }
+  if (undrawn.length) {
+    demoSets = chosen;
+    $('play-msg').textContent = `Not drawn yet: ${undrawn.map(x => x.sweep.name).join(', ')}. Play a demo instead? Nothing is saved.`;
+    $('play-demo').classList.remove('hidden');
+    return;
+  }
   $('play-dialog').close();
   const horseless = chosen.reduce((n, x) => n + x.entries.filter(e => !e.horse_id).length, 0);
   if (horseless) alert(`${horseless} entrants have no horse and won't appear. Assign them by hand.`);
-  openShow(dealSets(chosen, chosen.length > 1), false, showSub(chosen), chosen.length > 1 ? drawTitle(chosen) : chosen[0].sweep.name);
+  openShow(dealSets(chosen, chosen.length > 1), false, showSub(chosen), pickTitle(chosen));
+});
+// Dealt in memory only: a demo never writes to the database.
+$('play-demo').addEventListener('click', () => {
+  $('play-dialog').close();
+  openShow(dealSets(demoSets, demoSets.length > 1), true, 'Demo only, nothing is saved', pickTitle(demoSets));
 });
 
 $('clear-draw-btn').addEventListener('click', () => {
