@@ -192,6 +192,7 @@
     <div class="flex items-center gap-2">
       <button id="assign-sweeps-btn" class="btn btn-primary btn-sm">Assign all</button>
       <button id="play-show-btn" class="btn btn-ghost btn-sm">Play show</button>
+      <button id="export-csv-btn" class="btn btn-ghost btn-sm" title="Download everyone entered in any sweep">Export CSV</button>
       <a href="sweep.html" class="btn btn-ghost btn-sm hidden sm:inline-flex">View live page</a>
     </div>
   </div>
@@ -1396,6 +1397,61 @@ function openShow(groups, demo, sub, title) {
   fitFrame();
   setupList(groups);
 }
+
+// ---- Export: every entrant in every sweep, one row per entry ----
+async function allRows(table, columns) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from(table).select(columns).order('id').range(from, from + 999);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if ((data || []).length < 1000) return rows;
+  }
+}
+// Quotes every field, and stops a spreadsheet running a name as a formula. Plain phone numbers stay as they are.
+const csvCell = v => {
+  const s = String(v ?? '');
+  const safe = /^[=+\-@\t\r]/.test(s) && !/^\+?[\d\s()-]+$/.test(s) ? `'${s}` : s;
+  return `"${safe.replace(/"/g, '""')}"`;
+};
+$('export-csv-btn').addEventListener('click', () => run('Exporting entrants', async () => {
+  const [allSweeps, allHorses, allEntries] = await Promise.all([
+    allRows('sweeps', '*'), allRows('sweep_horses', 'id,number,name'), allRows('sweep_entries', '*')
+  ]);
+  if (!allEntries.length) throw new Error('Nobody has entered a sweep yet.');
+  const uids = [...new Set(allEntries.map(e => e.user_id).filter(Boolean))];
+  const users = {};
+  for (let i = 0; i < uids.length; i += 200) {
+    const { data, error } = await supabase.from('users').select('*').in('id', uids.slice(i, i + 200));
+    if (error) throw error;
+    (data || []).forEach(u => { users[u.id] = u; });
+  }
+  const sweepById = Object.fromEntries(allSweeps.map(s => [s.id, s]));
+  const horseById = Object.fromEntries(allHorses.map(h => [h.id, h]));
+  const header = ['Sweep', 'Entry fee', 'Sweep status', 'Name', 'Username', 'Email', 'Phone', 'Address', 'Paid', 'Fee paid', 'Horse number', 'Horse', 'Entered', 'Moved from'];
+  const rows = [...allEntries]
+    .sort((a, b) => (sweepById[a.sweep_id]?.name || '').localeCompare(sweepById[b.sweep_id]?.name || '') || String(a.created_at).localeCompare(String(b.created_at)))
+    .map(e => {
+      const s = sweepById[e.sweep_id], u = users[e.user_id], h = horseById[e.horse_id];
+      const addr = u ? [u.address, [u.suburb, u.state, u.postcode].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
+      return [
+        s?.name, s?.entry_fee, s?.merged_into ? 'merged' : s?.status,
+        (u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '') || e.display_name, u?.team_name || e.display_name,
+        u?.email, u ? u.phone || u.mobile || u.phone_number : '', addr,
+        e.paid ? 'Yes' : 'No', e.fee_paid, h?.number, h?.name, e.created_at, sweepById[e.merged_from_sweep]?.name
+      ];
+    });
+  const csv = [header, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+  // The byte order mark tells Excel the file is UTF-8, so accented names survive.
+  const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sweep-entrants-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}));
 
 // Every sweep is the same race: Assign all draws them, then the show plays from what is saved.
 $('assign-sweeps-btn').addEventListener('click', () => run('Assigning horses', async () => {
