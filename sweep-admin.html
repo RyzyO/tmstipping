@@ -1037,6 +1037,7 @@ const horseSilkUrl = h => h.silks_id ? `https://www.racingaustralia.horse/Jockey
 // A "set" is one sweep's horses and entrants. Each set is dealt on its own (one horse per entrant
 // within a sweep), then everything is grouped by horse number so several sweeps share one reveal.
 const setOf = (sw, hs, es, users) => ({ sweep: sw, horses: hs, entries: es, users: users || {} });
+const isDrawn = set => set.entries.some(e => e.horse_id);
 function dealSets(sets, labelled) {
   const byNumber = new Map();
   const groupFor = h => {
@@ -1047,21 +1048,29 @@ function dealSets(sets, labelled) {
     return g;
   };
   sets.forEach(set => {
+    const person = e => {
+      const u = set.users[e.user_id];
+      return {
+        handle: u?.team_name || e.display_name || 'Unknown',
+        silk: e.user_id ? userSilk(u?.silk) : '',
+        label: labelled ? money(set.sweep.entry_fee) : ''
+      };
+    };
     const live = set.horses.filter(h => !h.scratched);
     live.forEach(groupFor);
     set.plan = new Map();
+    // A saved draw is shown exactly as it stands, never dealt again.
+    if (isDrawn(set)) {
+      const byId = new Map(set.horses.map(h => [h.id, h]));
+      set.entries.forEach(e => { const h = byId.get(e.horse_id); if (h) groupFor(h).people.push(person(e)); });
+      return;
+    }
     if (!live.length) return;
     const pool = shuffle(live);
     shuffle(set.entries).forEach((e, i) => {
       const h = pool[i % pool.length];
-      const u = set.users[e.user_id];
-      groupFor(h).people.push({
-        handle: u?.team_name || e.display_name || 'Unknown',
-        silk: e.user_id ? userSilk(u?.silk) : '',
-        label: labelled ? money(set.sweep.entry_fee) : ''
-      });
-      if (!set.plan.has(h.id)) set.plan.set(h.id, []);
-      set.plan.get(h.id).push(e.id);
+      groupFor(h).people.push(person(e));
+      set.plan.set(h.id, [...(set.plan.get(h.id) || []), e]);
     });
   });
   return [...byNumber.values()].sort((a, b) => a.horse.number - b.horse.number);
@@ -1073,18 +1082,22 @@ const drawTitle = sets => {
 };
 const personHtml = p => `${p.silk ? `<img src="${p.silk}" alt="" onerror="this.style.visibility='hidden'">` : ''}<span class="n">${esc(p.handle)}</span>${p.label ? `<span class="l">${esc(p.label)}</span>` : ''}`;
 
-async function saveSet(set) {
-  check(await supabase.from('sweep_entries').update({ horse_id: null }).eq('sweep_id', set.sweep.id));
-  for (const [horseId, ids] of set.plan) {
-    check(await supabase.from('sweep_entries').update({ horse_id: horseId }).in('id', ids));
-  }
-  check(await supabase.from('sweeps').update({ status: 'drawn' }).eq('id', set.sweep.id));
+// One upsert is one database statement, so every sweep saves or none does.
+async function saveDraw(sets) {
+  const fresh = sets.filter(x => x.plan.size);
+  const rows = fresh.flatMap(x => [...x.plan].flatMap(([horse_id, es]) =>
+    es.map(e => ({ id: e.id, sweep_id: e.sweep_id, display_name: e.display_name, horse_id }))));
+  if (!rows.length) return;
+  check(await supabase.from('sweep_entries').upsert(rows, { onConflict: 'id' }));
+  check(await supabase.from('sweeps').update({ status: 'drawn' }).in('id', fresh.map(x => x.sweep.id)));
 }
 
-// Every sweep that can still be drawn (not merged away, not completed) with its field and entrants.
+// Live sweeps only: hidden, merged and completed sweeps are never touched. Always reads fresh data.
 async function loadAllSets() {
-  const open = sweeps.filter(s => !s.merged_into && s.status !== 'completed');
-  const sets = await Promise.all(open.map(async s => {
+  const { data, error } = await supabase.from('sweeps').select('*');
+  if (error) throw error;
+  const live = (data || []).filter(s => s.is_active && !s.merged_into && s.status !== 'completed');
+  const all = await Promise.all(live.map(async s => {
     const [h, e] = await Promise.all([
       supabase.from('sweep_horses').select('*').eq('sweep_id', s.id),
       supabase.from('sweep_entries').select('*').eq('sweep_id', s.id)
@@ -1098,7 +1111,8 @@ async function loadAllSets() {
     }
     return setOf(s, h.data || [], e.data || [], users);
   }));
-  return sets.filter(x => x.entries.length && x.horses.some(h => !h.scratched));
+  const ready = x => x.entries.length && x.horses.some(h => !h.scratched);
+  return { sets: all.filter(ready), noField: all.filter(x => x.entries.length && !ready(x)) };
 }
 
 const restart = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
@@ -1252,10 +1266,13 @@ async function playShow() {
 }
 
 function closeShow() {
+  const s = showState;
+  if (s?.busy) return;
   showState = null;
   clearTimeout(idleTimer);
   showEl.classList.remove('open', 'finished', 'playing', 'active');
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  s?.cancel?.();
 }
 
 let idleTimer = 0;
@@ -1270,8 +1287,28 @@ function togglePause() {
   showState.paused = !showState.paused;
   $('show-pause').textContent = showState.paused ? 'Resume' : 'Pause';
 }
-function startShow() {
-  if (showState && !showState.started) playShow();
+async function startShow() {
+  const s = showState;
+  if (!s || s.started || s.busy) return;
+  if (s.prepare) {
+    const btn = $('show-start');
+    s.busy = true;
+    btn.textContent = 'Saving draw...';
+    try {
+      s.groups = await s.prepare();
+      s.prepare = s.cancel = null;
+    } catch (err) {
+      // Nothing was saved or shown, so pressing Start again is safe.
+      console.error(err);
+      alert(`The draw was not saved, nothing changed: ${err.message || err}`);
+      return;
+    } finally {
+      s.busy = false;
+      btn.textContent = 'Start draw';
+    }
+    renderStrip(s.groups, 0, -1);
+  }
+  playShow();
 }
 function toggleFullscreen() {
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -1299,8 +1336,8 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
 });
 
-function openShow(groups, demo, sub, title) {
-  showState = { groups, i: 0, paused: false, skipped: false, started: false, finished: false };
+function openShow(groups, demo, sub, title, hooks = {}) {
+  showState = { groups, i: 0, paused: false, skipped: false, started: false, finished: false, busy: false, ...hooks };
   $('show-title').textContent = demo ? `Demo: ${title}` : title;
   $('show-intro-title').textContent = title;
   $('show-intro-sub').textContent = sub;
@@ -1320,20 +1357,55 @@ const DEMO_SUB = 'Demo only, nothing is saved';
 
 // Every sweep is the same race: draw each on its own, then reveal them together horse by horse.
 $('assign-sweeps-btn').addEventListener('click', () => run('Preparing draw', async () => {
-  const sets = await loadAllSets();
-  if (!sets.length) throw new Error('No sweeps with entrants and running horses.');
-  const already = sets.filter(x => x.entries.some(e => e.horse_id));
-  const names = sets.map(x => `${x.sweep.name} (${x.entries.length})`).join('\n');
-  if (!confirm(`Draw ${sets.length} sweeps at once?\n\n${names}` + (already.length ? `\n\nExisting assignments in ${already.length} of them will be cleared.` : ''))) return;
-  const groups = dealSets(sets, true);
-  for (const set of sets) await saveSet(set);
+  const { sets, noField } = await loadAllSets();
+  if (!sets.length) throw new Error('No live sweeps with entrants and running horses.');
+  const fresh = sets.filter(x => !isDrawn(x));
   const total = sets.reduce((n, x) => n + x.entries.length, 0);
-  openShow(groups, false, `${sets.length} sweeps, ${total} entrants, ${groups.length} horses`, drawTitle(sets));
+  const sub = `${sets.length} sweeps, ${total} entrants`;
+  const title = drawTitle(sets);
+  const horseless = sets.filter(isDrawn).reduce((n, x) => n + x.entries.filter(e => !e.horse_id).length, 0);
+  const noHorse = horseless ? `${horseless} entrants in already drawn sweeps have no horse and won't appear. Assign them by hand.` : '';
+
+  // Nothing left to draw, so this can only be a replay of what is saved.
+  if (!fresh.length) {
+    if (noHorse) alert(noHorse);
+    openShow(dealSets(sets, true), false, sub, title);
+    return;
+  }
+
+  const unpaid = fresh.reduce((n, x) => n + (Number(x.sweep.entry_fee) ? x.entries.filter(e => !e.paid).length : 0), 0);
+  const crowded = fresh.filter(x => x.entries.length > x.horses.filter(h => !h.scratched).length);
+  const notes = [
+    fresh.length < sets.length && `Already drawn, shown as saved: ${sets.filter(isDrawn).map(x => x.sweep.name).join(', ')}`,
+    noField.length && `SKIPPED, no running horses: ${noField.map(x => x.sweep.name).join(', ')}`,
+    unpaid && `${unpaid} unpaid entrants will get a horse.`,
+    crowded.length && `More entrants than running horses, so horses are shared: ${crowded.map(x => x.sweep.name).join(', ')}`,
+    noHorse
+  ].filter(Boolean);
+  const names = fresh.map(x => `${x.sweep.name} (${x.entries.length})`).join('\n');
+  if (!confirm(`Close entries and open the live draw for ${fresh.length} sweeps?\n\n${names}` + (notes.length ? `\n\n${notes.join('\n\n')}` : '') + '\n\nThe draw is made and saved when you press Start draw. Close before then to reopen entries.')) return;
+
+  const closed = fresh.filter(x => x.sweep.status === 'open').map(x => x.sweep.id);
+  if (closed.length) check(await supabase.from('sweeps').update({ status: 'drawn' }).in('id', closed));
+  openShow(dealSets(sets, true), false, sub, title, {
+    // Re-read on Start so a payment that landed after entries closed still gets a horse.
+    prepare: async () => {
+      const { sets: latest } = await loadAllSets();
+      const groups = dealSets(latest, true);
+      await saveDraw(latest);
+      await loadSweeps(sweep?.id);
+      return groups;
+    },
+    cancel: () => run('Reopening entries', async () => {
+      if (closed.length) check(await supabase.from('sweeps').update({ status: 'open' }).in('id', closed));
+      await loadSweeps(sweep?.id);
+    })
+  });
   await loadSweeps(sweep?.id);
 }));
 
 $('demo-sweeps-btn').addEventListener('click', () => run('Loading sweeps', async () => {
-  let sets = await loadAllSets();
+  let { sets } = await loadAllSets();
   // Nobody has entered yet: preview the selected sweep's field with sample names.
   if (!sets.length) {
     if (!horses.some(h => !h.scratched)) throw new Error('Import or add the field first.');
