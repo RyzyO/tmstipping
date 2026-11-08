@@ -1177,6 +1177,9 @@
 
             const tipHorse = race.horses?.[tip.horseId];
             const tipName = tipHorse?.name || "—";
+            const wasScratched = !!tipHorse?.scratched;
+            const subHorse = scoredHorseId !== tip.horseId ? race.horses?.[scoredHorseId] : null;
+            const subName = subHorse?.name || "";
             const positionLabel = correctPosition === 1 ? "1st" : correctPosition === 2 ? "2nd" : correctPosition === 3 ? "3rd" : "";
 
             // Medal rows read badge → silk → name, left to right. The tip row deliberately
@@ -1212,7 +1215,8 @@
                   : '<svg class="h-4 w-4 text-red-400/70 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'}
               </div>
               <div class="space-y-0.5">
-                ${tipRow(tipHorse?.silksId, tipName, tip.joker ? "<span class='bg-purple-600/80 text-white px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0'>JOKER</span>" : "")}
+                ${tipRow(tipHorse?.silksId, tipName, (wasScratched ? "<span class='bg-orange-600/80 text-white px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0'>SCRATCHED</span>" : "") + (tip.joker ? "<span class='bg-purple-600/80 text-white px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0'>JOKER</span>" : ""))}
+                ${wasScratched ? `<div class="text-xs text-orange-300 px-1.5 pb-1">${subName ? `Replaced by <span class="font-semibold">${subName}</span> (nominated substitute) — points scored on its result` : "No substitute nominated — no points"}</div>` : ""}
                 ${row(medalBadge(1), race.horses?.[winnerHorseId]?.silksId, winnerName)}
                 ${row(medalBadge(2), race.horses?.[place1HorseId]?.silksId, place1Name)}
                 ${row(medalBadge(3), race.horses?.[place2HorseId]?.silksId, place2Name)}
@@ -1223,7 +1227,8 @@
                     ? (scoredHorseId !== tip.horseId
                       ? `${race.horses?.[scoredHorseId]?.name || "Substitute"} (sub for scratched ${tipName}) finished ${positionLabel}`
                       : `${tipName} finished ${positionLabel}`)
-                    : (tipHorse ? `${tipName} didn't place` : "No tip placed")}
+                    : (wasScratched && subName ? `${tipName} scratched; sub ${subName} didn't place`
+                      : tipHorse ? `${tipName} didn't place` : "No tip placed")}
                 </span>
                 <span class="text-base font-bold ${correct ? "text-green-400" : "text-gray-600"} flex-shrink-0">${correct ? "+" + pts.toFixed(2) : "0.00"}</span>
               </div>

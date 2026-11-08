@@ -558,9 +558,12 @@
 
           let horseId=tip?tip.horseId:null;
           let joker=tip?tip.joker===true:false;
+          let scratchedName="", scratchedSilksId="", subName="";
           if(tip && race.horses && horseId && race.horses[horseId]?.scratched){
+            scratchedName=race.horses[horseId].name||"Your horse";
+            scratchedSilksId=race.horses[horseId].silksId||"";
             const sub=Object.entries(race.horses).find(([_,h])=>h.substitute);
-            if(sub) horseId=sub[0];
+            if(sub){ horseId=sub[0]; subName=sub[1].name||"the substitute"; }
           }
 
           const tippedHorse=horseId?race.horses?.[horseId]:null;
@@ -592,6 +595,9 @@
             pts,
             joker,
             tippedName,
+            scratchedName,
+            scratchedSilksId,
+            subName,
             winnerName,
             place1Name,
             place2Name,
@@ -667,7 +673,7 @@
       }
 
       // Render
-      results.forEach(({race,rd,correct,pts,joker,tippedName,winnerName,place1Name,place2Name,dtStr,
+      results.forEach(({race,rd,correct,pts,joker,tippedName,scratchedName,subName,winnerName,place1Name,place2Name,dtStr,
                         correctPosition,tippedSilksId,winnerSilksId,place1SilksId,place2SilksId})=>{
         const card=document.createElement("div");
         const cardStateClass = rd ? (correct?"correct":"incorrect") : "";
@@ -692,6 +698,10 @@
               ? `Tip placed: <span class="text-gray-100 font-semibold">${tippedName}</span>`
               : "Tip placed");
 
+        const scratchNote = scratchedName
+          ? `<p class="text-xs text-orange-300 mt-1">Scratched: ${scratchedName}${subName ? ` &rarr; replaced by ${subName}` : " (no substitute named)"}</p>`
+          : "";
+
         card.innerHTML=`
           <h3 class="text-xl font-bold mb-1">${race.name}</h3>
           <p class="text-sm text-gray-400 mb-3">${dtStr}</p>
@@ -700,6 +710,7 @@
             <div class="min-w-0">
               <p class="text-gray-300">${tipLine}</p>
               ${rd && tippedName ? `<p class="text-sm text-gray-400 truncate">${tippedName}</p>` : ""}
+              ${scratchNote}
               ${rd ? "" : countdownHtml}
             </div>
           </div>
@@ -721,6 +732,11 @@
                   <p class="text-base font-semibold text-gray-100 truncate">${tippedName || "No tip placed"}</p>
                 </div>
               </div>
+              ${scratchedName ? `
+                <div class="p-3 rounded-lg bg-orange-900/20 border border-orange-800/40">
+                  <p class="text-sm font-semibold text-orange-300">Your horse was scratched</p>
+                  <p class="text-xs text-gray-400 mt-0.5">${scratchedName} was withdrawn from the race. ${subName ? `Your tip transferred to the nominated substitute, <span class="text-gray-200">${subName}</span>, and points are scored on its result.` : "No substitute was nominated, so this tip scores no points."}</p>
+                </div>` : ""}
               ${rd ? `
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   ${positions.map(p => {
