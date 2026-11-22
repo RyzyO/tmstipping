@@ -5319,6 +5319,41 @@ async function computeCompWinners(compId) {
   return { ladder, roughest, lastManStanding, revealedAt: new Date().toISOString() };
 }
 
+// Modal listing the tied Roughie Rocket entrants. Resolves to the chosen index,
+// -1 to announce them all as tied (raffle still to come), or null if cancelled.
+function pickRaffleWinner(roughest) {
+  return new Promise(resolve => {
+    const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;';
+    const btn = 'display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(75,85,99,.5);background:rgba(17,24,39,.8);color:#f3f4f6;font-weight:600;text-align:left;cursor:pointer;';
+    overlay.innerHTML = `
+      <div style="width:100%;max-width:440px;max-height:90vh;overflow-y:auto;padding:24px;border-radius:16px;background:linear-gradient(145deg,#1f2937,#111827);border:1px solid rgba(251,191,36,.35);box-shadow:0 25px 50px rgba(0,0,0,.6);color:#e5e7eb;">
+        <h3 style="font-size:18px;font-weight:700;color:#fbbf24;margin:0 0 4px;">Roughie Rocket is tied</h3>
+        <p style="font-size:14px;color:#9ca3af;margin:0 0 16px;">${roughest.winners.length} entrants tied on ${Number(roughest.points).toFixed(2)} pts. Who won the raffle?</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+          ${roughest.winners.map((w, i) => `
+            <button type="button" data-pick="${i}" style="${btn}" onmouseover="this.style.borderColor='#fbbf24'" onmouseout="this.style.borderColor='rgba(75,85,99,.5)'">
+              <img src="static/silks/${w.silk || 1}.png" alt="" style="width:36px;height:36px;border-radius:8px;object-fit:cover;object-position:top;flex-shrink:0;border:1px solid rgba(251,191,36,.4);">
+              <span style="min-width:0;overflow-wrap:anywhere;">${esc(w.name)}${w.horseName ? `<span style="display:block;font-size:12px;font-weight:400;color:#9ca3af;">${esc(w.horseName)}</span>` : ''}</span>
+            </button>`).join('')}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" data-pick="-1" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(75,85,99,.5);background:transparent;color:#d1d5db;font-weight:600;cursor:pointer;">Show all as tied</button>
+          <button type="button" data-pick="cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(248,113,113,.4);background:transparent;color:#f87171;font-weight:600;cursor:pointer;">Cancel</button>
+        </div>
+      </div>`;
+    const close = value => { overlay.remove(); resolve(value); };
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay) return close(null);
+      const btn = e.target.closest('[data-pick]');
+      if (!btn) return;
+      close(btn.dataset.pick === 'cancel' ? null : Number(btn.dataset.pick));
+    });
+    document.body.appendChild(overlay);
+  });
+}
+
 window.toggleWinnersReveal = async function(compId, reveal) {
   try {
     let update = { winners_revealed: false };
@@ -5330,6 +5365,21 @@ window.toggleWinnersReveal = async function(compId, reveal) {
       if (!winners.roughest) missing.push('Roughie Rocket');
       if (!winners.lastManStanding) missing.push('Last Man Standing');
       if (missing.length && !confirm(`No winner found yet for: ${missing.join(', ')}. Reveal anyway?`)) return;
+
+      // A tied Roughie Rocket is raffled: let the admin pick who to announce.
+      if (winners.roughest?.winners?.length > 1) {
+        const choice = await pickRaffleWinner(winners.roughest);
+        if (choice === null) return; // cancelled
+        if (choice >= 0) {
+          const chosen = winners.roughest.winners[choice];
+          winners.roughest = {
+            ...winners.roughest,
+            raffled: true,
+            tiedWith: winners.roughest.winners.filter((_, i) => i !== choice),
+            winners: [chosen]
+          };
+        }
+      }
       update = { winners_revealed: true, revealed_winners: winners };
     }
     const { error } = await supabase.from('comps').update(update).eq('id', compId);

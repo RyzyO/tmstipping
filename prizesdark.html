@@ -439,9 +439,10 @@
         const tied = roughie.winners.length > 1;
         const sameHorse = roughie.winners.every(w => w.horseName === roughie.winners[0].horseName) && roughie.winners[0].horseName;
         roughieEl.innerHTML = `
-          <p class="winner-label">${tied ? 'Tied &mdash; raffle between' : 'Winner'}</p>
+          <p class="winner-label">${tied ? 'Tied &mdash; raffle between' : roughie.raffled ? 'Raffle winner' : 'Winner'}</p>
           <div class="winner-people">${roughie.winners.map(winnerPerson).join('')}</div>
-          <p class="text-sm text-gray-400">${Number(roughie.points).toFixed(2)} pts${sameHorse ? ` &middot; ${escapeHtml(roughie.winners[0].horseName)}` : ''}</p>`;
+          <p class="text-sm text-gray-400">${Number(roughie.points).toFixed(2)} pts${sameHorse ? ` &middot; ${escapeHtml(roughie.winners[0].horseName)}` : ''}</p>${roughie.raffled && roughie.tiedWith?.length ? `
+          <p class="text-xs text-gray-500 mt-1">Drawn from a ${roughie.tiedWith.length + 1}-way tie with ${roughie.tiedWith.map(w => escapeHtml(w.name)).join(', ')}</p>` : ''}`;
         roughieEl.classList.remove('hidden');
       }
 
