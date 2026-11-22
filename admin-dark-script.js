@@ -4900,6 +4900,7 @@ function renderCompsManagementList() {
         ${status === 'deleted' ? '' : (comp.winners_revealed
           ? `<button onclick="window.toggleWinnersReveal('${comp.id}', false)" class="btn-secondary flex-1" title="Stop showing winner names on the Prizes page"><i data-feather="eye-off" class="h-4 w-4"></i>Hide Winners</button>`
           : `<button onclick="window.toggleWinnersReveal('${comp.id}', true)" class="btn-secondary flex-1" title="Show who won each prize on the Prizes page"><i data-feather="award" class="h-4 w-4"></i>Reveal Winners</button>`)}
+        ${status === 'deleted' ? '' : `<button onclick="window.editCompWinners('${comp.id}')" class="btn-secondary flex-1" title="Manually set who won each prize"><i data-feather="edit-3" class="h-4 w-4"></i>Edit Winners</button>`}
         ${status === 'deleted' ? '' : defaultAction}
         ${statusAction}
       </div>
@@ -5354,10 +5355,131 @@ function pickRaffleWinner(roughest) {
   });
 }
 
+// Manual override: one dropdown per prize, listing the comp's paid entrants.
+// Starts from the saved winners (or works them out if none are saved yet) and
+// saves back without changing whether winners are revealed.
+window.editCompWinners = async function(compId) {
+  try {
+    showNotification('Loading winners…', 'info', 'comp-notifications');
+    const [{ data: comp, error: compError }, joinings, users] = await Promise.all([
+      supabase.from('comps').select('name,winners_revealed,revealed_winners').eq('id', compId).single(),
+      fetchAllRows((from, to) => supabase.from('user_comp_joinings').select('user_id,points').eq('comp_id', compId).eq('payment_status', 'completed').range(from, to)),
+      fetchAllRows((from, to) => supabase.from('users').select('id,team_name,email,silk').range(from, to))
+    ]);
+    if (compError) throw compError;
+
+    const userById = {};
+    users.forEach(u => { userById[u.id] = u; });
+    const entrants = joinings
+      .map(j => ({ userId: j.user_id, name: userById[j.user_id]?.team_name || userById[j.user_id]?.email || j.user_id, silk: userById[j.user_id]?.silk || 1, points: parseFloat(j.points) || 0 }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    const entrantById = {};
+    entrants.forEach(e => { entrantById[e.userId] = e; });
+
+    const current = comp.revealed_winners || await computeCompWinners(compId);
+    const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const ordinals = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th'];
+    const roughieTied = (current.roughest?.winners?.length || 0) > 1;
+
+    const select = (key, selectedId, extraOptions = '') => `
+      <select data-slot="${key}" style="width:100%;min-width:0;padding:8px 10px;border-radius:8px;background:rgba(17,24,39,.9);border:1px solid rgba(75,85,99,.5);color:#e5e7eb;font-size:14px;">
+        ${extraOptions}
+        <option value="">— None —</option>
+        ${entrants.map(e => `<option value="${esc(e.userId)}" ${e.userId === selectedId ? 'selected' : ''}>${esc(e.name)} (${e.points.toFixed(2)} pts)</option>`).join('')}
+      </select>`;
+    const row = (label, control) => `
+      <label style="display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;">
+        <span style="font-size:13px;font-weight:600;color:#d1d5db;">${label}</span>${control}
+      </label>`;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+      <div style="width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:24px;border-radius:16px;background:linear-gradient(145deg,#1f2937,#111827);border:1px solid rgba(251,191,36,.35);box-shadow:0 25px 50px rgba(0,0,0,.6);color:#e5e7eb;">
+        <h3 style="font-size:18px;font-weight:700;color:#fbbf24;margin:0 0 4px;">Edit winners</h3>
+        <p style="font-size:13px;color:#9ca3af;margin:0 0 16px;">${esc(comp.name)} &middot; ${comp.winners_revealed ? 'Winners are showing on the Prizes page' : 'Winners are hidden — saving won’t reveal them'}</p>
+        <p style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6b7280;margin:0 0 8px;">Ladder</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;">
+          ${ordinals.map((o, i) => row(o, select(`ladder-${i}`, current.ladder?.[i]?.userId))).join('')}
+        </div>
+        <p style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6b7280;margin:0 0 8px;">Bonus prizes</p>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+          ${row('Roughie Rocket', select('roughie', roughieTied ? '__tied' : current.roughest?.winners?.[0]?.userId,
+            roughieTied ? `<option value="__tied" selected>Keep tied (${current.roughest.winners.map(w => esc(w.name)).join(', ')})</option>` : ''))}
+          ${row('Last Man Standing', select('lms', current.lastManStanding?.userId))}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" data-act="save" style="flex:1;padding:10px;border-radius:10px;border:none;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#111827;font-weight:700;cursor:pointer;">Save winners</button>
+          <button type="button" data-act="cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid rgba(75,85,99,.5);background:transparent;color:#d1d5db;font-weight:600;cursor:pointer;">Cancel</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', async e => {
+      if (e.target === overlay || e.target.closest('[data-act="cancel"]')) { overlay.remove(); return; }
+      const saveBtn = e.target.closest('[data-act="save"]');
+      if (!saveBtn) return;
+
+      const val = key => overlay.querySelector(`[data-slot="${key}"]`).value;
+      const person = id => {
+        const e = entrantById[id];
+        return e ? { userId: e.userId, name: e.name, silk: e.silk, points: e.points } : null;
+      };
+
+      const ladder = ordinals.map((_, i) => person(val(`ladder-${i}`)));
+      while (ladder.length && !ladder[ladder.length - 1]) ladder.pop();
+
+      let roughest = current.roughest || null;
+      const roughieId = val('roughie');
+      if (roughieId !== '__tied') {
+        if (!roughieId) roughest = null;
+        else if (roughieId !== current.roughest?.winners?.[0]?.userId || roughieTied) {
+          const prev = (current.roughest?.winners || []).find(w => w.userId === roughieId);
+          roughest = {
+            points: current.roughest?.points ?? null,
+            manual: true,
+            winners: [{ ...person(roughieId), horseName: prev?.horseName || '', joker: !!prev?.joker }]
+          };
+        }
+      }
+
+      const lmsId = val('lms');
+      const lastManStanding = lmsId ? person(lmsId) : null;
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      const revealed_winners = { ...current, ladder, roughest, lastManStanding, editedAt: new Date().toISOString() };
+      const { error } = await supabase.from('comps').update({ revealed_winners }).eq('id', compId);
+      if (error) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save winners';
+        showNotification(`Error saving winners: ${error.message}`, 'error', 'comp-notifications');
+        return;
+      }
+      overlay.remove();
+      showNotification(comp.winners_revealed ? 'Winners updated on the Prizes page' : 'Winners saved — press Reveal Winners to show them', 'success', 'comp-notifications');
+    });
+  } catch (error) {
+    console.error('Error editing winners:', error);
+    showNotification(`Error loading winners: ${error.message || error}`, 'error', 'comp-notifications');
+  }
+};
+
 window.toggleWinnersReveal = async function(compId, reveal) {
   try {
     let update = { winners_revealed: false };
     if (reveal) {
+      // Manually edited winners are kept unless the admin chooses to recalculate.
+      const { data: saved } = await supabase.from('comps').select('revealed_winners').eq('id', compId).single();
+      if (saved?.revealed_winners?.editedAt) {
+        if (confirm('You have manually edited winners for this comp.\n\nOK = reveal your edited winners\nCancel = recalculate from the ladder (your edits will be lost)')) {
+          const { error } = await supabase.from('comps').update({ winners_revealed: true }).eq('id', compId);
+          if (error) throw error;
+          showNotification('Your edited winners are now showing on the Prizes page', 'success', 'comp-notifications');
+          await loadCompsManagement();
+          return;
+        }
+      }
       if (!confirm('Reveal the winners on the Prizes page? This works out the current ladder, Roughie Rocket and Last Man Standing and shows their names to everyone.')) return;
       showNotification('Working out winners…', 'info', 'comp-notifications');
       const winners = await computeCompWinners(compId);
