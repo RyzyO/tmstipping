@@ -5254,17 +5254,18 @@ window.toggleCompVisibility = async function(compId, hide) {
 async function computeCompWinners(compId) {
   const [joinings, users, races, streakRows] = await Promise.all([
     fetchAllRows((from, to) => supabase.from('user_comp_joinings').select('user_id,points').eq('comp_id', compId).eq('payment_status', 'completed').range(from, to)),
-    fetchAllRows((from, to) => supabase.from('users').select('id,team_name,email').range(from, to)),
+    fetchAllRows((from, to) => supabase.from('users').select('id,team_name,email,silk').range(from, to)),
     fetchAllRows((from, to) => supabase.from('races').select('*').eq('comp_id', compId).range(from, to)),
     fetchAllRows((from, to) => supabase.from('streak_status').select('user_id,status').eq('comp_id', compId).range(from, to))
   ]);
 
   const nameOf = {};
-  users.forEach(u => { nameOf[u.id] = u.team_name || u.email || u.id; });
+  const silkOf = {};
+  users.forEach(u => { nameOf[u.id] = u.team_name || u.email || u.id; silkOf[u.id] = u.silk || 1; });
   const paidIds = new Set(joinings.map(j => j.user_id));
 
   const ladder = joinings
-    .map(j => ({ userId: j.user_id, name: nameOf[j.user_id] || j.user_id, points: parseFloat(j.points) || 0 }))
+    .map(j => ({ userId: j.user_id, name: nameOf[j.user_id] || j.user_id, silk: silkOf[j.user_id] || 1, points: parseFloat(j.points) || 0 }))
     .sort((a, b) => b.points - a.points)
     .slice(0, 10);
 
@@ -5303,6 +5304,7 @@ async function computeCompWinners(compId) {
       winners.push({
         userId: tip.user_id,
         name: nameOf[tip.user_id] || tip.user_id,
+        silk: silkOf[tip.user_id] || 1,
         horseName: race.horses?.[scoredId || tip.horse_id]?.name || '',
         raceName: race.name || '',
         joker: tip.joker === true
@@ -5312,7 +5314,7 @@ async function computeCompWinners(compId) {
   }
 
   const lmsRow = streakRows.find(r => r.status === 'winner');
-  const lastManStanding = lmsRow ? { userId: lmsRow.user_id, name: nameOf[lmsRow.user_id] || lmsRow.user_id } : null;
+  const lastManStanding = lmsRow ? { userId: lmsRow.user_id, name: nameOf[lmsRow.user_id] || lmsRow.user_id, silk: silkOf[lmsRow.user_id] || 1 } : null;
 
   return { ladder, roughest, lastManStanding, revealedAt: new Date().toISOString() };
 }
