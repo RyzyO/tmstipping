@@ -4897,6 +4897,9 @@ function renderCompsManagementList() {
           Edit
         </button>
         ${status === 'deleted' ? '' : visibilityAction}
+        ${status === 'deleted' ? '' : (comp.winners_revealed
+          ? `<button onclick="window.toggleWinnersReveal('${comp.id}', false)" class="btn-secondary flex-1" title="Stop showing winner names on the Prizes page"><i data-feather="eye-off" class="h-4 w-4"></i>Hide Winners</button>`
+          : `<button onclick="window.toggleWinnersReveal('${comp.id}', true)" class="btn-secondary flex-1" title="Show who won each prize on the Prizes page"><i data-feather="award" class="h-4 w-4"></i>Reveal Winners</button>`)}
         ${status === 'deleted' ? '' : defaultAction}
         ${statusAction}
       </div>
@@ -5242,6 +5245,98 @@ window.toggleCompVisibility = async function(compId, hide) {
   } catch (error) {
     console.error('Error toggling competition visibility:', error);
     showNotification('Error updating competition visibility', 'error', 'comp-notifications');
+  }
+};
+
+// Works out every prize winner for a comp: the top 10 on the ladder, the Roughie
+// Rocket (biggest single-race points haul, ties listed together for the raffle)
+// and the Last Man Standing (the streak 'winner', if one has been decided).
+async function computeCompWinners(compId) {
+  const [joinings, users, races, streakRows] = await Promise.all([
+    fetchAllRows((from, to) => supabase.from('user_comp_joinings').select('user_id,points').eq('comp_id', compId).eq('payment_status', 'completed').range(from, to)),
+    fetchAllRows((from, to) => supabase.from('users').select('id,team_name,email').range(from, to)),
+    fetchAllRows((from, to) => supabase.from('races').select('*').eq('comp_id', compId).range(from, to)),
+    fetchAllRows((from, to) => supabase.from('streak_status').select('user_id,status').eq('comp_id', compId).range(from, to))
+  ]);
+
+  const nameOf = {};
+  users.forEach(u => { nameOf[u.id] = u.team_name || u.email || u.id; });
+  const paidIds = new Set(joinings.map(j => j.user_id));
+
+  const ladder = joinings
+    .map(j => ({ userId: j.user_id, name: nameOf[j.user_id] || j.user_id, points: parseFloat(j.points) || 0 }))
+    .sort((a, b) => b.points - a.points)
+    .slice(0, 10);
+
+  // Roughest win
+  const raceById = {};
+  races.forEach(r => { raceById[r.id] = r; });
+  const raceIds = Object.keys(raceById);
+  let roughest = null;
+  if (raceIds.length) {
+    const [results, tips] = await Promise.all([
+      fetchAllRows((from, to) => supabase.from('results').select('*').in('race_id', raceIds).range(from, to)),
+      fetchAllRows((from, to) => supabase.from('tips').select('user_id,race_id,horse_id,joker').in('race_id', raceIds).range(from, to))
+    ]);
+    const resultByRaceId = {};
+    results.forEach(r => { resultByRaceId[r.race_id || r.id] = r; });
+
+    let maxPoints = 0;
+    let best = [];
+    for (const tip of tips) {
+      if (!paidIds.has(tip.user_id)) continue;
+      const race = raceById[tip.race_id];
+      const result = resultByRaceId[tip.race_id];
+      if (!race || !result) continue;
+      const pts = calculateTipPoints(race, result, tip.horse_id, tip.joker === true);
+      if (pts <= 0) continue;
+      if (pts > maxPoints) { maxPoints = pts; best = [tip]; }
+      else if (pts === maxPoints) best.push(tip);
+    }
+    const seen = new Set();
+    const winners = [];
+    for (const tip of best) {
+      if (seen.has(tip.user_id)) continue;
+      seen.add(tip.user_id);
+      const race = raceById[tip.race_id];
+      const scoredId = resolveScoredHorseId(race, tip.horse_id);
+      winners.push({
+        userId: tip.user_id,
+        name: nameOf[tip.user_id] || tip.user_id,
+        horseName: race.horses?.[scoredId || tip.horse_id]?.name || '',
+        raceName: race.name || '',
+        joker: tip.joker === true
+      });
+    }
+    if (winners.length) roughest = { points: maxPoints, winners };
+  }
+
+  const lmsRow = streakRows.find(r => r.status === 'winner');
+  const lastManStanding = lmsRow ? { userId: lmsRow.user_id, name: nameOf[lmsRow.user_id] || lmsRow.user_id } : null;
+
+  return { ladder, roughest, lastManStanding, revealedAt: new Date().toISOString() };
+}
+
+window.toggleWinnersReveal = async function(compId, reveal) {
+  try {
+    let update = { winners_revealed: false };
+    if (reveal) {
+      if (!confirm('Reveal the winners on the Prizes page? This works out the current ladder, Roughie Rocket and Last Man Standing and shows their names to everyone.')) return;
+      showNotification('Working out winners…', 'info', 'comp-notifications');
+      const winners = await computeCompWinners(compId);
+      const missing = [];
+      if (!winners.roughest) missing.push('Roughie Rocket');
+      if (!winners.lastManStanding) missing.push('Last Man Standing');
+      if (missing.length && !confirm(`No winner found yet for: ${missing.join(', ')}. Reveal anyway?`)) return;
+      update = { winners_revealed: true, revealed_winners: winners };
+    }
+    const { error } = await supabase.from('comps').update(update).eq('id', compId);
+    if (error) throw error;
+    showNotification(reveal ? 'Winners are now showing on the Prizes page' : 'Winners hidden from the Prizes page', 'success', 'comp-notifications');
+    await loadCompsManagement();
+  } catch (error) {
+    console.error('Error toggling winners reveal:', error);
+    showNotification(`Error updating winners reveal: ${error.message || error}`, 'error', 'comp-notifications');
   }
 };
 
